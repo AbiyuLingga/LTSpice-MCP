@@ -151,8 +151,6 @@ def test_digital_plan_rejects_path_outside_cwd(
 @pytest.mark.parametrize(
     "args",
     [
-        ["digital", "create", "tiny8.design.json", "--json"],
-        ["digital", "assemble", "demo.asm", "--json"],
         ["digital", "doctor", "--json"],
         ["digital", "simulate", "projects/foo", "--json"],
         ["digital", "synth-check", "projects/foo", "--json"],
@@ -170,6 +168,147 @@ def test_digital_stub_subcommands(
     assert payload["success"] is True
     assert payload["warnings"][0]["code"] == "DIGITAL_NOT_IMPLEMENTED"
     assert payload["data"]["phase"] == 12
+
+
+def test_digital_create_from_ir_file(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ir_src = (
+        Path(__file__).parent.parent / "examples" / "digital" / "tiny8_add.design.json"
+    )
+    out = tmp_path / "myproj"
+    monkeypatch.chdir(tmp_path)
+    payload, rc = _run(
+        ["digital", "create", str(ir_src), "--out", str(out), "--json"],
+        capsys,
+    )
+    assert rc == 0
+    assert payload["success"] is True
+    assert payload["data"]["kind"] == "tiny8_cpu"
+    assert out.is_dir()
+    assert (out / "rtl" / "tiny8_cpu.v").exists()
+    assert (out / "tb" / "tb_tiny8_top.v").exists()
+    assert (out / "programs" / "demo.mem").exists()
+
+
+def test_digital_create_from_prompt(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out = tmp_path / "fromprompt"
+    monkeypatch.chdir(tmp_path)
+    payload, rc = _run(
+        [
+            "digital",
+            "create",
+            "create tiny 8-bit CPU add 20 22 halt",
+            "--out",
+            str(out),
+            "--json",
+        ],
+        capsys,
+    )
+    assert rc == 0
+    assert payload["success"] is True
+    assert out.is_dir()
+    assert (out / "design.ir.json").exists()
+
+
+def test_digital_create_with_roadmap_prompt_returns_roadmap(
+    capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload, rc = _run(
+        ["digital", "create", "buat RISC-V processor", "--json"], capsys
+    )
+    assert rc == 0
+    assert payload["data"]["roadmap"] is True
+
+
+def test_digital_create_with_clarification_prompt(
+    capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload, rc = _run(
+        ["digital", "create", "buat mini processor 8-bit sederhana", "--json"],
+        capsys,
+    )
+    assert rc == 1
+    assert payload["data"]["needsClarification"] is True
+
+
+def test_digital_create_with_unsafe_prompt(
+    capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload, rc = _run(
+        ["digital", "create", "rm -rf the CPU", "--json"], capsys
+    )
+    assert rc == 1
+    assert payload["errors"][0]["code"] == "PROMPT_INJECTION"
+
+
+def test_digital_create_missing_source(
+    capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Empty string falls through to the planner; that yields an
+    # UNSUPPORTED_PROMPT refusal, not a MISSING_SOURCE error.
+    _payload, rc = _run(["digital", "create", "", "--json"], capsys)
+    assert rc == 1
+
+
+def test_digital_create_ir_file_not_found(
+    capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload, rc = _run(
+        ["digital", "create", "nonexistent.design.json", "--json"], capsys
+    )
+    assert rc == 1
+    assert payload["errors"][0]["code"] == "DESIGN_LOAD_FAILED"
+
+
+def test_digital_assemble(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    src = tmp_path / "demo.asm"
+    src.write_text("LDI 1\nHALT\n", encoding="utf-8")
+    out = tmp_path / "demo.mem"
+    payload, rc = _run(
+        ["digital", "assemble", str(src), "--out", str(out), "--json"], capsys
+    )
+    assert rc == 0
+    assert payload["data"]["instructionCount"] == 2
+    assert out.exists()
+    body = out.read_text(encoding="utf-8")
+    assert body.startswith("1001")  # LDI 1 -> 0x1001
+
+
+def test_digital_assemble_missing_source(
+    capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload, rc = _run(
+        ["digital", "assemble", "", "--json"], capsys
+    )
+    assert rc == 1
+    assert payload["errors"][0]["code"] == "MISSING_SOURCE"
+
+
+def test_digital_assemble_file_not_found(
+    capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload, rc = _run(
+        ["digital", "assemble", "no_such_file.asm", "--json"], capsys
+    )
+    assert rc == 1
+    assert payload["errors"][0]["code"] == "ASM_SOURCE_NOT_FOUND"
+
+
+def test_digital_assemble_program_error(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    src = tmp_path / "bad.asm"
+    src.write_text("FOO 1\n", encoding="utf-8")
+    payload, rc = _run(
+        ["digital", "assemble", str(src), "--json"], capsys
+    )
+    assert rc == 1
+    assert payload["errors"][0]["code"] == "ASM_UNKNOWN_OPCODE"
 
 
 # ---------------------------------------------------------------------------

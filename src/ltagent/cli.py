@@ -2353,11 +2353,327 @@ def _digital_not_implemented(
 
 
 def cmd_digital_create(args: argparse.Namespace) -> dict[str, Any]:
-    return _digital_not_implemented("create", args)
+    """Phase 12: create a Tiny8 project on disk.
+
+    Accepts either a path to a Design IR JSON file or a
+    natural-language prompt (resolved by the digital planner).
+    Writes the full artefact set under ``--out`` or under the
+    configured ``projects_dir`` default.
+    """
+    from .digital_ir import load_design, validate_dict
+    from .digital_planner import (
+        ClarificationRequest,
+        PlannerRefusal,
+        RoadmapSuggestion,
+        plan_digital_prompt,
+    )
+    from .digital_project import ProjectRequest, create_project
+
+    source = getattr(args, "source", None)
+    if not source:
+        return {
+            "success": False,
+            "command": "digital.create",
+            "message": "Missing source (Design IR file path or prompt).",
+            "data": {},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "MISSING_SOURCE",
+                    "detail": "Provide a Design IR file or a natural-language prompt.",
+                    "data": {},
+                }
+            ],
+        }
+
+    # Detect IR file vs prompt.
+    is_ir_file = (
+        source.endswith(".design.json")
+        or source.endswith(".design.ir.json")
+        or Path(source).exists()
+    )
+
+    if is_ir_file:
+        try:
+            ir = load_design(Path(source))
+        except Exception as exc:
+            return {
+                "success": False,
+                "command": "digital.create",
+                "message": f"Failed to load Design IR: {exc}",
+                "data": {"source": source},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "DESIGN_LOAD_FAILED",
+                        "detail": str(exc),
+                        "data": {"source": source},
+                    }
+                ],
+            }
+    else:
+        plan = plan_digital_prompt(source)
+        if isinstance(plan, PlannerRefusal):
+            return {
+                "success": False,
+                "command": "digital.create",
+                "message": plan.message,
+                "data": {
+                    "source": source,
+                    "supportedKinds": list(plan.supported_kinds),
+                    "nextStep": plan.next_step,
+                },
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": plan.code,
+                        "detail": plan.message,
+                        "data": dict(plan.data),
+                    }
+                ],
+            }
+        if isinstance(plan, ClarificationRequest):
+            return {
+                "success": False,
+                "command": "digital.create",
+                "message": plan.message,
+                "data": {
+                    "source": source,
+                    "needsClarification": True,
+                    "question": plan.question,
+                    "options": list(plan.options),
+                    "default": plan.default,
+                },
+                "warnings": [],
+                "errors": [],
+            }
+        if isinstance(plan, RoadmapSuggestion):
+            return {
+                "success": True,
+                "command": "digital.create",
+                "message": plan.message,
+                "data": {
+                    "source": source,
+                    "roadmap": True,
+                    "category": plan.category,
+                    "whyNotV1": plan.why_not_v1,
+                    "proposedPhases": list(plan.proposed_phases),
+                },
+                "warnings": [
+                    {
+                        "code": plan.code,
+                        "detail": plan.message,
+                        "data": {"category": plan.category},
+                    }
+                ],
+                "errors": [],
+            }
+        try:
+            ir = validate_dict(plan.model_dump())
+        except Exception as exc:
+            return {
+                "success": False,
+                "command": "digital.create",
+                "message": "Planner produced an invalid Design IR",
+                "data": {"source": source},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "DIGITAL_PLAN_INVALID_IR",
+                        "detail": str(exc),
+                        "data": {"source": source},
+                    }
+                ],
+            }
+
+    # Resolve output directory.
+    out_arg = getattr(args, "out", None)
+    if out_arg:
+        # --out points at the project directory directly. Skip the
+        # date-prefix resolution and write into the named path.
+        project_dir = Path(out_arg).expanduser().resolve()
+        projects_root = project_dir.parent
+        # Generate the project into ``project_dir`` directly.
+        from .digital_generator import generate_project as _gen
+
+        gen = _gen(ir, project_dir)
+        result = type(
+            "PR",
+            (),
+            {
+                "project": gen,
+                "project_id": ir.name,
+                "project_dir": project_dir,
+            },
+        )()
+    else:
+        # Default to a sibling projects/ next to the current dir.
+        projects_root = (Path.cwd() / "projects").resolve()
+        from .digital_project import resolve_project_dir
+
+        _, project_dir = resolve_project_dir(
+            name=ir.name, projects_root=projects_root
+        )
+
+    try:
+        result = create_project(
+            ProjectRequest(
+                ir=ir,
+                projects_root=projects_root,
+                program_source=None,
+                program=None,
+            )
+        )
+    except Exception as exc:
+        return {
+            "success": False,
+            "command": "digital.create",
+            "message": f"Failed to create project: {exc}",
+            "data": {"source": source, "projectDir": str(project_dir)},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "PROJECT_CREATE_FAILED",
+                    "detail": str(exc),
+                    "data": {"projectDir": str(project_dir)},
+                }
+            ],
+        }
+
+    # Phase D will run simulate here if --simulate.
+    payload = {
+        "success": True,
+        "command": "digital.create",
+        "message": (
+            f"Created Tiny8 project '{result.project_id}' with "
+            f"{len(result.project.files)} files"
+        ),
+        "data": {
+            "source": source,
+            "projectId": result.project_id,
+            "projectDir": str(result.project_dir),
+            "kind": ir.kind,
+            "name": ir.name,
+            "files": [
+                {
+                    "path": f.relative_path,
+                    "bytes": f.byte_size,
+                    "sha256Short": f.sha256_short,
+                }
+                for f in result.project.files
+            ],
+        },
+        "warnings": [
+            {"code": "CREATE_WARNING", "detail": w, "data": {}}
+            for w in result.project.warnings
+        ],
+        "errors": [],
+    }
+    return payload
 
 
 def cmd_digital_assemble(args: argparse.Namespace) -> dict[str, Any]:
-    return _digital_not_implemented("assemble", args)
+    """Phase 12: assemble a .asm file into a .mem image."""
+    from .digital_asm import _ROM_MAX, assemble_program
+
+    source = getattr(args, "source", None)
+    if not source:
+        return {
+            "success": False,
+            "command": "digital.assemble",
+            "message": "Missing .asm source path",
+            "data": {},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "MISSING_SOURCE",
+                    "detail": "Provide a path to a .asm file.",
+                    "data": {},
+                }
+            ],
+        }
+
+    src_path = Path(source).expanduser().resolve()
+    if not src_path.exists():
+        return {
+            "success": False,
+            "command": "digital.assemble",
+            "message": f"Source not found: {src_path}",
+            "data": {"source": str(src_path)},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "ASM_SOURCE_NOT_FOUND",
+                    "detail": f"file not found: {src_path}",
+                    "data": {"source": str(src_path)},
+                }
+            ],
+        }
+
+    out_arg = getattr(args, "out", None)
+    out_path = (
+        Path(out_arg).expanduser().resolve()
+        if out_arg
+        else src_path.with_suffix(".mem")
+    )
+
+    try:
+        text = src_path.read_text(encoding="utf-8")
+        result = assemble_program(text, rom_size=_ROM_MAX + 1)
+    except Exception as exc:
+        errs = getattr(exc, "errors", None)
+        if errs is not None:
+            return {
+                "success": False,
+                "command": "digital.assemble",
+                "message": "Assembler rejected the program",
+                "data": {"source": str(src_path)},
+                "warnings": [],
+                "errors": [
+                    {"code": e.code, "detail": e.detail, "data": {"line": e.line}}
+                    for e in errs
+                ],
+            }
+        return {
+            "success": False,
+            "command": "digital.assemble",
+            "message": str(exc),
+            "data": {"source": str(src_path)},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "ASM_INTERNAL_ERROR",
+                    "detail": str(exc),
+                    "data": {"source": str(src_path)},
+                }
+            ],
+        }
+
+    # The assembler pads to rom_size. The CLI reports the
+    # *non-padding* instruction count, which is what the user
+    # actually wrote.
+    instr_count = sum(1 for w in result.words if w != 0)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(result.to_mem_text(), encoding="utf-8")
+
+    return {
+        "success": True,
+        "command": "digital.assemble",
+        "message": (
+            f"Assembled {instr_count} instructions ({len(result.words)} "
+            f"words including padding) into {out_path}"
+        ),
+        "data": {
+            "source": str(src_path),
+            "outPath": str(out_path),
+            "instructionCount": instr_count,
+            "wordCount": len(result.words),
+            "labelCount": len(result.labels),
+            "labels": dict(result.labels),
+        },
+        "warnings": [],
+        "errors": [],
+    }
 
 
 def cmd_digital_doctor(args: argparse.Namespace) -> dict[str, Any]:

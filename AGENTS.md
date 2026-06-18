@@ -65,36 +65,45 @@ moves templates between status directories.
 
 ## Current phase boundary
 
-**Phase 11 — DONE WHEN:**
+**Phase 11 — DONE.** `pytest` (612 pass, 1 skip: ltspice.executable not
+configured), `ruff check`, and `mypy src/ltagent/ir.py
+src/ltagent/netlist.py src/ltagent/asc.py src/ltagent/templates.py
+src/ltagent/layout.py` are all clean. The official library
+auto-seeds on every read path; the JSON contract is hardened via
+`ltagent.serialization.to_jsonable`; pydantic is pinned. Phase 11
+wrap-up is committed at HEAD (`phase-12-tiny8` branch). Do not
+reopen Phase 11 work without an explicit ADR.
 
-- `ltagent ir validate examples/inverting_opamp.ir.json --json` (and
-  the other 6 new examples) accepts the IR and emits a structured
-  success payload.
-- `ltagent netlist` + `ltagent asc` produce a complete
-  circuit.cir / circuit.asc for every Phase 11 topology.
-- `ltagent template list --status official` returns 10 templates
-  (3 MVP passive + 7 Phase 11 analog). The first read path in a
-  fresh workspace auto-seeds the library; `ltagent template seed`
-  remains available as the explicit, idempotent form.
-- Each new official template has `simulationVerified=true` and
-  `layoutScore >= 85`.
-- `pytest tests/test_phase11.py` passes with zero LTspice / Wine
-  invocations.
-- `ruff check src/ltagent/ir.py src/ltagent/netlist.py
-  src/ltagent/asc.py src/ltagent/templates.py src/ltagent/layout.py
-  tests/test_phase11.py` is clean.
-- `mypy src/ltagent/ir.py src/ltagent/netlist.py src/ltagent/asc.py
-  src/ltagent/templates.py src/ltagent/layout.py` is clean.
+**Phase 12 (Tiny8 CPU) — CURRENT.** Scope, gate, and hard rules live
+in [`docs/digital/plan-tiny8-agent.md`](docs/digital/plan-tiny8-agent.md)
+and [`docs/adr/0004-hybrid-hdl-spice.md`](docs/adr/0004-hybrid-hdl-spice.md).
+Read both before touching any digital code. The minimum that
+MUST be true for the rest of this file to apply:
 
-**Out of scope for Phase 11 (do not implement):**
-
-- LLM-generated prompt expansion for the new topologies. The
-  Phase 8 planner remains rule-based and only handles the 3 passive
-  topologies; the 7 new analog templates are accessed via
-  hand-crafted IR files and the official template library.
-- Free-form auto-layout for the new topologies. The deterministic
-  layouts in asc.py are the fallback; the official templates
-  carry a hand-tuned `layoutScore` stamp.
+- LTspice is **not** the primary backend for processor logic. Digital
+  designs are generated as Verilog-2001, simulated with
+  Icarus/Verilator, and synthesis-checked with Yosys. LTspice stays
+  in scope as the analog companion (clock/reset/power/IO drivers).
+- Digital generation flows through `DesignIR`
+  (`ltagent.digital_ir.DesignIR`). It is a separate schema from
+  `CircuitIR`. No tool, prompt path, or LLM output writes Verilog
+  directly; HDL only ever comes from a validated `DesignIR` plus
+  a template under `src/ltagent/digital_templates.py`.
+- `ltagent digital plan`, `ltagent digital create`, and the matching
+  MCP tools classify prompts through the deterministic planner
+  (`ltagent.digital_planner`). No LLM is introduced at v1. The
+  Phase 8 rule-based planner is unchanged and still the only path
+  that turns a prompt into analog `CircuitIR`.
+- Supported v1 scope: `tiny8_cpu` and `tiny8_soc`. Anything larger
+  (RV32I, full mini PC, USB/HDMI, Linux-capable, GPU) is a
+  structured `RoadmapSuggestion` — not a refusal, not a v1 build.
+  The CLI and the MCP `inspect_digital_project` resource surface
+  the roadmap so callers know what comes next.
+- The Phase 12 gate mirrors the prior phases: nothing past
+  `ltagent digital create` ships until Phase 12's acceptance
+  suite (Phases A-D) is green, and nothing past `simulate` /
+  `synth-check` ships until Phase 12's toolchain runner
+  acceptance is green.
 
 - `ltagent-mcp --help` exits 0 and lists the curated options.
 - `ltagent-mcp --list-tools` returns the 10 tool names from plan §17.3

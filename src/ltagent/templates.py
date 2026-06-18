@@ -1921,6 +1921,40 @@ def seed_default_templates(templates_dir: str | Path) -> list[TemplateManifest]:
     return written
 
 
+#: How many official templates the bundled library ships with.
+#: Updated whenever ``_default_seeds`` grows.
+OFFICIAL_TEMPLATE_COUNT: int = 10
+
+
+def ensure_default_templates(templates_dir: str | Path) -> list[TemplateManifest]:
+    """Auto-seed the official library when the workspace is missing it.
+
+    Every public read path (``template list/show/match/audit``,
+    ``create``, and the matching MCP tools) calls this helper before
+    doing real work. The default behaviour is intentionally permissive:
+
+    * An empty ``templates/`` directory gets all 10 official seeds
+      installed on the first read.
+    * A partial library (e.g. only the 3 MVP seeds from an older
+      release) gets the missing entries added; existing manifests are
+      not overwritten.
+    * A full library is a no-op.
+
+    The helper never removes templates and never moves them between
+    statuses. ``ltagent template seed`` remains available as the
+    explicit, idempotent form for users who want to opt out of the
+    auto-seed by calling other commands instead.
+    """
+    root = _ensure_root(templates_dir)
+    try:
+        existing = list_templates(root, status=TemplateStatus.OFFICIAL)
+    except TemplateError:
+        existing = []
+    if len(existing) >= OFFICIAL_TEMPLATE_COUNT:
+        return []
+    return seed_default_templates(root)
+
+
 __all__ = [
     "ERR_TEMPLATE_DUPLICATE",
     "ERR_TEMPLATE_ID_INVALID",
@@ -1936,6 +1970,7 @@ __all__ = [
     "ERR_TEMPLATE_TOPOLOGY_UNSUPPORTED",
     "INDEX_FILENAME",
     "MANIFEST_FILENAME",
+    "OFFICIAL_TEMPLATE_COUNT",
     "PROJECT_IR_FILENAME",
     "PROJECT_RESULT_FILENAME",
     "STATUS_DIRS",
@@ -1951,6 +1986,7 @@ __all__ = [
     "create_candidate_from_ir",
     "create_candidate_from_project",
     "dump_manifest",
+    "ensure_default_templates",
     "find_by_topology",
     "increment_use_count",
     "list_templates",

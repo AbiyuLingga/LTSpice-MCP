@@ -777,3 +777,66 @@ def test_asc_main_dispatch_in_process(tmp_path: Path) -> None:
     )
     assert rc == 0
     assert out.is_file()
+
+
+@pytest.mark.parametrize(
+    "example_name",
+    [
+        "voltage_divider",
+        "rc_lowpass",
+        "rc_highpass",
+        "inverting_opamp",
+        "noninv_opamp",
+        "comparator",
+        "diode_clipper",
+        "halfwave_rectifier",
+        "bridge_rectifier",
+        "transistor_switch",
+    ],
+)
+def test_asc_json_serialisable_for_every_example(
+    example_name: str, tmp_path: Path
+) -> None:
+    """The asc --json payload must be JSON-serialisable for every
+    supported example, including the Phase 11 analog topologies that
+    put :class:`Point` instances inside layout-warning ``data``
+    fields. Regression for the layout-warnings dataclass bug: prior
+    to the serializer hardening this command would crash with
+    ``TypeError: Object of type Point is not JSON serialisable``
+    on any example that produced a layout warning.
+    """
+    (tmp_path / "xdg").mkdir()
+    work = tmp_path / "work"
+    work.mkdir()
+    out = work / f"{example_name}.asc"
+    proc = _python_module_invoke(
+        [
+            "asc",
+            str(_EXAMPLES / f"{example_name}.ir.json"),
+            "--out",
+            str(out),
+            "--json",
+        ],
+        env={"XDG_CONFIG_HOME": str(tmp_path / "xdg")},
+        cwd=work,
+    )
+    assert proc.returncode == 0, proc.stderr
+    # The contract is JSON; if the payload can be re-parsed and the
+    # warning objects are well-formed dicts, the regression is held.
+    payload = json.loads(proc.stdout)
+    assert payload["success"] is True
+    assert payload["command"] == "asc"
+    data = payload["data"]
+    assert data["topology"]
+    assert isinstance(data["layoutScore"], int)
+    # When --out is given, layout warnings live at the top level.
+    # When --out is omitted, they also live at ``data.layoutWarnings``.
+    # We check both locations for shape.
+    warnings = data["layoutWarnings"] if "layoutWarnings" in data else payload.get("warnings", [])
+    assert isinstance(warnings, list)
+    for w in warnings:
+        assert set(w.keys()) >= {"code", "detail", "data"}
+        # Nested data must be a plain dict, not a dataclass repr.
+        assert isinstance(w["data"], dict)
+        for key in w["data"]:
+            assert isinstance(key, str), f"warning data key {key!r} is not str"

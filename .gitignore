@@ -18,22 +18,13 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.coverage
-htmlcov/
-dist/
+
+# Plan and reference material; not part of the buildable source.
+ltspice-ai-agent-plan/
+docs/PROJECT_PLAN.md
+docs/PROJECT_PLAN.md.bak
+
+# Local build artifacts
 build/
+dist/
 *.egg-info/
-*.egg
-
-config.toml
-
-projects/*/*.raw
-projects/*/*.log
-projects/*/*.tmp
-projects/*/.snapshots/
-projects/*/circuit.op.raw
-projects/*/circuit.tran.raw
-projects/*/.ltspice-tmp/
-
-# Doctor smoke test artifacts
-.doctor-tmp/

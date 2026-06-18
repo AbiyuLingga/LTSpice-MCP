@@ -22,7 +22,6 @@ from ltagent.runner import (
     run_simulation,
 )
 
-
 # --- helpers --------------------------------------------------------------
 
 
@@ -198,7 +197,7 @@ def test_build_argv_quotes_paths_with_spaces(tmp_path: Path) -> None:
     exe.write_text("noop")
     workdir = tmp_path / "work"
     workdir.mkdir()
-    cir = _write_cir(workdir)
+    _write_cir(workdir)
     req = _request(workdir, executable=str(exe), wine_command=None, mode="native")
     argv = build_argv(req)
     assert len(argv) == 3

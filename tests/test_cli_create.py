@@ -276,23 +276,38 @@ def test_create_matches_seeded_template(workspace: Path, examples_dir: Path) -> 
     assert md["template"]["used"] == "rc_lowpass"
 
 
-def test_create_suggests_template_seed_when_library_empty(
+def test_create_auto_seeds_default_templates_on_first_run(
     workspace: Path, examples_dir: Path
 ) -> None:
+    """A fresh ``ltagent create`` in an empty workspace auto-seeds the
+    bundled official library, so the project matches against the
+    full template catalogue instead of falling through to a
+    ``TEMPLATE_NOT_FOUND`` warning.
+
+    The previous behaviour surfaced a "run ``ltagent template seed``"
+    hint; the new default is to seed transparently on the first read
+    path. The explicit ``ltagent template seed`` command is still
+    available for callers that want the manual form.
+    """
     proc = _run_ltagent(
         ["create", str(examples_dir / "rc_lowpass.ir.json"), "--json"],
         cwd=workspace,
     )
     payload = json.loads(proc.stdout)
     assert payload["success"] is True
+    # The rc_lowpass official template was matched (auto-seeded on
+    # the way in); no TEMPLATE_NOT_FOUND hint is surfaced.
+    assert payload["data"]["template"]["used"] == "rc_lowpass"
     codes = [w.get("code") for w in payload.get("warnings", [])]
-    assert "TEMPLATE_NOT_FOUND" in codes
-    # The hint text mentions `ltagent template seed` so the user can
-    # install the default library.
-    detail = next(
-        w["detail"] for w in payload["warnings"] if w.get("code") == "TEMPLATE_NOT_FOUND"
+    assert "TEMPLATE_NOT_FOUND" not in codes
+    # And the templates directory now contains the seeded official
+    # templates, so subsequent CLI invocations are no-ops.
+    list_proc = _run_ltagent(
+        ["template", "list", "--status", "official", "--json"],
+        cwd=workspace,
     )
-    assert "ltagent template seed" in detail
+    list_payload = json.loads(list_proc.stdout)
+    assert list_payload["data"]["count"] == 10
 
 
 # --- --help ---------------------------------------------------------------

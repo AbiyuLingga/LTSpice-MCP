@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -51,7 +52,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-
 
 SCHEMA_VERSION = "0.1"
 """Only schema version currently accepted by the validator."""
@@ -306,11 +306,12 @@ class Component(BaseModel):
                 f"component {self.id!r} kind {self.kind.value!r} requires "
                 f"{arity} nodes, got {len(self.nodes)}"
             )
-        if self.kind in (ComponentKind.VOLTAGE_SOURCE, ComponentKind.CURRENT_SOURCE):
-            if not self.value or not self.value.strip():
-                raise ValueError(
-                    f"source {self.id!r} requires a non-empty value"
-                )
+        if self.kind in (ComponentKind.VOLTAGE_SOURCE, ComponentKind.CURRENT_SOURCE) and (
+            not self.value or not self.value.strip()
+        ):
+            raise ValueError(
+                f"source {self.id!r} requires a non-empty value"
+            )
         # Phase 11: diode / BJT / MOSFET need a model name (either via
         # `model` or `value`); opamp needs a subcircuit name via `value`.
         semicon_kinds = (
@@ -375,17 +376,14 @@ class Analysis(BaseModel):
 
     @model_validator(mode="after")
     def _kind_specific_fields(self) -> Analysis:
-        if self.kind == AnalysisKind.TRAN:
-            if not self.stopTime:
-                raise ValueError("analysis kind 'tran' requires stopTime")
-        if self.kind == AnalysisKind.AC:
-            if not (self.stopFreq or self.pointsPerDecade):
-                raise ValueError(
-                    "analysis kind 'ac' requires stopFreq or pointsPerDecade"
-                )
-        if self.kind == AnalysisKind.DC:
-            if not self.sweepVariable:
-                raise ValueError("analysis kind 'dc' requires sweepVariable")
+        if self.kind == AnalysisKind.TRAN and not self.stopTime:
+            raise ValueError("analysis kind 'tran' requires stopTime")
+        if self.kind == AnalysisKind.AC and not (self.stopFreq or self.pointsPerDecade):
+            raise ValueError(
+                "analysis kind 'ac' requires stopFreq or pointsPerDecade"
+            )
+        if self.kind == AnalysisKind.DC and not self.sweepVariable:
+            raise ValueError("analysis kind 'dc' requires sweepVariable")
         return self
 
 
@@ -625,7 +623,7 @@ class CircuitIR(BaseModel):
             )
         # 2. Every node referenced by a component must exist.
         node_set = set(self.nodes)
-        for idx, comp in enumerate(self.components):
+        for comp in self.components:
             for n in comp.nodes:
                 if n not in node_set:
                     raise ValueError(
@@ -702,7 +700,7 @@ def format_errors(exc: Exception) -> list[IRError]:
 
 
 def _pydantic_type_to_code(
-    etype: str, path: str, ctx: dict[str, Any], err_dict: dict[str, Any]
+    etype: str, path: str, ctx: dict[str, Any], err_dict: Mapping[str, Any]
 ) -> str:
     """Map pydantic error type and field path to a stable error code.
 
@@ -789,7 +787,7 @@ def validate_dict(data: dict[str, Any]) -> tuple[CircuitIR | None, list[IRError]
     """
     try:
         return CircuitIR.model_validate(data), []
-    except Exception as exc:  # noqa: BLE001 - we re-format into IRError below
+    except Exception as exc:
         from pydantic import ValidationError  # local import
 
         if isinstance(exc, ValidationError):
@@ -804,31 +802,31 @@ def validate_dict(data: dict[str, Any]) -> tuple[CircuitIR | None, list[IRError]
 
 
 __all__ = [
-    "SCHEMA_VERSION",
-    "MVP_TOPOLOGIES",
-    "SUPPORTED_ANALYSIS_KINDS",
-    "KIND_TO_SPICE_PREFIX",
-    "KIND_ARITY",
-    "NODE_NAME_PATTERN",
-    "PROJECT_NAME_PATTERN",
-    "IDENTIFIER_PATTERN",
-    "PROBE_PATTERN",
     "DIRECTIVE_ALLOWLIST",
-    "SEMICON_MODEL_PATTERN",
     "GROUND_NODE",
-    "IRError",
-    "ComponentKind",
-    "AnalysisKind",
-    "Component",
+    "IDENTIFIER_PATTERN",
+    "KIND_ARITY",
+    "KIND_TO_SPICE_PREFIX",
+    "MVP_TOPOLOGIES",
+    "NODE_NAME_PATTERN",
+    "PROBE_PATTERN",
+    "PROJECT_NAME_PATTERN",
+    "SCHEMA_VERSION",
+    "SEMICON_MODEL_PATTERN",
+    "SUPPORTED_ANALYSIS_KINDS",
     "Analysis",
-    "Measurement",
+    "AnalysisKind",
+    "CircuitIR",
+    "Component",
+    "ComponentKind",
     "Constraints",
+    "IRError",
+    "Measurement",
     "Metadata",
     "SemiconductorModel",
     "Subcircuit",
-    "CircuitIR",
-    "load_ir",
     "dump_ir",
     "format_errors",
+    "load_ir",
     "validate_dict",
 ]

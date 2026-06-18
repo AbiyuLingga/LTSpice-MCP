@@ -8,14 +8,12 @@ structured IRError with the expected stable error code.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import jsonschema
 import pytest
 from pydantic import ValidationError
 
-from ltagent.ir import format_errors, load_ir, validate_dict
-
+from ltagent.ir import load_ir, validate_dict
 from tests._testdata import EXAMPLES, EXAMPLES_DIR, INVALID_DIR, INVALID_FIXTURES
 
 

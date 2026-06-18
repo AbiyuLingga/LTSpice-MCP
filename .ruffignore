@@ -1,0 +1,10 @@
+# Generated plans and reference material live here.
+# Keep ruff out of these so the quality gate does not flag stale code.
+ltspice-ai-agent-plan/
+docs/PROJECT_PLAN.md
+docs/PROJECT_PLAN.md.bak
+
+# Local build artifacts.
+build/
+dist/
+*.egg-info/

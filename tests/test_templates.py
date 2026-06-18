@@ -231,6 +231,79 @@ def test_seed_is_idempotent(seeded_templates: Path) -> None:
     assert len(items) == 10
 
 
+def test_ensure_seeds_empty_workspace(templates_root: Path) -> None:
+    """A fresh empty templates dir is populated on first call."""
+    from ltagent.templates import (
+        OFFICIAL_TEMPLATE_COUNT,
+        ensure_default_templates,
+    )
+
+    assert not any(templates_root.iterdir())
+    written = ensure_default_templates(templates_root)
+    assert len(written) == OFFICIAL_TEMPLATE_COUNT == 10
+    manifests = list_templates(templates_root, status=TemplateStatus.OFFICIAL)
+    assert len(manifests) == 10
+
+
+def test_ensure_completes_partial_library(templates_root: Path) -> None:
+    """A library that already has some seeds gets only the missing ones.
+
+    Simulates an upgrade from Phase 6 (3 MVP templates) to Phase 11
+    (10 templates): ``ensure_default_templates`` adds the seven new
+    entries without overwriting the existing three.
+    """
+    from ltagent.templates import (
+        TemplateStatus,
+        _default_seeds,
+        dump_manifest,
+        ensure_default_templates,
+    )
+
+    # Seed only the 3 MVP templates (a pre-Phase-11 library).
+    for seed in _default_seeds()[:3]:
+        d = templates_root / seed.status.value / seed.templateId
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "template.ir.json").write_text(
+            json.dumps({"schemaVersion": "0.1", "name": seed.templateId, "topology": seed.topology}),
+            encoding="utf-8",
+        )
+        dump_manifest(seed, d / "manifest.json")
+
+    officials_before = list_templates(templates_root, status=TemplateStatus.OFFICIAL)
+    assert len(officials_before) == 3
+
+    # Run ensure again; the 7 new analog templates should appear.
+    written = ensure_default_templates(templates_root)
+    assert len(written) == 7
+    officials_after = list_templates(templates_root, status=TemplateStatus.OFFICIAL)
+    assert len(officials_after) == 10
+    # And a third call is a clean no-op.
+    assert ensure_default_templates(templates_root) == []
+
+
+def test_ensure_does_not_overwrite_existing(templates_root: Path) -> None:
+    """A user-modified manifest is never clobbered by the auto-seed.
+
+    The auto-seed is intended to be additive: it only writes manifests
+    that are missing. A user who has already edited a manifest in
+    place keeps their changes.
+    """
+    from dataclasses import replace
+
+    from ltagent.templates import dump_manifest, ensure_default_templates, load_manifest
+
+    seed_default_templates(templates_root)
+    mp = templates_root / "official" / "rc_lowpass" / "manifest.json"
+    original = load_manifest(mp)
+    edited = replace(original, description="USER EDITED")
+    dump_manifest(edited, mp)
+
+    written = ensure_default_templates(templates_root)
+    assert written == []  # no missing seeds
+    after = load_manifest(mp)
+    assert after.description == "USER EDITED"
+
+
 # ---------------------------------------------------------------------------
 # list / show / find_by_topology
 # ---------------------------------------------------------------------------

@@ -15,6 +15,24 @@ SCHEMA_PATH = PHASE1_ROOT / "schemas" / "circuit_ir.schema.json"
 
 EXAMPLES: list[str] = ["voltage_divider", "rc_lowpass", "rc_highpass"]
 
+#: Full Phase 0-11 example set: MVP passives plus the seven Phase 11
+#: analog topologies. Use this for tests that need to exercise every
+#: supported topology (e.g. CLI JSON contract round-trips); keep the
+#: MVP-only ``EXAMPLES`` constant for tests that assert MVP-specific
+#: netlist or .asc structure.
+ALL_EXAMPLES: list[str] = [
+    "voltage_divider",
+    "rc_lowpass",
+    "rc_highpass",
+    "inverting_opamp",
+    "noninv_opamp",
+    "comparator",
+    "diode_clipper",
+    "halfwave_rectifier",
+    "bridge_rectifier",
+    "transistor_switch",
+]
+
 INVALID_FIXTURES: dict[str, str] = {
     "missing_ground": "NODES_MISSING_GROUND",
     "duplicate_component_id": "COMP_DUPLICATE_ID",

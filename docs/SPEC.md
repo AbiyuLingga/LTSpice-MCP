@@ -25,6 +25,12 @@
 | 12 | E-series optimization loop | Reports ideal, selected, actual, error % |
 | 13 | Optional minimal web UI | UI reads projects dir, no auth, no cloud |
 
+**Phase 11 is the current shipping phase.** Earlier phases (0-10)
+are frozen; the contract they shipped is still in force. Phase 12
+and beyond are explicitly out of scope until Phase 11 acceptance is
+met on the host (see [`docs/runner_troubleshooting.md`](runner_troubleshooting.md)
+for the Wine/LTspice host caveats that gate Phase 11 acceptance).
+
 Phases 1+ require Phase 0 to be green. Do not start a phase until the
 previous one is merged and CI is green.
 
@@ -200,6 +206,17 @@ ltagent template seed --json
 * MCP template resources (Phase 10)
 * `ltagent create` end-to-end workflow (Phase 7)
 
+**Auto-seed (added on top of Phase 6):** every public read path
+(`template list/show/match/audit`, `create`, the MCP
+`tool_create_project` / `tool_find_template` resource handlers) calls
+`ltagent.templates.ensure_default_templates` before doing real
+work. On a fresh checkout the bundled official library (10
+templates, 3 MVP passives + 7 Phase 11 analog) is materialised on
+the first invocation; subsequent calls are no-ops. The explicit
+`ltagent template seed` command is still available for callers that
+want the manual form. The auto-seed never overwrites user-edited
+manifests; partial libraries are completed, not reset.
+
 ## 2.1 Phase 3 acceptance (runner)
 
 **Module:** `ltagent.runner` (no business logic in the CLI).
@@ -245,6 +262,13 @@ The subcommand must:
 * Report a missing `.log` as `LTSPICE_NO_LOG`, not a false success.
 * Pass a timeout floor of `MIN_TIMEOUT_SECONDS = 5` (anything below
   this is clamped, not respected).
+
+* `ltagent doctor --simulate` may return a structured `LTSPICE_TIMEOUT`
+  on hosts where Wine/LTspice batch mode is unreliable. That
+  outcome is the *expected* diagnosable result of the smoke run,
+  not a bug; the doctor exists precisely to surface it. See
+  [`runner_troubleshooting.md`](runner_troubleshooting.md) for the
+  remediation workflow.
 
 **Tests:** `pytest` passes with **no** real LTspice / Wine invocations.
 Every code path in `runner.py` is exercised via monkey-patched

@@ -44,7 +44,9 @@ to edit `.asc` files directly.
   total official templates. The netlist generator emits `.model`
   and `.subckt` blocks from the structured IR; the .asc writer
   has deterministic per-topology placers for every Phase 11
-  topology.
+  topology. The bundled official library auto-seeds on the first
+  read path; `ltagent template seed` remains available as the
+  explicit, idempotent form.
 - Structured JSON output contract for every command
 - Centralised path / URI / slug validators in `ltagent.security`,
   shared by CLI and MCP
@@ -60,8 +62,8 @@ to edit `.asc` files directly.
 - LLM-based prompt expansion of MCP tool inputs. MCP wraps the
   rule-based planner and the deterministic project orchestrator;
   it does not introduce a new LLM call.
-- Phase 11+ advanced analog templates (op-amp, rectifier, ...).
-- Phase 12 E-series value optimisation.
+- Phase 12 E-series value optimisation. The templates ship with
+  hand-tuned values; the optimisation loop is a future phase.
 
 ## Supported OS / runtime
 
@@ -69,6 +71,14 @@ to edit `.asc` files directly.
 - **Windows** with LTspice installed natively (supported by the
   runner; Wine is optional)
 - Python 3.11 or newer
+
+> **Note on `ltagent doctor --simulate`:** the smoke simulation
+> invokes the configured LTspice executable with a tiny `.op`
+> circuit. On hosts where Wine/LTspice batch mode is unreliable
+> (see [`docs/runner_troubleshooting.md`](docs/runner_troubleshooting.md))
+> the smoke run returns a structured ``LTSPICE_TIMEOUT`` error
+> rather than crashing. This is the expected, diagnosable outcome
+> &mdash; the doctor exists precisely to surface it.
 
 ## Install
 
@@ -107,14 +117,18 @@ ltagent asc     examples/rc_lowpass.ir.json --out projects/demo/circuit.asc --js
 ltagent netlist examples/inverting_opamp.ir.json --out projects/opamp/circuit.cir --json
 ltagent asc     examples/inverting_opamp.ir.json --out projects/opamp/circuit.asc --json
 
-# Create a full project from an IR file or a prompt
+# Create a full project from an IR file or a prompt.
+# The first call in a fresh workspace auto-seeds the bundled
+# official templates; subsequent calls are no-ops.
 ltagent create examples/rc_lowpass.ir.json --run --json
 ltagent create examples/inverting_opamp.ir.json --run --json
 ltagent create "make RC low pass cutoff 1kHz" --json
 
-# Templates
-ltagent template list --json
+# Templates (auto-seed is the default; ``seed`` is the explicit form)
+ltagent template list --status official --json
 ltagent template match examples/rc_lowpass.ir.json --json
+ltagent template seed --json
+ltagent template audit --json
 
 # MCP server (after `pip install "ltspice-ai-agent[mcp]"`)
 ltagent-mcp --help
@@ -151,6 +165,11 @@ mypy src
 
 # Build sdist + wheel
 python -m build
+
+# Regenerate the Circuit IR JSON Schema (writes both
+# schemas/circuit_ir.schema.json and the packaged
+# src/ltagent/resources/circuit_ir.schema.json in lockstep)
+PYTHONPATH=src .venv/bin/python tools/generate_schema.py
 ```
 
 ## License

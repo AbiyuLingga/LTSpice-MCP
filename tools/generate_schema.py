@@ -1,12 +1,18 @@
 """Generate circuit_ir.schema.json from the Pydantic models.
 
-Standalone script: run from the phase-1 directory as
+Standalone script: run from the repo root as
 
     PYTHONPATH=src .venv/bin/python tools/generate_schema.py
 
 It writes a JSON Schema 2020-12 document derived from the Pydantic
-``CircuitIR`` model. This is what other tools (IDE plugins, third-party
-agents) can consume without depending on Python or pydantic.
+``CircuitIR`` model. The schema is written to two locations and they
+must stay byte-identical:
+
+* ``schemas/circuit_ir.schema.json`` — the public, repo-rooted copy
+  consumed by external tools (IDE plugins, third-party agents).
+* ``src/ltagent/resources/circuit_ir.schema.json`` — the package
+  resource that ships inside the wheel and is read by the runtime
+  ``ltagent ir schema`` command via :mod:`importlib.resources`.
 
 Note: pydantic's JSON Schema export encodes its own validation, but the
 *strict* rules enforced by `ir.py` field_validators (e.g. component
@@ -34,23 +40,44 @@ from ltagent.ir import (  # noqa: E402  (import after path tweak)
 )
 
 
-def main() -> int:
+def _build_schema() -> dict:
     schema = CircuitIR.model_json_schema()
-    # Pydantic v2 wraps with $defs and a top-level title. Add a stable
-    # $id and document the contract clearly.
-    schema["$id"] = f"https://ltspice-ai-agent.local/schemas/circuit_ir.v{SCHEMA_VERSION}.schema.json"
+    schema["$id"] = (
+        f"https://ltspice-ai-agent.local/schemas/circuit_ir.v{SCHEMA_VERSION}.schema.json"
+    )
     schema["title"] = "CircuitIR"
     schema["description"] = (
-        "LTspice AI Agent Circuit IR v"
-        f"{SCHEMA_VERSION}. Stable contract between AI intent and "
-        "generated LTspice files. Validation rules in ir.py are the "
-        "source of truth; this schema is a first-pass contract only."
+        f"LTspice AI Agent Circuit IR v{SCHEMA_VERSION}. Stable contract "
+        "between AI intent and generated LTspice files. Validation rules "
+        "in ir.py are the source of truth; this schema is a first-pass "
+        "contract only."
     )
+    return schema
 
-    out_path = HERE.parent / "schemas" / "circuit_ir.schema.json"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
-    print(f"wrote {out_path} ({out_path.stat().st_size} bytes)")
+
+def _write(path: Path, schema: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
+
+
+def main() -> int:
+    schema = _build_schema()
+    rendered = json.dumps(schema, indent=2) + "\n"
+
+    repo_path = HERE.parent / "schemas" / "circuit_ir.schema.json"
+    pkg_path = SRC / "ltagent" / "resources" / "circuit_ir.schema.json"
+
+    for path in (repo_path, pkg_path):
+        _write(path, schema)
+
+    assert (
+        repo_path.read_text(encoding="utf-8")
+        == pkg_path.read_text(encoding="utf-8")
+    ), "repo schema and packaged resource diverged"
+
+    print(f"wrote {repo_path} ({repo_path.stat().st_size} bytes)")
+    print(f"wrote {pkg_path} ({pkg_path.stat().st_size} bytes)")
+    print(f"identical: {len(rendered)} bytes")
     return 0
 
 

@@ -53,6 +53,16 @@ some score 40-60 due to wire crossings; the official templates
 carry the higher `layoutScore` stamp (85-100) that Phase 9 uses to
 gauge promotability.
 
+The bundled official library auto-seeds on the first read path. Every
+`template list/show/match/audit`, every `create`, and the matching
+MCP tools call `ltagent.templates.ensure_default_templates` before
+doing real work. The first invocation in an empty workspace
+materialises the 10 official templates; subsequent ones are no-ops.
+`ltagent template seed` remains available as the explicit,
+idempotent form for callers that want the manual flow. The auto-seed
+is additive: it never overwrites user-edited manifests and never
+moves templates between status directories.
+
 ## Current phase boundary
 
 **Phase 11 — DONE WHEN:**
@@ -63,7 +73,9 @@ gauge promotability.
 - `ltagent netlist` + `ltagent asc` produce a complete
   circuit.cir / circuit.asc for every Phase 11 topology.
 - `ltagent template list --status official` returns 10 templates
-  (3 MVP passive + 7 Phase 11 analog).
+  (3 MVP passive + 7 Phase 11 analog). The first read path in a
+  fresh workspace auto-seeds the library; `ltagent template seed`
+  remains available as the explicit, idempotent form.
 - Each new official template has `simulationVerified=true` and
   `layoutScore >= 85`.
 - `pytest tests/test_phase11.py` passes with zero LTspice / Wine
@@ -184,9 +196,15 @@ gauge promotability.
   PATH**. `ltagent` must auto-detect this fallback.
 - A simple LTspice batch smoke test using `XVIIx64.exe -b smoke.cir`
   timed out on this host and did not produce `smoke.log`. `ltagent doctor
-  --simulate` is expected to report this as a structured timeout, not a
-  crash. This is the single most important thing the doctor exists to
-  detect.
+  --simulate` is expected to report this as a structured `LTSPICE_TIMEOUT`,
+  not a crash. This is the single most important thing the doctor exists
+  to detect. The runner stack (Wine + LTspice XVII batch mode) is not
+  considered broken-by-design for this project; it is a local host
+  condition to be diagnosed, documented, and worked around. The
+  runner scope is therefore "structured, honest diagnosis", not
+  "guaranteed simulation pass". See
+  [`docs/runner_troubleshooting.md`](docs/runner_troubleshooting.md)
+  for the remediation workflow.
 
 ## File map (Phase 10)
 

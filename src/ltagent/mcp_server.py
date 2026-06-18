@@ -49,7 +49,6 @@ Resources (8 - plan §17.4):
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import json
 import logging
 import sys
@@ -68,6 +67,7 @@ from .security import (
     safe_resolve_under,
     validate_slug,
 )
+from .serialization import to_jsonable as _to_jsonable
 
 # ---------------------------------------------------------------------------
 # Optional SDK import
@@ -183,21 +183,19 @@ def _resolve_templates_root(cfg: Config) -> Path:
     return (Path.cwd() / cfg.workspace.templates_dir).resolve()
 
 
-def _to_jsonable(obj: Any) -> Any:
-    """Recursively convert dataclasses / Path to JSON-friendly types."""
-    if obj is None or isinstance(obj, (str, int, float, bool)):
-        return obj
-    if isinstance(obj, type):
-        return obj.__name__
-    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        return _to_jsonable(dataclasses.asdict(obj))
-    if isinstance(obj, Path):
-        return str(obj)
-    if isinstance(obj, dict):
-        return {k: _to_jsonable(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_to_jsonable(v) for v in obj]
-    return obj
+def _ensure_default_templates(templates_root: Path) -> None:
+    """Auto-seed the bundled official library before a read path uses it.
+
+    The MCP surface mirrors the CLI: ``tool_create_project``,
+    ``tool_find_template``, the resource handlers, and the
+    Phase 9 evaluators all assume the workspace has at least the
+    bundled official templates. On a fresh checkout this would
+    otherwise report "no templates" for the first call. The seed is
+    idempotent and never overwrites existing manifests.
+    """
+    from .templates import ensure_default_templates
+
+    ensure_default_templates(templates_root)
 
 
 def _security_boundary(command: str) -> Callable[[_T], _T]:
@@ -263,6 +261,8 @@ def tool_create_project(
         templates_resolved = safe_resolve_under(templates_root_arg, templates_root)
     except PathSafetyError as exc:
         return _from_security_error("create_project", exc)
+
+    _ensure_default_templates(templates_resolved)
 
     ir_path: Path | None = None
     prompt: str | None = None
@@ -741,6 +741,7 @@ def tool_find_template(
                 str(exc),
                 {"path": str(ir_resolved)},
             )
+        _ensure_default_templates(templates_root)
         match = match_template(templates_root, ir_obj)
         return _ok(
             "find_template",
@@ -749,6 +750,7 @@ def tool_find_template(
         )
 
     if topology:
+        _ensure_default_templates(templates_root)
         templates = list_templates(templates_root, status="official")
         filtered = [t for t in templates if getattr(t, "topology", None) == topology]
         return _ok(
@@ -760,6 +762,7 @@ def tool_find_template(
             },
         )
 
+    _ensure_default_templates(templates_root)
     templates = list_templates(templates_root, status="official")
     return _ok(
         "find_template",
@@ -785,6 +788,7 @@ def tool_evaluate_template_candidate(
         )
 
     templates_root = _resolve_templates_root(cfg)
+    _ensure_default_templates(templates_root)
     try:
         evaluation = evaluate_candidate(templates_root, template_id)
     except Exception as exc:
@@ -819,6 +823,7 @@ def tool_promote_template(
         return err or _err("promote_template", "config", "CONFIG_INVALID", "no config")
 
     templates_root = _resolve_templates_root(cfg)
+    _ensure_default_templates(templates_root)
     try:
         manifest, evaluation = promote_candidate(templates_root, template_id, force=force)
     except Exception as exc:
@@ -926,6 +931,7 @@ def _list_templates(cfg: Config) -> HandlerResult:
     from .templates import list_templates
 
     templates_root = _resolve_templates_root(cfg)
+    _ensure_default_templates(templates_root)
     templates = list_templates(templates_root)
     return _ok(
         "templates.list",
@@ -939,6 +945,7 @@ def _read_template_metadata(cfg: Config, template_id: str) -> HandlerResult:
 
     validate_slug(template_id, kind="template id")
     templates_root = _resolve_templates_root(cfg)
+    _ensure_default_templates(templates_root)
     for status in ("official", "candidates", "rejected"):
         manifest_path = templates_root / status / template_id / "manifest.json"
         try:

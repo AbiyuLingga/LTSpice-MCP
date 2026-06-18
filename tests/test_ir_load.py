@@ -9,7 +9,6 @@ Covers the acceptance criteria from plan section 21 (Phase 1):
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -21,7 +20,6 @@ from ltagent.ir import (
     dump_ir,
     load_ir,
 )
-
 from tests._testdata import EXAMPLES, EXAMPLES_DIR
 
 

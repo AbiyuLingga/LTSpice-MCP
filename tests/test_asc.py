@@ -16,18 +16,16 @@ No LTspice, Wine, or network is required.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError as PydanticValidationError
 
 from ltagent import __version__
 from ltagent.asc import (
-    ASCError,
     GENERATOR_NAME,
     GROUND_NODE,
+    ASCError,
     render_asc,
     write_asc,
 )
@@ -37,12 +35,9 @@ from ltagent.ir import (
     CircuitIR,
     Component,
     ComponentKind,
-    Measurement,
     load_ir,
 )
-
 from tests._testdata import EXAMPLES, EXAMPLES_DIR
-
 
 # --- helpers --------------------------------------------------------------
 
@@ -103,7 +98,6 @@ def test_example_asc_has_required_sections(example_name: str) -> None:
     assert len(syms) == len(ir.components)
 
     # Each SYMBOL has a SYMATTR InstName and Value pair.
-    inst_names = {s[0] for s in syms}  # not the same as InstName; ensure SYMATTR exists
     for inst_name in {c.id for c in ir.components}:
         assert f"SYMATTR InstName {inst_name}" in result.text
         # Value line may not exist for some kinds, but for the MVP

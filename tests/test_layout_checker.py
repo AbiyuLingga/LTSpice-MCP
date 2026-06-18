@@ -7,14 +7,8 @@ without depending on the full writer.
 
 from __future__ import annotations
 
-import pytest
-
 from ltagent.asc import ASCResult
 from ltagent.layout import (
-    MAIN_Y,
-    OUT_Y,
-    GROUND_Y,
-    INPUT_X,
     Point,
     SymbolPlacement,
 )
@@ -25,14 +19,11 @@ from ltagent.layout_checker import (
     WEIGHT_CROSSING,
     WEIGHT_LABEL_COLLISION,
     WEIGHT_LONG_WIRE,
-    WEIGHT_MIN_SPACING,
     WEIGHT_MISSING_GROUND,
     WEIGHT_OVERLAP,
-    LayoutResult,
     classify_score,
     score_layout,
 )
-
 
 # --- helpers --------------------------------------------------------------
 
@@ -84,9 +75,9 @@ def test_real_layouts_score_one_hundred() -> None:
     """The three MVP examples must score 100/100. The layout
     checker would otherwise block them from ever becoming official
     templates (plan 12.4)."""
-    from ltagent.ir import load_ir
     from ltagent.asc import render_asc
-    from tests._testdata import EXAMPLES_DIR, EXAMPLES
+    from ltagent.ir import load_ir
+    from tests._testdata import EXAMPLES, EXAMPLES_DIR
 
     for name in EXAMPLES:
         ir = load_ir(EXAMPLES_DIR / f"{name}.ir.json")
@@ -268,9 +259,9 @@ def test_score_clamped_to_zero() -> None:
     ]
     text_lines = ["Version 4", "SHEET 1 880 680", "FLAG 80 352 0"]
     for i in range(10):
-        text_lines.append(f"SYMBOL voltage 80 144 R0")
+        text_lines.append("SYMBOL voltage 80 144 R0")
         text_lines.append(f"SYMATTR InstName V{i}")
-        text_lines.append(f"SYMATTR Value DC 1")
+        text_lines.append("SYMATTR Value DC 1")
     text = "\n".join(text_lines) + "\n"
     result = _asc_result(text, placements)
     scored = score_layout(result)

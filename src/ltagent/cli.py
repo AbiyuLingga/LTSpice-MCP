@@ -33,6 +33,7 @@ import json
 import os
 import sys
 from collections.abc import Mapping, Sequence
+from importlib import resources as importlib_resources
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -56,6 +57,7 @@ from .ir import CircuitIR, format_errors, load_ir
 from .layout_checker import (
     OFFICIAL_THRESHOLD,
     PROJECT_THRESHOLD,
+    LayoutResult,
     score_layout,
 )
 from .log_parser import ParseReport, parse_log, parse_log_text
@@ -88,11 +90,13 @@ from .result import (
     write_result,
 )
 from .runner import run_from_config
+from .serialization import to_jsonable
 from .templates import (
     TemplateError,
     TemplateStatus,
     audit_templates,
     create_candidate_from_project,
+    ensure_default_templates,
     list_templates,
     match_template,
     seed_default_templates,
@@ -108,7 +112,13 @@ def _emit(payload: Mapping[str, Any], as_json: bool) -> None:
     if payload.get("_ltagent_raw_output"):
         return
     if as_json:
-        json.dump(payload, sys.stdout, indent=2, sort_keys=False)
+        # ``to_jsonable`` is the last line of defence: it walks the
+        # payload and converts any non-JSON-native value (dataclass,
+        # ``Path``, ``Enum``, etc.) into something ``json.dump`` will
+        # accept. Without this, a single ``Point`` in a layout warning
+        # crashes the whole subcommand.
+        safe = to_jsonable(dict(payload))
+        json.dump(safe, sys.stdout, indent=2, sort_keys=False)
         sys.stdout.write("\n")
     else:
         _emit_human(payload)
@@ -396,6 +406,31 @@ def cmd_ir_validate(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+def _load_ir_schema_text() -> tuple[str, str]:
+    """Read the bundled Circuit IR JSON Schema from the package resource.
+
+    Returns ``(text, source_label)``. The source label is a stable
+    string used for the JSON contract's ``data.path``; the file
+    location depends on the install (wheel resource vs. source
+    checkout) and is intentionally not exposed as a filesystem path
+    once installed.
+
+    Raises :class:`FileNotFoundError` when the packaged resource is
+    missing (e.g. an incomplete wheel build). Callers translate that
+    into a structured error.
+    """
+    try:
+        resource = importlib_resources.files("ltagent.resources").joinpath(
+            "circuit_ir.schema.json"
+        )
+    except (ModuleNotFoundError, AttributeError) as exc:
+        raise FileNotFoundError(
+            "ltagent.resources package is not importable"
+        ) from exc
+    text = resource.read_text(encoding="utf-8")
+    return text, "ltagent.resources:circuit_ir.schema.json"
+
+
 def cmd_ir_schema(args: argparse.Namespace) -> dict[str, Any]:
     """Print the bundled JSON Schema. Phase 1/2 surface.
 
@@ -403,17 +438,21 @@ def cmd_ir_schema(args: argparse.Namespace) -> dict[str, Any]:
     (so the user can pipe it into a file). With ``--json`` (the default
     for this subcommand), the schema is wrapped in the standard output
     contract under ``data.schema``.
+
+    The schema is read from the ``ltagent.resources`` package resource
+    so this command works after a wheel install, not just from a
+    source checkout.
     """
-    schema_path = Path(__file__).resolve().parent.parent.parent / "schemas" / "circuit_ir.schema.json"
-    if not schema_path.is_file():
+    try:
+        text, source = _load_ir_schema_text()
+    except (FileNotFoundError, OSError) as exc:
         return _err(
             "ir.schema",
-            "Schema file not found",
+            "Schema resource not found",
             "IR_SCHEMA_MISSING",
-            f"expected {schema_path}",
-            {"expectedPath": str(schema_path)},
+            str(exc),
+            {"source": "ltagent.resources:circuit_ir.schema.json"},
         )
-    text = schema_path.read_text(encoding="utf-8")
     # When --text, the caller wants the raw schema body. We write it
     # directly to stdout here and return a sentinel payload so the
     # outer _emit() in main() knows to skip the envelope.
@@ -425,8 +464,8 @@ def cmd_ir_schema(args: argparse.Namespace) -> dict[str, Any]:
             "_ltagent_stdout_written": True,
             "success": True,
             "command": "ir.schema",
-            "message": f"Schema at {schema_path}",
-            "data": {"path": str(schema_path)},
+            "message": f"Schema at {source}",
+            "data": {"source": source},
             "warnings": [],
             "errors": [],
         }
@@ -435,15 +474,15 @@ def cmd_ir_schema(args: argparse.Namespace) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         return _err(
             "ir.schema",
-            "Schema file is not valid JSON",
+            "Schema resource is not valid JSON",
             "IR_SCHEMA_INVALID",
             str(exc),
-            {"path": str(schema_path)},
+            {"source": source},
         )
     return _ok(
         "ir.schema",
-        f"Schema at {schema_path}",
-        {"path": str(schema_path), "schema": parsed},
+        f"Schema at {source}",
+        {"source": source, "schema": parsed},
     )
 
 
@@ -581,6 +620,27 @@ def cmd_netlist(args: argparse.Namespace) -> dict[str, Any]:
 # ---- asc subcommand (Phase 5) -------------------------------------------
 
 
+def _layout_warnings_to_dict(layout: LayoutResult) -> list[dict[str, Any]]:
+    """Render :class:`LayoutWarning` records as JSON-friendly dicts.
+
+    The layout checker stores raw :class:`Point` instances inside each
+    warning's ``data`` field. ``json.dump`` does not know how to
+    serialise them, so we walk the structure and replace every
+    :class:`Point` with ``{"x": ..., "y": ...}`` before the payload
+    reaches :func:`_emit`.
+    """
+    out: list[dict[str, Any]] = []
+    for w in layout.warnings:
+        out.append(
+            {
+                "code": w.code,
+                "detail": w.detail,
+                "data": to_jsonable(w.data),
+            }
+        )
+    return out
+
+
 def cmd_asc(args: argparse.Namespace) -> dict[str, Any]:
     """Generate a ``.asc`` schematic from a Circuit IR JSON (Phase 5).
 
@@ -644,6 +704,7 @@ def cmd_asc(args: argparse.Namespace) -> dict[str, Any]:
         # tooling can decide what to do without a second pass.
         result = render_asc(ir)
         layout = score_layout(result)
+        layout_warnings = _layout_warnings_to_dict(layout)
         return {
             "success": True,
             "command": "asc",
@@ -658,22 +719,12 @@ def cmd_asc(args: argparse.Namespace) -> dict[str, Any]:
                 "lineCount": result.line_count,
                 "layoutScore": layout.score,
                 "layoutClassification": layout.classification,
-                "layoutWarnings": [
-                    {"code": w.code, "detail": w.detail, "data": w.data}
-                    for w in layout.warnings
-                ],
+                "layoutWarnings": layout_warnings,
                 "officialThreshold": OFFICIAL_THRESHOLD,
                 "projectThreshold": PROJECT_THRESHOLD,
                 "schematic": result.text,
             },
-            "warnings": [
-                {
-                    "code": w.code,
-                    "detail": w.detail,
-                    "data": w.data,
-                }
-                for w in layout.warnings
-            ],
+            "warnings": layout_warnings,
             "errors": [],
         }
 
@@ -721,14 +772,7 @@ def cmd_asc(args: argparse.Namespace) -> dict[str, Any]:
         },
     )
     if layout.warnings:
-        payload["warnings"] = [
-            {
-                "code": w.code,
-                "detail": w.detail,
-                "data": w.data,
-            }
-            for w in layout.warnings
-        ]
+        payload["warnings"] = _layout_warnings_to_dict(layout)
     return payload
 
 
@@ -753,6 +797,10 @@ def cmd_template_list(args: argparse.Namespace) -> dict[str, Any]:
         return _err("template.list", "Invalid configuration", "CONFIG_INVALID", str(exc))
 
     templates_dir = _resolve_templates_dir(args, config)
+    try:
+        ensure_default_templates(templates_dir)
+    except TemplateError as exc:
+        return _err("template.list", exc.detail, exc.code, exc.detail, exc.data)
     try:
         status_arg = getattr(args, "status", None)
         status = (
@@ -785,6 +833,10 @@ def cmd_template_show(args: argparse.Namespace) -> dict[str, Any]:
 
     templates_dir = _resolve_templates_dir(args, config)
     try:
+        ensure_default_templates(templates_dir)
+    except TemplateError as exc:
+        return _err("template.show", exc.detail, exc.code, exc.detail, exc.data)
+    try:
         status_arg = getattr(args, "status", None) or TemplateStatus.OFFICIAL
         status = TemplateStatus.from_str(status_arg)
         manifest = show_template(
@@ -811,6 +863,10 @@ def cmd_template_match(args: argparse.Namespace) -> dict[str, Any]:
         return _err("template.match", "Invalid configuration", "CONFIG_INVALID", str(exc))
 
     templates_dir = _resolve_templates_dir(args, config)
+    try:
+        ensure_default_templates(templates_dir)
+    except TemplateError as exc:
+        return _err("template.match", exc.detail, exc.code, exc.detail, exc.data)
     ir_path = Path(args.ir).expanduser().resolve()
     if not ir_path.is_file():
         return _err(
@@ -866,6 +922,10 @@ def cmd_template_audit(args: argparse.Namespace) -> dict[str, Any]:
         return _err("template.audit", "Invalid configuration", "CONFIG_INVALID", str(exc))
 
     templates_dir = _resolve_templates_dir(args, config)
+    try:
+        ensure_default_templates(templates_dir)
+    except TemplateError as exc:
+        return _err("template.audit", exc.detail, exc.code, exc.detail, exc.data)
     try:
         report = audit_templates(templates_dir)
     except TemplateError as exc:
@@ -1451,6 +1511,15 @@ def cmd_create(args: argparse.Namespace) -> dict[str, Any]:
 
     # ---- resolve templates dir ----------------------------------------
     templates_dir = _resolve_templates_dir_for_create(args, config)
+    # Auto-seed the bundled official library if the workspace is
+    # missing it. The orchestrator depends on a populated library to
+    # match IRs against existing templates; without this hook the
+    # very first ``ltagent create`` in a fresh workspace would always
+    # fall through to "no template matched".
+    try:
+        ensure_default_templates(templates_dir)
+    except TemplateError as exc:
+        return _err("create", exc.detail, exc.code, exc.detail, exc.data)
 
     # ---- invoke orchestrator ------------------------------------------
     pr: ProjectResult = create_project(

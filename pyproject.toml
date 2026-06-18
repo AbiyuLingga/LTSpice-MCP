@@ -27,7 +27,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
 ]
-dependencies = []
+dependencies = [
+    "pydantic>=2,<3",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -36,6 +38,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.10",
     "build>=1.2",
+    "jsonschema>=4",
 ]
 # Phase 10: MCP server v1.
 # Install with: pip install "ltspice-ai-agent[mcp]"
@@ -59,9 +62,16 @@ packages = ["src/ltagent"]
 # so the wheel ships with the entry-point and graceful fallback.
 include = ["src/ltagent/mcp_server.py"]
 
+[tool.hatch.build.targets.wheel.force-include]
+# Keep the repo-root schema copy as a wheel artefact for any tool that
+# still resolves it from the install root (the runtime path of record
+# is now the package resource under ltagent.resources).
+"schemas/circuit_ir.schema.json" = "ltagent/_repo_schema/circuit_ir.schema.json"
+
 [tool.hatch.build.targets.sdist]
 include = [
     "src/ltagent",
+    "schemas",
     "docs",
     "examples",
     "tests",
@@ -96,6 +106,7 @@ ignore = [
 # ``(str, Enum)`` is the project convention for serialisable enums
 # (see ``ir.ComponentKind``/``AnalysisKind``). ``StrEnum`` would
 # change the runtime type and break symmetry with persisted JSON.
+"src/ltagent/ir.py" = ["UP042"]
 "src/ltagent/templates.py" = ["UP042"]
 "src/ltagent/evaluator.py" = ["UP042"]
 

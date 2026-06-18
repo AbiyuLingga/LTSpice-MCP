@@ -6,6 +6,8 @@ No LTspice, Wine, or network is required.
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from ltagent.layout import (
@@ -34,7 +36,6 @@ from ltagent.layout import (
     wire_crosses,
     wire_length,
 )
-
 
 # --- constants ------------------------------------------------------------
 
@@ -72,7 +73,7 @@ def test_point_is_frozen_and_hashable() -> None:
     b = Point(3, 4)
     assert a == b
     assert hash(a) == hash(b)
-    with pytest.raises(Exception):
+    with pytest.raises((AttributeError, dataclasses.FrozenInstanceError)):
         a.x = 99  # type: ignore[misc]
 
 

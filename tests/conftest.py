@@ -14,7 +14,6 @@ import pytest
 
 from ltagent.config import Config
 
-
 # --- Phase 1 IR test fixtures ---------------------------------------------
 
 

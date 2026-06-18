@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "0.1",
+  "domain": "digital",
+  "kind": "tiny8_cpu",
+  "name": "tiny8_io_demo",
+  "description": "Tiny8 CPU demo: read an input port, AND with 0x0F, write to an output port, halt.",
+  "clock": { "name": "clk", "frequencyHz": 1000000 },
+  "reset": { "name": "rst", "activeHigh": true, "synchronous": true },
+  "cpu": {
+    "dataWidth": 8,
+    "addressWidth": 8,
+    "instructionWidth": 16,
+    "architecture": "accumulator",
+    "isa": "tiny8_v0"
+  },
+  "memory": { "romWords": 256, "ramBytes": 256 },
+  "io": {
+    "ports": [
+      { "name": "in0",  "direction": "input",  "width": 8 },
+      { "name": "out0", "direction": "output", "width": 8 }
+    ]
+  },
+  "program": {
+    "source": "io.asm",
+    "entry": 0,
+    "expectedHaltCyclesMax": 200
+  },
+  "verification": {
+    "expected": {
+      "halted": true,
+      "acc": 5
+    }
+  },
+  "artifacts": {
+    "rtl": [],
+    "testbenches": [],
+    "reports": []
+  },
+  "metadata": { "createdBy": "ltagent", "source": "example" }
+}

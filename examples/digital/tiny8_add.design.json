@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "0.1",
+  "domain": "digital",
+  "kind": "tiny8_cpu",
+  "name": "tiny8_add_demo",
+  "description": "Tiny8 CPU demo: add 20 and 22, store at 0x10 and 0x11, halt. The default v1 verification contract.",
+  "clock": { "name": "clk", "frequencyHz": 1000000 },
+  "reset": { "name": "rst", "activeHigh": true, "synchronous": true },
+  "cpu": {
+    "dataWidth": 8,
+    "addressWidth": 8,
+    "instructionWidth": 16,
+    "architecture": "accumulator",
+    "isa": "tiny8_v0"
+  },
+  "memory": { "romWords": 256, "ramBytes": 256 },
+  "io": { "ports": [] },
+  "program": {
+    "source": "demo.asm",
+    "entry": 0,
+    "expectedHaltCyclesMax": 200
+  },
+  "verification": {
+    "expected": {
+      "halted": true,
+      "acc": 42,
+      "memory": { "16": 20, "17": 42 }
+    }
+  },
+  "artifacts": {
+    "rtl": [],
+    "testbenches": [],
+    "reports": []
+  },
+  "metadata": { "createdBy": "ltagent", "source": "example" }
+}

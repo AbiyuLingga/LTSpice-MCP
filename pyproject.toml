@@ -107,6 +107,7 @@ ignore = [
 # (see ``ir.ComponentKind``/``AnalysisKind``). ``StrEnum`` would
 # change the runtime type and break symmetry with persisted JSON.
 "src/ltagent/ir.py" = ["UP042"]
+"src/ltagent/digital_ir.py" = ["UP042"]
 "src/ltagent/templates.py" = ["UP042"]
 "src/ltagent/evaluator.py" = ["UP042"]
 

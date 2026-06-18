@@ -2110,6 +2110,272 @@ def cmd_plan(args: argparse.Namespace) -> dict[str, Any]:
     return payload
 
 
+# ---- Phase 12: digital subcommands ---------------------------------------
+
+
+def cmd_digital_plan(args: argparse.Namespace) -> dict[str, Any]:
+    """Phase 12: turn a natural-language prompt into a validated Design IR.
+
+    The result is one of four shapes:
+
+    * ``DesignIR`` — success. The full IR is in ``data.design`` and the
+      project ``name`` and ``kind`` are surfaced at the top level.
+    * ``PlannerRefusal`` — prompt is unsafe, ambiguous, or malformed.
+      The structured error is in ``errors[0]`` and the supported-kinds
+      list is in ``data.supportedKinds``.
+    * ``ClarificationRequest`` — recognised the direction but missing a
+      required field. Surfaced as a non-error with ``needsClarification``
+      in ``data``.
+    * ``RoadmapSuggestion`` — recognised the direction but it is not
+      v1. Surfaced as a non-error with ``roadmap`` in ``data``.
+
+    On success the optional ``--out PATH`` writes the IR JSON. The path
+    is restricted to the current working directory subtree.
+    """
+    from .digital_ir import dump_design, validate_dict
+    from .digital_planner import (
+        ClarificationRequest,
+        PlannerRefusal,
+        RoadmapSuggestion,
+        plan_digital_prompt,
+    )
+
+    prompt = args.prompt
+    result = plan_digital_prompt(prompt)
+
+    if isinstance(result, PlannerRefusal):
+        return {
+            "success": False,
+            "command": "digital.plan",
+            "message": result.message,
+            "data": {
+                "prompt": prompt,
+                "supportedKinds": list(result.supported_kinds),
+                "nextStep": result.next_step,
+                **result.data,
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": result.code,
+                    "detail": result.message,
+                    "data": dict(result.data),
+                }
+            ],
+        }
+
+    if isinstance(result, ClarificationRequest):
+        return {
+            "success": False,
+            "command": "digital.plan",
+            "message": result.message,
+            "data": {
+                "prompt": prompt,
+                "needsClarification": True,
+                "question": result.question,
+                "options": list(result.options),
+                "default": result.default,
+                "supportedKinds": list(result.supported_kinds),
+            },
+            "warnings": [
+                {
+                    "code": result.code,
+                    "detail": result.message,
+                    "data": {
+                        "question": result.question,
+                        "default": result.default,
+                    },
+                }
+            ],
+            "errors": [],
+        }
+
+    if isinstance(result, RoadmapSuggestion):
+        return {
+            "success": True,
+            "command": "digital.plan",
+            "message": result.message,
+            "data": {
+                "prompt": prompt,
+                "roadmap": True,
+                "category": result.category,
+                "whyNotV1": result.why_not_v1,
+                "proposedPhases": list(result.proposed_phases),
+                "nextStep": result.next_step,
+            },
+            "warnings": [
+                {
+                    "code": result.code,
+                    "detail": result.message,
+                    "data": {
+                        "category": result.category,
+                        "proposedPhases": list(result.proposed_phases),
+                    },
+                }
+            ],
+            "errors": [],
+        }
+
+    # Success: DesignIR. Re-validate through the IR layer to catch
+    # any drift between planner and IR model.
+    from pydantic import ValidationError as _PydanticValidationError
+
+    try:
+        rebuilt = validate_dict(result.model_dump())
+    except _PydanticValidationError as exc:
+        errors = format_errors(exc)
+        return {
+            "success": False,
+            "command": "digital.plan",
+            "message": "Planner produced an IR that did not re-validate",
+            "data": {
+                "prompt": prompt,
+                "kind": result.kind,
+                "name": result.name,
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "DIGITAL_PLAN_INTERNAL_INVALID_IR",
+                    "detail": err.detail,
+                    "data": {"path": err.path, "code": err.code},
+                }
+                for err in errors
+            ],
+        }
+
+    assert rebuilt is not None
+    payload: dict[str, Any] = {
+        "success": True,
+        "command": "digital.plan",
+        "message": (
+            f"Planned {rebuilt.kind} design '{rebuilt.name}'"
+        ),
+        "data": {
+            "prompt": prompt,
+            "kind": rebuilt.kind,
+            "name": rebuilt.name,
+            "design": rebuilt.model_dump(mode="json"),
+        },
+        "warnings": [],
+        "errors": [],
+    }
+
+    out_raw = getattr(args, "out", None)
+    if out_raw:
+        out_path = Path(out_raw).expanduser().resolve()
+        cwd = Path.cwd().resolve()
+        try:
+            out_path.relative_to(cwd)
+        except ValueError:
+            return {
+                "success": False,
+                "command": "digital.plan",
+                "message": "Refusing to write Design IR outside the current directory",
+                "data": {
+                    "prompt": prompt,
+                    "outPath": str(out_path),
+                    "cwd": str(cwd),
+                },
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "PATH_OUTSIDE_CWD",
+                        "detail": f"{out_path} is not under {cwd}",
+                        "data": {"outPath": str(out_path), "cwd": str(cwd)},
+                    }
+                ],
+            }
+        try:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(dump_design(rebuilt), encoding="utf-8")
+        except OSError as exc:
+            return {
+                "success": False,
+                "command": "digital.plan",
+                "message": "Failed to write Design IR",
+                "data": {"prompt": prompt, "outPath": str(out_path)},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "WRITE_FAILED",
+                        "detail": str(exc),
+                        "data": {"outPath": str(out_path)},
+                    }
+                ],
+            }
+        payload["data"]["writtenTo"] = str(out_path)
+        payload["message"] = (
+            f"Planned {rebuilt.kind} design '{rebuilt.name}' "
+            f"and wrote Design IR to {out_path}"
+        )
+
+    return payload
+
+
+def _digital_not_implemented(
+    subcommand: str, args: argparse.Namespace
+) -> dict[str, Any]:
+    """Return a structured 'not yet implemented' payload for the
+    digital subcommands that ship in later phases.
+
+    Keeps the JSON contract stable: callers can already probe
+    `ltagent digital doctor` etc. and see the planned surface
+    before the code lands.
+    """
+    return {
+        "success": True,
+        "command": f"digital.{subcommand}",
+        "message": (
+            f"ltagent digital {subcommand} is part of the Phase 12 "
+            f"plan but not yet implemented. See "
+            f"docs/digital/plan-tiny8-agent.md for the planned "
+            f"behaviour."
+        ),
+        "data": {
+            "phase": 12,
+            "subcommand": subcommand,
+            "planned": True,
+            "source": getattr(args, "source", None),
+        },
+        "warnings": [
+            {
+                "code": "DIGITAL_NOT_IMPLEMENTED",
+                "detail": (
+                    f"digital {subcommand} is a stub in this phase; "
+                    f"the real implementation lands in the next sub-phase."
+                ),
+                "data": {"subcommand": subcommand, "phase": 12},
+            }
+        ],
+        "errors": [],
+    }
+
+
+def cmd_digital_create(args: argparse.Namespace) -> dict[str, Any]:
+    return _digital_not_implemented("create", args)
+
+
+def cmd_digital_assemble(args: argparse.Namespace) -> dict[str, Any]:
+    return _digital_not_implemented("assemble", args)
+
+
+def cmd_digital_doctor(args: argparse.Namespace) -> dict[str, Any]:
+    return _digital_not_implemented("doctor", args)
+
+
+def cmd_digital_simulate(args: argparse.Namespace) -> dict[str, Any]:
+    return _digital_not_implemented("simulate", args)
+
+
+def cmd_digital_synth_check(args: argparse.Namespace) -> dict[str, Any]:
+    return _digital_not_implemented("synth-check", args)
+
+
+def cmd_digital_inspect(args: argparse.Namespace) -> dict[str, Any]:
+    return _digital_not_implemented("inspect", args)
+
+
 # ---- helpers -------------------------------------------------------------
 
 
@@ -2496,6 +2762,85 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # --- Phase 12: digital design (Tiny8 CPU) ---------------------------
+    p_digital = subparsers.add_parser(
+        "digital",
+        help="Tiny8 CPU digital design subcommands (Phase 12)",
+    )
+    _add_output_flags(p_digital)
+    digital_sub = p_digital.add_subparsers(
+        dest="digital_command", required=True, metavar="SUBCOMMAND"
+    )
+
+    p_digital_plan = digital_sub.add_parser(
+        "plan",
+        help="convert a natural-language prompt into a Design IR (Phase 12)",
+    )
+    _add_output_flags(p_digital_plan)
+    p_digital_plan.add_argument(
+        "prompt",
+        help="natural-language prompt in English or Indonesian",
+    )
+    p_digital_plan.add_argument(
+        "--out",
+        metavar="PATH",
+        default=None,
+        help=(
+            "optional path to also write the resulting Design IR JSON; "
+            "skipped on refusal / clarification / roadmap"
+        ),
+    )
+
+    # Phase C / D / E subcommand stubs. Each one returns a structured
+    # "not yet implemented" payload in the JSON contract so the parser
+    # is complete from day one; the actual handlers land in Phases C-E.
+    for sub_name, sub_help in (
+        ("create", "create a Tiny8 project from a Design IR or a prompt (Phase C)"),
+        ("assemble", "assemble a .asm program into a .mem image (Phase C)"),
+        ("doctor", "report digital toolchain status (Phase D)"),
+        ("simulate", "run an Icarus simulation of the generated HDL (Phase D)"),
+        ("synth-check", "run a Yosys synthesis sanity check on the HDL (Phase D)"),
+        ("inspect", "inspect a Tiny8 project artefact (Phase E)"),
+    ):
+        p = digital_sub.add_parser(sub_name, help=sub_help)
+        _add_output_flags(p)
+        if sub_name in ("create", "assemble", "simulate", "synth-check", "inspect"):
+            p.add_argument(
+                "source",
+                help=(
+                    "path to a Design IR (.design.json), a .asm program, "
+                    "or a project directory (depending on the subcommand)"
+                ),
+            )
+        if sub_name in ("create",):
+            p.add_argument(
+                "--out",
+                metavar="DIR",
+                default=None,
+                help="project directory (default: <projects_dir>/<date>_<name>)",
+            )
+            p.add_argument(
+                "--simulate",
+                action="store_true",
+                help="also attempt simulation after generation",
+            )
+        if sub_name in ("assemble",):
+            p.add_argument(
+                "--out",
+                metavar="PATH",
+                default=None,
+                help="output .mem path (default: <source>.mem next to source)",
+            )
+        if sub_name in ("simulate", "synth-check"):
+            p.add_argument(
+                "--strict",
+                action="store_true",
+                help=(
+                    "fail the command if the required tool is missing "
+                    "(default: structured skip with success=true)"
+                ),
+            )
+
     # --- Phase 4: log parser + result builder --------------------------
     p_parse_log = subparsers.add_parser(
         "parse-log",
@@ -2774,6 +3119,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             payload = cmd_create_safe(args)
         elif args.command == "plan":
             payload = cmd_plan(args)
+        elif args.command == "digital" and args.digital_command == "plan":
+            payload = cmd_digital_plan(args)
+        elif args.command == "digital" and args.digital_command == "create":
+            payload = cmd_digital_create(args)
+        elif args.command == "digital" and args.digital_command == "assemble":
+            payload = cmd_digital_assemble(args)
+        elif args.command == "digital" and args.digital_command == "doctor":
+            payload = cmd_digital_doctor(args)
+        elif args.command == "digital" and args.digital_command == "simulate":
+            payload = cmd_digital_simulate(args)
+        elif args.command == "digital" and args.digital_command == "synth-check":
+            payload = cmd_digital_synth_check(args)
+        elif args.command == "digital" and args.digital_command == "inspect":
+            payload = cmd_digital_inspect(args)
         elif args.command == "parse-log":
             payload = cmd_parse_log(args)
         elif args.command == "result":

@@ -55,6 +55,9 @@ Issues = "https://github.com/abiyulinx/ltspice-ai-agent/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ltagent"]
+# Force-include the mcp_server module even though it's optional at runtime,
+# so the wheel ships with the entry-point and graceful fallback.
+include = ["src/ltagent/mcp_server.py"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -69,11 +72,6 @@ include = [
     "MCP.md",
     "config.example.toml",
 ]
-
-[tool.hatch.build.targets.wheel]
-# Force-include the mcp_server module even though it's optional at runtime,
-# so the wheel ships with the entry-point and graceful fallback.
-include = ["src/ltagent/mcp_server.py"]
 
 [tool.ruff]
 line-length = 100

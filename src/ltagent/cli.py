@@ -2049,11 +2049,9 @@ def _load_config_or(path: str | None) -> Config:
 
 
 def _is_within(child: Path, parent: Path) -> bool:
-    try:
-        child.relative_to(parent)
-    except ValueError:
-        return False
-    return True
+    from .security import is_within
+
+    return is_within(child, parent)
 
 
 def _overall_status(checks: Sequence[CheckResult]) -> str:

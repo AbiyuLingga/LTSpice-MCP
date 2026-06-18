@@ -339,12 +339,14 @@ def _validate_id(template_id: str) -> str:
 
 
 def _safe_within(child: Path, parent: Path) -> bool:
-    """Return True iff ``child`` resolves under ``parent``."""
-    try:
-        child.resolve(strict=False).relative_to(parent.resolve(strict=False))
-    except (ValueError, OSError):
-        return False
-    return True
+    """Return True iff ``child`` resolves under ``parent``.
+
+    Thin wrapper around :func:`ltagent.security.is_within` so the CLI
+    and the MCP server share the same guard.
+    """
+    from .security import is_within
+
+    return is_within(child, parent)
 
 
 def _ensure_root(templates_dir: str | Path) -> Path:

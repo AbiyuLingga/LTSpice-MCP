@@ -149,25 +149,44 @@ def test_digital_plan_rejects_path_outside_cwd(
 
 
 @pytest.mark.parametrize(
-    "args",
+    "sub",
     [
-        ["digital", "doctor", "--json"],
-        ["digital", "simulate", "projects/foo", "--json"],
-        ["digital", "synth-check", "projects/foo", "--json"],
-        ["digital", "inspect", "projects/foo", "--json"],
+        "plan",
+        "create",
+        "assemble",
+        "doctor",
+        "simulate",
+        "synth-check",
+        "inspect",
     ],
 )
-def test_digital_stub_subcommands(
-    args: list[str], capsys: pytest.CaptureFixture[str]
-) -> None:
-    payload, rc = _run(args, capsys)
-    # All stubs return success=true with a DIGITAL_NOT_IMPLEMENTED warning.
-    # The plan says the parser is complete from day one; the warning is
-    # the structured "real impl is in a later phase" signal.
-    assert rc == 0
-    assert payload["success"] is True
-    assert payload["warnings"][0]["code"] == "DIGITAL_NOT_IMPLEMENTED"
-    assert payload["data"]["phase"] == 12
+def test_digital_help_lists_all_subcommands(sub: str) -> None:
+    """Smoke check: every Phase 12 subcommand is wired into the parser.
+
+    The actual behaviour is covered by the per-subcommand tests below
+    (and the new Phase D handlers). This just guards against the
+    subcommand accidentally falling out of the parser.
+    """
+    # Use the parser directly to avoid driving the full handler.
+
+    import contextlib
+
+    # If the subcommand is missing, argparse exits 2 with usage.
+    # We don't want that to be a hard fail; instead we check the
+    # help text via the parser.
+    # Simulate by calling the main with --help on the subcommand
+    # group and check the help text mentions ``sub``.
+    import io
+
+    from ltagent.cli import main as _real_main
+
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            _real_main(["digital", "--help"])
+    except SystemExit:
+        pass
+    assert sub in buf.getvalue()
 
 
 def test_digital_create_from_ir_file(
@@ -316,7 +335,7 @@ def test_digital_assemble_program_error(
 # ---------------------------------------------------------------------------
 
 
-def test_digital_help_lists_all_subcommands(capsys: pytest.CaptureFixture[str]) -> None:
+def test_digital_help_full_text(capsys: pytest.CaptureFixture[str]) -> None:
     # argparse calls parser.exit() on --help, which raises SystemExit.
     with pytest.raises(SystemExit) as exc:
         cli_main(["digital", "--help"])
@@ -332,3 +351,75 @@ def test_digital_subcommand_required(capsys: pytest.CaptureFixture[str]) -> None
     with pytest.raises(SystemExit) as exc:
         cli_main(["digital"])
     assert exc.value.code == 2
+
+
+# ---------------------------------------------------------------------------
+# doctor / simulate / synth-check / inspect
+# ---------------------------------------------------------------------------
+
+
+def test_digital_doctor_lists_all_tools(capsys: pytest.CaptureFixture[str]) -> None:
+    payload, rc = _run(["digital", "doctor", "--json"], capsys)
+    assert rc == 0
+    assert payload["success"] is True
+    tools = payload["data"]["tools"]
+    for tool in ("iverilog", "vvp", "verilator", "yosys", "gtkwave"):
+        assert tool in tools
+        assert tools[tool]["status"] in {"ok", "missing"}
+
+
+def test_digital_doctor_install_hint(capsys: pytest.CaptureFixture[str]) -> None:
+    payload, rc = _run(["digital", "doctor", "--json"], capsys)
+    assert rc == 0
+    assert "ubuntu" in payload["data"]["recommendedInstall"]
+
+
+def test_digital_simulate_missing_dir(capsys: pytest.CaptureFixture[str]) -> None:
+    payload, rc = _run(
+        ["digital", "simulate", "/nonexistent", "--json"], capsys
+    )
+    assert rc == 1
+    assert payload["errors"][0]["code"] == "PROJECT_NOT_FOUND"
+
+
+def test_digital_simulate_not_a_tiny8_project(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    (tmp_path / "rtl").mkdir()
+    payload, rc = _run(
+        ["digital", "simulate", str(tmp_path), "--json"], capsys
+    )
+    assert rc == 1
+    assert payload["errors"][0]["code"] == "NOT_A_TINY8_PROJECT"
+
+
+def test_digital_synth_check_missing_dir(
+    capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload, rc = _run(
+        ["digital", "synth-check", "/nonexistent", "--json"], capsys
+    )
+    assert rc == 1
+    assert payload["errors"][0]["code"] == "PROJECT_NOT_FOUND"
+
+
+def test_digital_inspect_returns_manifest(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    # Create a minimal Tiny8 project on disk
+    ir_src = (
+        Path(__file__).parent.parent / "examples" / "digital" / "tiny8_add.design.json"
+    )
+    _create_payload, create_rc = _run(
+        ["digital", "create", str(ir_src), "--out", str(tmp_path), "--json"],
+        capsys,
+    )
+    assert create_rc == 0
+    payload, rc = _run(
+        ["digital", "inspect", str(tmp_path), "--json"], capsys
+    )
+    assert rc == 0
+    assert payload["success"] is True
+    assert payload["data"]["manifest"]["designKind"] == "tiny8_cpu"
+    assert "rtl/tiny8_alu.v" in payload["data"]["manifest"]["rtlFiles"]
+    assert "design" in payload["data"]

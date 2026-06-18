@@ -2677,19 +2677,455 @@ def cmd_digital_assemble(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_digital_doctor(args: argparse.Namespace) -> dict[str, Any]:
-    return _digital_not_implemented("doctor", args)
+    """Phase 12: report digital toolchain status.
+
+    Checks ``iverilog``, ``vvp``, ``verilator``, ``yosys``,
+    ``gtkwave``. Missing tools are reported as
+    ``status: "missing"``; present tools include a ``path``
+    and ``version`` string.
+    """
+    from .digital_runner import _TOOL_ALLOWLIST, doctor_status
+
+    statuses = doctor_status()
+    payload_tools: dict[str, dict[str, Any]] = {}
+    any_missing = False
+    for name in sorted(_TOOL_ALLOWLIST):
+        st = statuses[name]
+        if st.available:
+            payload_tools[name] = {
+                "status": "ok",
+                "path": st.path,
+                "version": st.version,
+            }
+        else:
+            any_missing = True
+            payload_tools[name] = {
+                "status": "missing",
+                "path": None,
+                "version": None,
+            }
+
+    overall = "ok" if not any_missing else "warn"
+    return {
+        "success": True,
+        "command": "digital.doctor",
+        "message": (
+            "Digital toolchain complete"
+            if not any_missing
+            else "Digital toolchain has missing tools (warnings, not errors)"
+        ),
+        "data": {
+            "tools": payload_tools,
+            "recommendedInstall": {
+                "ubuntu": "sudo apt install -y iverilog verilator yosys gtkwave",
+                "fedora": "sudo dnf install -y iverilog verilator yosys gtkwave",
+                "macos": "brew install icarus-verilog verilator yosys gtkwave",
+            },
+        },
+        "warnings": (
+            [
+                {
+                    "code": "DIGITAL_TOOL_MISSING",
+                    "detail": f"{name} not on PATH",
+                    "data": {"tool": name},
+                }
+                for name, st in statuses.items()
+                if not st.available
+            ]
+        ),
+        "errors": [],
+    } | {"_ltagent_overall": overall}
 
 
 def cmd_digital_simulate(args: argparse.Namespace) -> dict[str, Any]:
-    return _digital_not_implemented("simulate", args)
+    """Phase 12: run an Icarus simulation of the project's testbench.
+
+    ``source`` is the project directory. Looks for
+    ``tb/tb_tiny8_top.v`` and all files in ``rtl/``.
+
+    If Icarus is missing:
+    * ``--strict`` -> success=false, code ``DIGITAL_TOOL_MISSING``.
+    * default -> success=true, status="skipped".
+    """
+    from .digital_reports import (
+        ProjectResult,
+        SimulationReport,
+        parse_simulation_observation,
+        write_result_json,
+        write_simulation_report,
+    )
+    from .digital_runner import (
+        compile_iverilog,
+        doctor_status,
+        run_vvp,
+        simulation_passed,
+    )
+
+    src = Path(getattr(args, "source", None) or "").expanduser().resolve()
+    if not src.is_dir():
+        return {
+            "success": False,
+            "command": "digital.simulate",
+            "message": f"Project directory not found: {src}",
+            "data": {"source": str(src)},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "PROJECT_NOT_FOUND",
+                    "detail": f"{src} is not a directory",
+                    "data": {"source": str(src)},
+                }
+            ],
+        }
+
+    tb = src / "tb" / "tb_tiny8_top.v"
+    rtl = src / "rtl"
+    if not tb.exists() or not rtl.is_dir():
+        return {
+            "success": False,
+            "command": "digital.simulate",
+            "message": "Not a Tiny8 project (tb/tb_tiny8_top.v or rtl/ missing)",
+            "data": {"projectDir": str(src)},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "NOT_A_TINY8_PROJECT",
+                    "detail": "tb/tb_tiny8_top.v and rtl/ required",
+                    "data": {"projectDir": str(src)},
+                }
+            ],
+        }
+
+    status = doctor_status()
+    strict = bool(getattr(args, "strict", False))
+    if not status["iverilog"].available or not status["vvp"].available:
+        if strict:
+            return {
+                "success": False,
+                "command": "digital.simulate",
+                "message": "Icarus (iverilog / vvp) not on PATH",
+                "data": {"tools": {n: s.available for n, s in status.items()}},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "DIGITAL_TOOL_MISSING",
+                        "detail": "iverilog and vvp are required for simulation",
+                        "data": {"required": ["iverilog", "vvp"]},
+                    }
+                ],
+            }
+        report = ProjectResult(
+            status="skipped",
+            simulation=SimulationReport(
+                status="skipped",
+                note="iverilog or vvp not on PATH; use --strict to fail",
+            ),
+        )
+        write_simulation_report(src, report.simulation)
+        write_result_json(src, report)
+        return {
+            "success": True,
+            "command": "digital.simulate",
+            "message": "Icarus not on PATH; simulation skipped",
+            "data": {
+                "projectDir": str(src),
+                "report": "reports/sim.json",
+                "status": "skipped",
+            },
+            "warnings": [
+                {
+                    "code": "DIGITAL_TOOL_MISSING",
+                    "detail": "iverilog / vvp not on PATH",
+                    "data": {"strict": strict},
+                }
+            ],
+            "errors": [],
+        }
+
+    src_files = [*sorted(rtl.glob("*.v")), tb]
+    out_binary = src / "build" / "tiny8_top.vvp"
+    out_binary.parent.mkdir(parents=True, exist_ok=True)
+
+    compile = compile_iverilog(
+        src_files=src_files, out_binary=out_binary, cwd=src
+    )
+    if not compile.ok:
+        sim = SimulationReport(
+            status="fail",
+            duration_ms=compile.duration_ms,
+            returncode=compile.returncode,
+            note="iverilog compile failed",
+            stdout_tail=compile.stdout_tail,
+            stderr_tail=compile.stderr_tail,
+        )
+        result = ProjectResult(status="fail", simulation=sim)
+        write_simulation_report(src, sim)
+        write_result_json(src, result)
+        return {
+            "success": False,
+            "command": "digital.simulate",
+            "message": "iverilog compile failed",
+            "data": {
+                "projectDir": str(src),
+                "report": "reports/sim.json",
+                "status": "fail",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "SIM_COMPILE_FAILED",
+                    "detail": compile.stderr_tail[:1024],
+                    "data": {"returncode": compile.returncode},
+                }
+            ],
+        }
+
+    sim_run = run_vvp(binary=out_binary, cwd=src)
+    cycles, halted, acc, mem = parse_simulation_observation(sim_run.stdout_tail)
+    passed = simulation_passed(sim_run)
+    sreport = SimulationReport(
+        status="pass" if passed else "fail",
+        cycles=cycles,
+        halted=halted,
+        observed_acc=acc,
+        observed_memory=mem,
+        duration_ms=sim_run.duration_ms,
+        returncode=sim_run.returncode,
+        stdout_tail=sim_run.stdout_tail,
+        stderr_tail=sim_run.stderr_tail,
+    )
+    result = ProjectResult(
+        status="pass" if passed else "fail",
+        simulation=sreport,
+    )
+    write_simulation_report(src, sreport)
+    write_result_json(src, result)
+    return {
+        "success": passed,
+        "command": "digital.simulate",
+        "message": (
+            f"Simulation {'passed' if passed else 'failed'} at cycle {cycles}"
+        ),
+        "data": {
+            "projectDir": str(src),
+            "report": "reports/sim.json",
+            "result": "result.json",
+            "status": "pass" if passed else "fail",
+            "cycles": cycles,
+            "halted": halted,
+            "acc": acc,
+        },
+        "warnings": [],
+        "errors": (
+            []
+            if passed
+            else [
+                {
+                    "code": "SIM_TESTBENCH_FAILED",
+                    "detail": sim.stdout_tail[-512:],
+                    "data": {"returncode": sim.returncode},
+                }
+            ]
+        ),
+    }
 
 
 def cmd_digital_synth_check(args: argparse.Namespace) -> dict[str, Any]:
-    return _digital_not_implemented("synth-check", args)
+    """Phase 12: run a Yosys synthesis sanity check on the HDL.
+
+    Same tool-missing semantics as ``simulate``.
+    """
+    from .digital_reports import (
+        ProjectResult,
+        SynthesisReport,
+        write_result_json,
+        write_synthesis_report,
+    )
+    from .digital_runner import doctor_status, synth_yosys
+
+    src = Path(getattr(args, "source", None) or "").expanduser().resolve()
+    if not src.is_dir():
+        return {
+            "success": False,
+            "command": "digital.synth-check",
+            "message": f"Project directory not found: {src}",
+            "data": {"source": str(src)},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "PROJECT_NOT_FOUND",
+                    "detail": f"{src} is not a directory",
+                    "data": {"source": str(src)},
+                }
+            ],
+        }
+
+    rtl = src / "rtl"
+    if not rtl.is_dir():
+        return {
+            "success": False,
+            "command": "digital.synth-check",
+            "message": "Not a Tiny8 project (rtl/ missing)",
+            "data": {"projectDir": str(src)},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "NOT_A_TINY8_PROJECT",
+                    "detail": "rtl/ required",
+                    "data": {"projectDir": str(src)},
+                }
+            ],
+        }
+
+    status = doctor_status()
+    strict = bool(getattr(args, "strict", False))
+    if not status["yosys"].available:
+        if strict:
+            return {
+                "success": False,
+                "command": "digital.synth-check",
+                "message": "Yosys not on PATH",
+                "data": {"tools": {n: s.available for n, s in status.items()}},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "DIGITAL_TOOL_MISSING",
+                        "detail": "yosys is required for synth-check",
+                        "data": {"required": ["yosys"]},
+                    }
+                ],
+            }
+        sreport = SynthesisReport(
+            status="skipped",
+            note="yosys not on PATH; use --strict to fail",
+        )
+        result = ProjectResult(status="skipped", synthesis=sreport)
+        write_synthesis_report(src, sreport)
+        write_result_json(src, result)
+        return {
+            "success": True,
+            "command": "digital.synth-check",
+            "message": "Yosys not on PATH; synthesis skipped",
+            "data": {
+                "projectDir": str(src),
+                "report": "reports/synth.json",
+                "status": "skipped",
+            },
+            "warnings": [
+                {
+                    "code": "DIGITAL_TOOL_MISSING",
+                    "detail": "yosys not on PATH",
+                    "data": {"strict": strict},
+                }
+            ],
+            "errors": [],
+        }
+
+    src_files = sorted(rtl.glob("*.v"))
+    res = synth_yosys(top="tiny8_top", src_files=src_files, cwd=src)
+    passed = res.ok
+    sreport = SynthesisReport(
+        status="pass" if passed else "fail",
+        duration_ms=res.duration_ms,
+        returncode=res.returncode,
+        stdout_tail=res.stdout_tail,
+        stderr_tail=res.stderr_tail,
+    )
+    result = ProjectResult(
+        status="pass" if passed else "fail", synthesis=sreport
+    )
+    write_synthesis_report(src, sreport)
+    write_result_json(src, result)
+    return {
+        "success": passed,
+        "command": "digital.synth-check",
+        "message": (
+            f"Synthesis {'passed' if passed else 'failed'} "
+            f"({res.duration_ms}ms)"
+        ),
+        "data": {
+            "projectDir": str(src),
+            "report": "reports/synth.json",
+            "result": "result.json",
+            "status": "pass" if passed else "fail",
+        },
+        "warnings": [],
+        "errors": (
+            []
+            if passed
+            else [
+                {
+                    "code": "SYNTH_FAILED",
+                    "detail": res.stderr_tail[:1024] or res.stdout_tail[:1024],
+                    "data": {"returncode": res.returncode},
+                }
+            ]
+        ),
+    }
 
 
 def cmd_digital_inspect(args: argparse.Namespace) -> dict[str, Any]:
-    return _digital_not_implemented("inspect", args)
+    """Phase 12: inspect a project and return its manifest + result."""
+    import json
+
+    src = Path(getattr(args, "source", None) or "").expanduser().resolve()
+    if not src.is_dir():
+        return {
+            "success": False,
+            "command": "digital.inspect",
+            "message": f"Project directory not found: {src}",
+            "data": {"source": str(src)},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "PROJECT_NOT_FOUND",
+                    "detail": f"{src} is not a directory",
+                    "data": {"source": str(src)},
+                }
+            ],
+        }
+
+    manifest_path = src / "manifest.json"
+    result_path = src / "result.json"
+    design_path = src / "design.ir.json"
+
+    payload: dict[str, Any] = {
+        "projectDir": str(src),
+        "files": sorted(str(p.relative_to(src)) for p in src.rglob("*") if p.is_file()),
+    }
+
+    if manifest_path.exists():
+        try:
+            payload["manifest"] = json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )
+        except Exception as exc:
+            payload["manifestError"] = str(exc)
+
+    if result_path.exists():
+        try:
+            payload["result"] = json.loads(
+                result_path.read_text(encoding="utf-8")
+            )
+        except Exception as exc:
+            payload["resultError"] = str(exc)
+
+    if design_path.exists():
+        try:
+            payload["design"] = json.loads(
+                design_path.read_text(encoding="utf-8")
+            )
+        except Exception as exc:
+            payload["designError"] = str(exc)
+
+    return {
+        "success": True,
+        "command": "digital.inspect",
+        "message": f"Inspected project at {src}",
+        "data": payload,
+        "warnings": [],
+        "errors": [],
+    }
 
 
 # ---- helpers -------------------------------------------------------------

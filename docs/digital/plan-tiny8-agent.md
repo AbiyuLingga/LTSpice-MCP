@@ -417,3 +417,10 @@ Phase 12 is done when:
 - Generated HDL is Verilog-2001 for compatibility.
 - LTspice stays in scope as the analog companion, not the
   primary backend for processor logic.
+
+## 17. Beyond v1: roadmap
+
+The plan beyond v1 lives in [`./roadmap.md`](./roadmap.md). It
+covers Tiny8 SoC (memory-mapped IO), cocotb verification, an
+RV32I subset, FuseSoC packaging, and a full mini PC reference
+design. None of it is implemented in the current branch.

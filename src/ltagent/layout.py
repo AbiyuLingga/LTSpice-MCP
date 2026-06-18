@@ -110,6 +110,43 @@ CAPACITOR_A_OFFSET: Final[tuple[int, int]] = (16, 0)
 CAPACITOR_B_OFFSET: Final[tuple[int, int]] = (16, 64)
 """Offset of pin B (bottom) from a capacitor anchor (R0)."""
 
+# Phase 11 pin offsets. These follow the standard LTspice symbol
+# ``.asy`` files in ``lib/sym/``. Do not change them without
+# re-checking the pin landing on real symbols.
+
+DIODE_A_OFFSET: Final[tuple[int, int]] = (16, 0)
+"""Offset of pin A (anode, top) from a diode anchor (R0)."""
+
+DIODE_K_OFFSET: Final[tuple[int, int]] = (16, 64)
+"""Offset of pin K (cathode, bottom) from a diode anchor (R0)."""
+
+NPN_COLLECTOR_OFFSET: Final[tuple[int, int]] = (16, 0)
+"""Offset of the collector pin from an NPN/PNP anchor (R0)."""
+
+NPN_BASE_OFFSET: Final[tuple[int, int]] = (0, 32)
+"""Offset of the base pin from an NPN/PNP anchor (R0)."""
+
+NPN_EMITTER_OFFSET: Final[tuple[int, int]] = (16, 64)
+"""Offset of the emitter pin from an NPN/PNP anchor (R0)."""
+
+NMOS_DRAIN_OFFSET: Final[tuple[int, int]] = (16, 0)
+"""Offset of the drain pin from an NMOS/PMOS anchor (R0)."""
+
+NMOS_GATE_OFFSET: Final[tuple[int, int]] = (0, 32)
+"""Offset of the gate pin from an NMOS/PMOS anchor (R0)."""
+
+NMOS_SOURCE_OFFSET: Final[tuple[int, int]] = (16, 64)
+"""Offset of the source pin from an NMOS/PMOS anchor (R0)."""
+
+OPAMP_IN_PLUS_OFFSET: Final[tuple[int, int]] = (0, 16)
+"""Offset of the in+ pin from an opamp anchor (R0)."""
+
+OPAMP_IN_MINUS_OFFSET: Final[tuple[int, int]] = (0, 96)
+"""Offset of the in- pin from an opamp anchor (R0)."""
+
+OPAMP_OUT_OFFSET: Final[tuple[int, int]] = (96, 56)
+"""Offset of the out pin from an opamp anchor (R0)."""
+
 SYMBOL_BODY_OVERLAP_PADDING: Final[int] = 8
 """Minimum clearance (grid units) between two symbols' bounding
 boxes. Used by the layout checker to detect overlaps."""
@@ -211,6 +248,70 @@ def capacitor_pins(placement: SymbolPlacement) -> tuple[Point, Point]:
     return placement.pin(CAPACITOR_A_OFFSET), placement.pin(CAPACITOR_B_OFFSET)
 
 
+# --- Phase 11 pin helpers -----------------------------------------------
+
+
+def diode_pins(placement: SymbolPlacement) -> tuple[Point, Point]:
+    """Return ``(anode, cathode)`` of a diode placement."""
+    if placement.symbol_type != "diode":
+        raise ValueError(
+            f"diode_pins() requires a diode, got {placement.symbol_type!r}"
+        )
+    return placement.pin(DIODE_A_OFFSET), placement.pin(DIODE_K_OFFSET)
+
+
+def bjt_pins(placement: SymbolPlacement) -> tuple[Point, Point, Point]:
+    """Return ``(collector, base, emitter)`` of an NPN/PNP placement."""
+    if placement.symbol_type not in {"npn", "pnp"}:
+        raise ValueError(
+            f"bjt_pins() requires npn/pnp, got {placement.symbol_type!r}"
+        )
+    return (
+        placement.pin(NPN_COLLECTOR_OFFSET),
+        placement.pin(NPN_BASE_OFFSET),
+        placement.pin(NPN_EMITTER_OFFSET),
+    )
+
+
+def mosfet_pins(placement: SymbolPlacement) -> tuple[Point, Point, Point]:
+    """Return ``(drain, gate, source)`` of an NMOS/PMOS placement.
+
+    The bulk pin is internal to the standard LTspice symbols and is
+    wired automatically by the simulator; the deterministic layout
+    ignores it.
+    """
+    if placement.symbol_type not in {"nmos", "pmos"}:
+        raise ValueError(
+            f"mosfet_pins() requires nmos/pmos, got {placement.symbol_type!r}"
+        )
+    return (
+        placement.pin(NMOS_DRAIN_OFFSET),
+        placement.pin(NMOS_GATE_OFFSET),
+        placement.pin(NMOS_SOURCE_OFFSET),
+    )
+
+
+def opamp_pins(placement: SymbolPlacement) -> tuple[Point, Point, Point, Point, Point]:
+    """Return ``(in+, in-, v+, v-, out)`` of an opamp placement.
+
+    ``v+`` is typically drawn at the top, ``v-`` at the bottom. The
+    placement order matches the IR convention: ``nodes = [in+, in-, v+, v-, out]``.
+    """
+    if placement.symbol_type != "opamp":
+        raise ValueError(
+            f"opamp_pins() requires opamp, got {placement.symbol_type!r}"
+        )
+    return (
+        placement.pin(OPAMP_IN_PLUS_OFFSET),
+        placement.pin(OPAMP_IN_MINUS_OFFSET),
+        placement.pin(OPAMP_OUT_OFFSET),
+        # v+ and v- are drawn at the top-right and bottom-right of the
+        # symbol box. Use the same y as out for symmetry.
+        placement.pin((96, 16)),
+        placement.pin((96, 96)),
+    )
+
+
 def rect_overlaps(
     a_anchor: Point,
     a_size: tuple[int, int],
@@ -257,6 +358,15 @@ def symbol_bounding_box(placement: SymbolPlacement) -> tuple[Point, tuple[int, i
         width = 32
         # Pins at (16, 0) and (16, 64); visible body y=0 to y=64.
         return placement.anchor, (width, 64)
+    if placement.symbol_type == "diode":
+        # Pins at (16, 0) and (16, 64); body same width as cap.
+        return placement.anchor, (32, 64)
+    if placement.symbol_type in {"npn", "pnp", "nmos", "pmos"}:
+        # Pins span (0, 0) to (16, 64); standard 32x64 box.
+        return placement.anchor, (32, 64)
+    if placement.symbol_type == "opamp":
+        # Pins at (0, 16) and (96, 56); wide triangle.
+        return placement.anchor, (96, 80)
     # Default conservative box for unknown symbol types.
     return placement.anchor, (32, 96)
 
@@ -332,11 +442,22 @@ def pairwise(items: Iterable[_T]) -> list[tuple[_T, _T]]:
 __all__ = [
     "CAPACITOR_A_OFFSET",
     "CAPACITOR_B_OFFSET",
+    "DIODE_A_OFFSET",
+    "DIODE_K_OFFSET",
     "GRID_X",
     "GRID_Y",
     "GROUND_Y",
     "INPUT_X",
     "MAIN_Y",
+    "NMOS_DRAIN_OFFSET",
+    "NMOS_GATE_OFFSET",
+    "NMOS_SOURCE_OFFSET",
+    "NPN_BASE_OFFSET",
+    "NPN_COLLECTOR_OFFSET",
+    "NPN_EMITTER_OFFSET",
+    "OPAMP_IN_MINUS_OFFSET",
+    "OPAMP_IN_PLUS_OFFSET",
+    "OPAMP_OUT_OFFSET",
     "OUT_Y",
     "RESISTOR_A_OFFSET",
     "RESISTOR_B_OFFSET",
@@ -347,8 +468,12 @@ __all__ = [
     "VOLTAGE_PLUS_OFFSET",
     "Point",
     "SymbolPlacement",
+    "bjt_pins",
     "capacitor_pins",
+    "diode_pins",
     "minus_pin",
+    "mosfet_pins",
+    "opamp_pins",
     "pairwise",
     "plus_pin",
     "rect_overlaps",

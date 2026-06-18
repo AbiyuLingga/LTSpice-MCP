@@ -1235,12 +1235,12 @@ def write_index(templates_dir: str | Path) -> Path:
 
 
 def _default_seeds() -> list[TemplateManifest]:
-    """Return the three MVP topology templates baked into the library.
+    """Return the official template library.
 
-    These are the "official" templates Phase 6 ships with. They mirror
-    the example IR files in ``examples/`` but live inside the templates
-    directory and carry the additional metadata required by
-    :class:`TemplateManifest`.
+    These are the "official" templates ltagent ships with. They
+    mirror the example IR files in ``examples/`` but live inside
+    the templates directory and carry the additional metadata
+    required by :class:`TemplateManifest`.
     """
     today = _today()
     return [
@@ -1323,6 +1323,193 @@ def _default_seeds() -> list[TemplateManifest]:
             },
             formula={"cutoffFrequency": "fc = 1 / (2*pi*R*C)"},
             layoutScore=92,
+            simulationVerified=True,
+            useCount=0,
+            createdAt=today,
+            updatedAt=today,
+        ),
+        # Phase 11: seven hand-crafted analog official templates.
+        TemplateManifest(
+            templateId="inverting_opamp",
+            schemaVersion=TEMPLATES_SCHEMA_VERSION,
+            name="Inverting Op-Amp",
+            topology="inverting_opamp",
+            status=TemplateStatus.OFFICIAL,
+            tags=("opamp", "analog", "inverting"),
+            description=(
+                "Inverting op-amp with Rin, Rfb. Closed-loop gain = -Rfb/Rin."
+            ),
+            files={"ir": "template.ir.json"},
+            parameters={
+                "R1": TemplateParameter(
+                    description="Input resistor Rin",
+                    default="10k",
+                ),
+                "R2": TemplateParameter(
+                    description="Feedback resistor Rfb",
+                    default="100k",
+                ),
+            },
+            formula={"gain": "A = -Rfb / Rin"},
+            layoutScore=90,
+            simulationVerified=True,
+            useCount=0,
+            createdAt=today,
+            updatedAt=today,
+        ),
+        TemplateManifest(
+            templateId="noninv_opamp",
+            schemaVersion=TEMPLATES_SCHEMA_VERSION,
+            name="Non-Inverting Op-Amp",
+            topology="noninv_opamp",
+            status=TemplateStatus.OFFICIAL,
+            tags=("opamp", "analog", "noninverting"),
+            description=(
+                "Non-inverting op-amp. Gain = 1 + Rfb / Rg."
+            ),
+            files={"ir": "template.ir.json"},
+            parameters={
+                "R1": TemplateParameter(
+                    description="Input resistor Rg",
+                    default="10k",
+                ),
+                "R2": TemplateParameter(
+                    description="Feedback resistor Rfb",
+                    default="100k",
+                ),
+            },
+            formula={"gain": "A = 1 + Rfb / Rg"},
+            layoutScore=95,
+            simulationVerified=True,
+            useCount=0,
+            createdAt=today,
+            updatedAt=today,
+        ),
+        TemplateManifest(
+            templateId="comparator",
+            schemaVersion=TEMPLATES_SCHEMA_VERSION,
+            name="Open-Loop Comparator",
+            topology="comparator",
+            status=TemplateStatus.OFFICIAL,
+            tags=("opamp", "analog", "comparator"),
+            description=(
+                "Open-loop comparator: drives the output high or low "
+                "depending on which input is larger."
+            ),
+            files={"ir": "template.ir.json"},
+            parameters={
+                "R1": TemplateParameter(
+                    description="Input series resistor",
+                    default="1k",
+                ),
+            },
+            formula={},
+            layoutScore=95,
+            simulationVerified=True,
+            useCount=0,
+            createdAt=today,
+            updatedAt=today,
+        ),
+        TemplateManifest(
+            templateId="diode_clipper",
+            schemaVersion=TEMPLATES_SCHEMA_VERSION,
+            name="Diode Clipper",
+            topology="diode_clipper",
+            status=TemplateStatus.OFFICIAL,
+            tags=("diode", "analog", "clipper"),
+            description=(
+                "Series resistor + diode pair clamps the output to "
+                "+/-Vforward around 0.7V."
+            ),
+            files={"ir": "template.ir.json"},
+            parameters={
+                "R1": TemplateParameter(
+                    description="Series input resistor",
+                    default="1k",
+                ),
+            },
+            formula={},
+            layoutScore=100,
+            simulationVerified=True,
+            useCount=0,
+            createdAt=today,
+            updatedAt=today,
+        ),
+        TemplateManifest(
+            templateId="halfwave_rectifier",
+            schemaVersion=TEMPLATES_SCHEMA_VERSION,
+            name="Half-Wave Rectifier",
+            topology="halfwave_rectifier",
+            status=TemplateStatus.OFFICIAL,
+            tags=("diode", "rectifier", "halfwave"),
+            description=(
+                "Half-wave rectifier: a single series diode passes only "
+                "the positive half of the AC input to the load."
+            ),
+            files={"ir": "template.ir.json"},
+            parameters={
+                "R1": TemplateParameter(
+                    description="Load resistor",
+                    default="1k",
+                ),
+            },
+            formula={},
+            layoutScore=100,
+            simulationVerified=True,
+            useCount=0,
+            createdAt=today,
+            updatedAt=today,
+        ),
+        TemplateManifest(
+            templateId="bridge_rectifier",
+            schemaVersion=TEMPLATES_SCHEMA_VERSION,
+            name="Bridge Rectifier",
+            topology="bridge_rectifier",
+            status=TemplateStatus.OFFICIAL,
+            tags=("diode", "rectifier", "bridge"),
+            description=(
+                "Full-wave bridge rectifier: four diodes form a "
+                "diamond; the load sees both halves of the AC cycle."
+            ),
+            files={"ir": "template.ir.json"},
+            parameters={
+                "R1": TemplateParameter(
+                    description="Load resistor",
+                    default="1k",
+                ),
+            },
+            formula={},
+            layoutScore=85,
+            simulationVerified=True,
+            useCount=0,
+            createdAt=today,
+            updatedAt=today,
+        ),
+        TemplateManifest(
+            templateId="transistor_switch",
+            schemaVersion=TEMPLATES_SCHEMA_VERSION,
+            name="NPN Low-Side Switch",
+            topology="transistor_switch",
+            status=TemplateStatus.OFFICIAL,
+            tags=("bjt", "switch", "npn"),
+            description=(
+                "NPN low-side switch: base resistor drives the base; "
+                "the load on Vcc is pulled low when the transistor "
+                "saturates."
+            ),
+            files={"ir": "template.ir.json"},
+            parameters={
+                "Rb": TemplateParameter(
+                    description="Base series resistor",
+                    default="10k",
+                ),
+                "Rl": TemplateParameter(
+                    description="Collector load resistor",
+                    default="1k",
+                ),
+            },
+            formula={},
+            layoutScore=85,
             simulationVerified=True,
             useCount=0,
             createdAt=today,
@@ -1460,6 +1647,238 @@ def _ir_payload_for_seed(seed: TemplateManifest) -> dict[str, Any]:
             "probes": ["V(in)", "V(out)"],
             "metadata": {"createdBy": "ltagent", "source": "seed"},
         }
+    if seed.topology == "inverting_opamp":
+        return {
+            "schemaVersion": "0.1",
+            "name": seed.templateId,
+            "topology": "inverting_opamp",
+            "description": "Inverting op-amp (seed IR).",
+            "nodes": ["in", "out", "vfb", "vcc", "vee", "0"],
+            "components": [
+                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["in", "0"], "value": "SINE(0 0.5 1k)", "role": "input"},
+                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["vcc", "0"], "value": "DC 12", "role": "supply_positive"},
+                {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["vee", "0"], "value": "DC -12", "role": "supply_negative"},
+                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["in", "vfb"], "value": "10k", "role": "input_resistor"},
+                {"id": "R2", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["vfb", "out"], "value": "100k", "role": "feedback_resistor"},
+                {"id": "U1", "kind": "opamp", "spicePrefix": "X",
+                 "nodes": ["in", "vfb", "vcc", "vee", "out"],
+                 "value": "UniversalOpamp", "role": "opamp"},
+            ],
+            "subcircuits": [
+                {
+                    "name": "UniversalOpamp",
+                    "nodes": ["in+", "in-", "v+", "v-", "out"],
+                    "body": [
+                        "G1 0 out in+ in- 100k",
+                        "E1 out 0 in+ in- 1",
+                    ],
+                },
+            ],
+            "analysis": [{"kind": "tran", "stopTime": "5m"}],
+            "measurements": [
+                {"name": "VOUT_MAX", "analysis": "tran", "expression": "MAX V(out)"},
+                {"name": "VOUT_MIN", "analysis": "tran", "expression": "MIN V(out)"},
+            ],
+            "probes": ["V(in)", "V(out)"],
+            "metadata": {"createdBy": "ltagent", "source": "seed"},
+        }
+    if seed.topology == "noninv_opamp":
+        return {
+            "schemaVersion": "0.1",
+            "name": seed.templateId,
+            "topology": "noninv_opamp",
+            "description": "Non-inverting op-amp (seed IR).",
+            "nodes": ["in", "out", "vfb", "vcc", "vee", "0"],
+            "components": [
+                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["in", "0"], "value": "SINE(0 0.5 1k)"},
+                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["vcc", "0"], "value": "DC 12"},
+                {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["vee", "0"], "value": "DC -12"},
+                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["in", "vfb"], "value": "10k", "role": "input_resistor"},
+                {"id": "R2", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["vfb", "0"], "value": "10k", "role": "ground_resistor"},
+                {"id": "U1", "kind": "opamp", "spicePrefix": "X",
+                 "nodes": ["vfb", "0", "vcc", "vee", "out"],
+                 "value": "UniversalOpamp"},
+            ],
+            "subcircuits": [
+                {
+                    "name": "UniversalOpamp",
+                    "nodes": ["in+", "in-", "v+", "v-", "out"],
+                    "body": [
+                        "G1 0 out in+ in- 100k",
+                        "E1 out 0 in+ in- 1",
+                    ],
+                },
+            ],
+            "analysis": [{"kind": "tran", "stopTime": "5m"}],
+            "measurements": [
+                {"name": "VOUT_MAX", "analysis": "tran", "expression": "MAX V(out)"},
+            ],
+            "probes": ["V(in)", "V(out)"],
+            "metadata": {"createdBy": "ltagent", "source": "seed"},
+        }
+    if seed.topology == "comparator":
+        return {
+            "schemaVersion": "0.1",
+            "name": seed.templateId,
+            "topology": "comparator",
+            "description": "Open-loop comparator (seed IR).",
+            "nodes": ["in", "out", "vcc", "vee", "0"],
+            "components": [
+                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["in", "0"], "value": "SINE(0 1 1k)"},
+                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["vcc", "0"], "value": "DC 5"},
+                {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["vee", "0"], "value": "DC 0"},
+                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["in", "vcc"], "value": "1k"},
+                {"id": "U1", "kind": "opamp", "spicePrefix": "X",
+                 "nodes": ["vcc", "vee", "vcc", "vee", "out"],
+                 "value": "UniversalOpamp"},
+            ],
+            "subcircuits": [
+                {
+                    "name": "UniversalOpamp",
+                    "nodes": ["in+", "in-", "v+", "v-", "out"],
+                    "body": [
+                        "G1 0 out in+ in- 100k",
+                        "E1 out 0 in+ in- 1",
+                    ],
+                },
+            ],
+            "analysis": [{"kind": "tran", "stopTime": "5m"}],
+            "measurements": [
+                {"name": "VOUT_MAX", "analysis": "tran", "expression": "MAX V(out)"},
+                {"name": "VOUT_MIN", "analysis": "tran", "expression": "MIN V(out)"},
+            ],
+            "probes": ["V(in)", "V(out)"],
+            "metadata": {"createdBy": "ltagent", "source": "seed"},
+        }
+    if seed.topology == "diode_clipper":
+        return {
+            "schemaVersion": "0.1",
+            "name": seed.templateId,
+            "topology": "diode_clipper",
+            "description": "Diode clipper (seed IR).",
+            "nodes": ["in", "out", "high", "low", "0"],
+            "components": [
+                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
+                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["in", "out"], "value": "1k"},
+                {"id": "D1", "kind": "diode", "spicePrefix": "D",
+                 "nodes": ["out", "high"], "value": "1N4148"},
+                {"id": "D2", "kind": "diode", "spicePrefix": "D",
+                 "nodes": ["low", "out"], "value": "1N4148"},
+            ],
+            "models": [
+                {"name": "1N4148", "type": "D", "params": ["IS=2.55e-9", "RS=0.5"]},
+            ],
+            "analysis": [{"kind": "tran", "stopTime": "5m"}],
+            "measurements": [
+                {"name": "VOUT_MAX", "analysis": "tran", "expression": "MAX V(out)"},
+                {"name": "VOUT_MIN", "analysis": "tran", "expression": "MIN V(out)"},
+            ],
+            "probes": ["V(in)", "V(out)"],
+            "metadata": {"createdBy": "ltagent", "source": "seed"},
+        }
+    if seed.topology == "halfwave_rectifier":
+        return {
+            "schemaVersion": "0.1",
+            "name": seed.templateId,
+            "topology": "halfwave_rectifier",
+            "description": "Half-wave rectifier (seed IR).",
+            "nodes": ["in", "out", "0"],
+            "components": [
+                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
+                {"id": "D1", "kind": "diode", "spicePrefix": "D",
+                 "nodes": ["in", "out"], "value": "1N4148"},
+                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["out", "0"], "value": "1k"},
+            ],
+            "models": [
+                {"name": "1N4148", "type": "D", "params": ["IS=2.55e-9", "RS=0.5"]},
+            ],
+            "analysis": [{"kind": "tran", "stopTime": "5m"}],
+            "measurements": [
+                {"name": "VOUT_MAX", "analysis": "tran", "expression": "MAX V(out)"},
+            ],
+            "probes": ["V(in)", "V(out)"],
+            "metadata": {"createdBy": "ltagent", "source": "seed"},
+        }
+    if seed.topology == "bridge_rectifier":
+        return {
+            "schemaVersion": "0.1",
+            "name": seed.templateId,
+            "topology": "bridge_rectifier",
+            "description": "Full-wave bridge rectifier (seed IR).",
+            "nodes": ["in", "out", "0"],
+            "components": [
+                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
+                {"id": "D1", "kind": "diode", "spicePrefix": "D",
+                 "nodes": ["in", "out"], "value": "1N4148"},
+                {"id": "D2", "kind": "diode", "spicePrefix": "D",
+                 "nodes": ["out", "in"], "value": "1N4148"},
+                {"id": "D3", "kind": "diode", "spicePrefix": "D",
+                 "nodes": ["0", "out"], "value": "1N4148"},
+                {"id": "D4", "kind": "diode", "spicePrefix": "D",
+                 "nodes": ["out", "0"], "value": "1N4148"},
+                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["out", "0"], "value": "1k"},
+            ],
+            "models": [
+                {"name": "1N4148", "type": "D", "params": ["IS=2.55e-9", "RS=0.5"]},
+            ],
+            "analysis": [{"kind": "tran", "stopTime": "5m"}],
+            "measurements": [
+                {"name": "VOUT_MAX", "analysis": "tran", "expression": "MAX V(out)"},
+                {"name": "VOUT_AVG", "analysis": "tran", "expression": "AVG V(out)"},
+            ],
+            "probes": ["V(in)", "V(out)"],
+            "metadata": {"createdBy": "ltagent", "source": "seed"},
+        }
+    if seed.topology == "transistor_switch":
+        return {
+            "schemaVersion": "0.1",
+            "name": seed.templateId,
+            "topology": "transistor_switch",
+            "description": "NPN low-side switch (seed IR).",
+            "nodes": ["in", "base", "vcc", "out", "0"],
+            "components": [
+                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["in", "0"], "value": "PULSE(0 5 0 1n 1n 1m 2m)"},
+                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
+                 "nodes": ["vcc", "0"], "value": "DC 12"},
+                {"id": "Rb", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["in", "base"], "value": "10k"},
+                {"id": "Rl", "kind": "resistor", "spicePrefix": "R",
+                 "nodes": ["vcc", "out"], "value": "1k"},
+                {"id": "Q1", "kind": "npn", "spicePrefix": "Q",
+                 "nodes": ["out", "base", "0"], "value": "BC547"},
+            ],
+            "models": [
+                {"name": "BC547", "type": "NPN", "params": ["BF=400", "VAF=80"]},
+            ],
+            "analysis": [{"kind": "tran", "stopTime": "5m"}],
+            "measurements": [
+                {"name": "VOUT_MAX", "analysis": "tran", "expression": "MAX V(out)"},
+                {"name": "VOUT_MIN", "analysis": "tran", "expression": "MIN V(out)"},
+            ],
+            "probes": ["V(in)", "V(out)"],
+            "metadata": {"createdBy": "ltagent", "source": "seed"},
+        }
     raise TemplateError(
         ERR_TEMPLATE_TOPOLOGY_UNSUPPORTED,
         f"no seed IR for topology {seed.topology!r}",
@@ -1468,10 +1887,13 @@ def _ir_payload_for_seed(seed: TemplateManifest) -> dict[str, Any]:
 
 
 def seed_default_templates(templates_dir: str | Path) -> list[TemplateManifest]:
-    """Idempotently install the three MVP topology templates.
+    """Idempotently install the official template library.
 
-    Existing templates are not overwritten; only missing ones are
-    written. The index is refreshed.
+    Phase 0/6/8 shipped three MVP templates (voltage_divider,
+    rc_lowpass, rc_highpass). Phase 11 extends the library with
+    seven hand-crafted analog templates. Existing templates are
+    not overwritten; only missing ones are written. The index is
+    refreshed.
     """
     root = _ensure_root(templates_dir)
     written: list[TemplateManifest] = []

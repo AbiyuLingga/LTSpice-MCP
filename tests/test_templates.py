@@ -177,11 +177,22 @@ def test_status_from_str_rejects_unknown() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_seed_creates_three_official_templates(seeded_templates: Path) -> None:
+def test_seed_creates_ten_official_templates(seeded_templates: Path) -> None:
     items = list_templates(seeded_templates)
-    assert len(items) == 3
+    assert len(items) == 10
     ids = {m.templateId for m in items}
-    assert ids == {"voltage_divider", "rc_lowpass", "rc_highpass"}
+    # Phase 0/6/8 trio.
+    assert {"voltage_divider", "rc_lowpass", "rc_highpass"} <= ids
+    # Phase 11 analog set.
+    assert {
+        "inverting_opamp",
+        "noninv_opamp",
+        "comparator",
+        "diode_clipper",
+        "halfwave_rectifier",
+        "bridge_rectifier",
+        "transistor_switch",
+    } <= ids
     assert all(m.status == TemplateStatus.OFFICIAL for m in items)
 
 
@@ -203,6 +214,13 @@ def test_seed_writes_index(seeded_templates: Path) -> None:
         "voltage_divider",
         "rc_lowpass",
         "rc_highpass",
+        "inverting_opamp",
+        "noninv_opamp",
+        "comparator",
+        "diode_clipper",
+        "halfwave_rectifier",
+        "bridge_rectifier",
+        "transistor_switch",
     }
 
 
@@ -210,7 +228,7 @@ def test_seed_is_idempotent(seeded_templates: Path) -> None:
     written = seed_default_templates(seeded_templates)
     assert written == []
     items = list_templates(seeded_templates)
-    assert len(items) == 3
+    assert len(items) == 10
 
 
 # ---------------------------------------------------------------------------
@@ -224,6 +242,13 @@ def test_list_filters_by_status(seeded_templates: Path) -> None:
         "voltage_divider",
         "rc_lowpass",
         "rc_highpass",
+        "inverting_opamp",
+        "noninv_opamp",
+        "comparator",
+        "diode_clipper",
+        "halfwave_rectifier",
+        "bridge_rectifier",
+        "transistor_switch",
     }
     candidates = list_templates(seeded_templates, status=TemplateStatus.CANDIDATE)
     assert candidates == []
@@ -231,7 +256,7 @@ def test_list_filters_by_status(seeded_templates: Path) -> None:
 
 def test_list_accepts_string_status(seeded_templates: Path) -> None:
     items = list_templates(seeded_templates, status="official")
-    assert len(items) == 3
+    assert len(items) == 10
 
 
 def test_list_creates_missing_dirs(tmp_path: Path) -> None:
@@ -718,7 +743,7 @@ def test_audit_reports_clean_state(seeded_templates: Path) -> None:
     report = audit_templates(seeded_templates)
     assert isinstance(report, AuditReport)
     d = report.to_dict()
-    assert d["counts"]["official"] == 3
+    assert d["counts"]["official"] == 10
     assert d["counts"]["candidates"] == 0
     assert d["counts"]["rejected"] == 0
     assert d["duplicates"] == []
@@ -846,6 +871,13 @@ def test_write_index_round_trip(seeded_templates: Path) -> None:
         "voltage_divider",
         "rc_lowpass",
         "rc_highpass",
+        "inverting_opamp",
+        "noninv_opamp",
+        "comparator",
+        "diode_clipper",
+        "halfwave_rectifier",
+        "bridge_rectifier",
+        "transistor_switch",
     }
 
 

@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "0.1",
+  "name": "bridge_rectifier_example",
+  "topology": "bridge_rectifier",
+  "description": "Full-wave bridge rectifier (seed IR).",
+  "nodes": [
+    "in",
+    "out",
+    "0"
+  ],
+  "components": [
+    {
+      "id": "Vin",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "in",
+        "0"
+      ],
+      "value": "SINE(0 5 1k)"
+    },
+    {
+      "id": "D1",
+      "kind": "diode",
+      "spicePrefix": "D",
+      "nodes": [
+        "in",
+        "out"
+      ],
+      "value": "1N4148"
+    },
+    {
+      "id": "D2",
+      "kind": "diode",
+      "spicePrefix": "D",
+      "nodes": [
+        "out",
+        "in"
+      ],
+      "value": "1N4148"
+    },
+    {
+      "id": "D3",
+      "kind": "diode",
+      "spicePrefix": "D",
+      "nodes": [
+        "0",
+        "out"
+      ],
+      "value": "1N4148"
+    },
+    {
+      "id": "D4",
+      "kind": "diode",
+      "spicePrefix": "D",
+      "nodes": [
+        "out",
+        "0"
+      ],
+      "value": "1N4148"
+    },
+    {
+      "id": "R1",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": [
+        "out",
+        "0"
+      ],
+      "value": "1k"
+    }
+  ],
+  "models": [
+    {
+      "name": "1N4148",
+      "type": "D",
+      "params": [
+        "IS=2.55e-9",
+        "RS=0.5"
+      ]
+    }
+  ],
+  "analysis": [
+    {
+      "kind": "tran",
+      "stopTime": "5m"
+    }
+  ],
+  "measurements": [
+    {
+      "name": "VOUT_MAX",
+      "analysis": "tran",
+      "expression": "MAX V(out)"
+    },
+    {
+      "name": "VOUT_AVG",
+      "analysis": "tran",
+      "expression": "AVG V(out)"
+    }
+  ],
+  "probes": [
+    "V(in)",
+    "V(out)"
+  ],
+  "metadata": {
+    "createdBy": "ltagent",
+    "source": "seed"
+  }
+}

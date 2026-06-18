@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "0.1",
+  "name": "comparator_example",
+  "topology": "comparator",
+  "description": "Open-loop comparator (seed IR).",
+  "nodes": [
+    "in",
+    "out",
+    "vcc",
+    "vee",
+    "0"
+  ],
+  "components": [
+    {
+      "id": "Vin",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "in",
+        "0"
+      ],
+      "value": "SINE(0 1 1k)"
+    },
+    {
+      "id": "Vcc",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "vcc",
+        "0"
+      ],
+      "value": "DC 5"
+    },
+    {
+      "id": "Vee",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "vee",
+        "0"
+      ],
+      "value": "DC 0"
+    },
+    {
+      "id": "R1",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": [
+        "in",
+        "vcc"
+      ],
+      "value": "1k"
+    },
+    {
+      "id": "U1",
+      "kind": "opamp",
+      "spicePrefix": "X",
+      "nodes": [
+        "vcc",
+        "vee",
+        "vcc",
+        "vee",
+        "out"
+      ],
+      "value": "UniversalOpamp"
+    }
+  ],
+  "subcircuits": [
+    {
+      "name": "UniversalOpamp",
+      "nodes": [
+        "in+",
+        "in-",
+        "v+",
+        "v-",
+        "out"
+      ],
+      "body": [
+        "G1 0 out in+ in- 100k",
+        "E1 out 0 in+ in- 1"
+      ]
+    }
+  ],
+  "analysis": [
+    {
+      "kind": "tran",
+      "stopTime": "5m"
+    }
+  ],
+  "measurements": [
+    {
+      "name": "VOUT_MAX",
+      "analysis": "tran",
+      "expression": "MAX V(out)"
+    },
+    {
+      "name": "VOUT_MIN",
+      "analysis": "tran",
+      "expression": "MIN V(out)"
+    }
+  ],
+  "probes": [
+    "V(in)",
+    "V(out)"
+  ],
+  "metadata": {
+    "createdBy": "ltagent",
+    "source": "seed"
+  }
+}

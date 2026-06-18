@@ -6,13 +6,18 @@ coding agents (Codex, Claude Code, OpenCode, Cursor, Cline) and
 humans who want repeatable LTspice workflows without trusting an LLM
 to edit `.asc` files directly.
 
-> **Status:** Phase 10 (MCP Server v1) complete. The CLI covers the
-> full project workflow (Phases 0-9); the `ltagent-mcp` stdio server
-> exposes 10 curated tools and 8 curated resources backed by the same
-> Python core. See [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) for
-> the full plan.
+> **Status:** Phase 11 (Advanced Analog Templates) complete. The CLI
+> covers the full project workflow (Phases 0-9); the `ltagent-mcp`
+> stdio server exposes 10 curated tools and 8 curated resources
+> (Phase 10); the Circuit IR supports 6 new component kinds
+> (diode, BJT, MOSFET, opamp) and 7 new analog topologies
+> (inverting_opamp, noninv_opamp, comparator, diode_clipper,
+> halfwave_rectifier, bridge_rectifier, transistor_switch) with
+> hand-crafted official templates and deterministic .asc layouts
+> (Phase 11). See [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md)
+> for the full plan.
 
-## What works in Phase 10
+## What works in Phase 11
 
 - **Phase 0** &mdash; `ltagent --version`, `ltagent doctor [--json]
   [--simulate]`, `ltagent init [DIR]`, `ltagent config show|validate`
@@ -34,6 +39,12 @@ to edit `.asc` files directly.
 - **Phase 10** &mdash; stdio MCP server (`ltagent-mcp`) with 10 tools
   + 8 resources; same Python core, no `run_shell`, no `.raw`
   exposure, structured JSON contract on every call
+- **Phase 11** &mdash; 6 new component kinds (D / Q / M / X), 7 new
+  analog topologies, 7 new hand-crafted official templates, 10
+  total official templates. The netlist generator emits `.model`
+  and `.subckt` blocks from the structured IR; the .asc writer
+  has deterministic per-topology placers for every Phase 11
+  topology.
 - Structured JSON output contract for every command
 - Centralised path / URI / slug validators in `ltagent.security`,
   shared by CLI and MCP
@@ -87,13 +98,18 @@ ltagent config validate --json
 
 # Validate a Circuit IR
 ltagent ir validate examples/rc_lowpass.ir.json --json
+ltagent ir validate examples/inverting_opamp.ir.json --json
+ltagent ir validate examples/halfwave_rectifier.ir.json --json
 
 # Render a netlist + schematic
 ltagent netlist examples/rc_lowpass.ir.json --out projects/demo/circuit.cir --json
 ltagent asc     examples/rc_lowpass.ir.json --out projects/demo/circuit.asc --json
+ltagent netlist examples/inverting_opamp.ir.json --out projects/opamp/circuit.cir --json
+ltagent asc     examples/inverting_opamp.ir.json --out projects/opamp/circuit.asc --json
 
 # Create a full project from an IR file or a prompt
 ltagent create examples/rc_lowpass.ir.json --run --json
+ltagent create examples/inverting_opamp.ir.json --run --json
 ltagent create "make RC low pass cutoff 1kHz" --json
 
 # Templates

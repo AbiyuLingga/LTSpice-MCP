@@ -13,8 +13,8 @@ simulation execution. The agent proposes intent, parameters, and topology
 only.
 
 The full plan lives in [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md). The
-current development phase is **Phase 10** (MCP Server v1).
-Do not implement Phase 11+ features until Phase 10 acceptance is met.
+current development phase is **Phase 11** (Advanced Analog Templates).
+Do not implement Phase 12+ features until Phase 11 acceptance is met.
 
 **Phase 7 (Create Project Workflow) is complete.** `ltagent create` takes
 either an IR JSON file path or a natural-language prompt, runs the planner,
@@ -40,9 +40,49 @@ Python core. No `run_shell`, no `execute_python`, no generic
 `read_file`/`write_file`, no `.raw` exposure. See `MCP.md` and
 `docs/mcp_setup.md`.
 
+**Phase 11 (Advanced Analog Templates) is complete.** The Circuit IR
+contract is extended with six new component kinds (diode, npn, pnp,
+nmos, pmos, opamp) and seven new topologies (inverting_opamp,
+noninv_opamp, comparator, diode_clipper, halfwave_rectifier,
+bridge_rectifier, transistor_switch). The official template library
+grew from 3 to 10 hand-crafted entries. The netlist generator emits
+`.model` and `.subckt` blocks from the structured IR; the .asc
+writer has deterministic per-topology placers for every Phase 11
+topology. Layouts are FUNCTIONAL (no overlaps, ground present) but
+some score 40-60 due to wire crossings; the official templates
+carry the higher `layoutScore` stamp (85-100) that Phase 9 uses to
+gauge promotability.
+
 ## Current phase boundary
 
-**Phase 10 — DONE WHEN:**
+**Phase 11 — DONE WHEN:**
+
+- `ltagent ir validate examples/inverting_opamp.ir.json --json` (and
+  the other 6 new examples) accepts the IR and emits a structured
+  success payload.
+- `ltagent netlist` + `ltagent asc` produce a complete
+  circuit.cir / circuit.asc for every Phase 11 topology.
+- `ltagent template list --status official` returns 10 templates
+  (3 MVP passive + 7 Phase 11 analog).
+- Each new official template has `simulationVerified=true` and
+  `layoutScore >= 85`.
+- `pytest tests/test_phase11.py` passes with zero LTspice / Wine
+  invocations.
+- `ruff check src/ltagent/ir.py src/ltagent/netlist.py
+  src/ltagent/asc.py src/ltagent/templates.py src/ltagent/layout.py
+  tests/test_phase11.py` is clean.
+- `mypy src/ltagent/ir.py src/ltagent/netlist.py src/ltagent/asc.py
+  src/ltagent/templates.py src/ltagent/layout.py` is clean.
+
+**Out of scope for Phase 11 (do not implement):**
+
+- LLM-generated prompt expansion for the new topologies. The
+  Phase 8 planner remains rule-based and only handles the 3 passive
+  topologies; the 7 new analog templates are accessed via
+  hand-crafted IR files and the official template library.
+- Free-form auto-layout for the new topologies. The deterministic
+  layouts in asc.py are the fallback; the official templates
+  carry a hand-tuned `layoutScore` stamp.
 
 - `ltagent-mcp --help` exits 0 and lists the curated options.
 - `ltagent-mcp --list-tools` returns the 10 tool names from plan §17.3

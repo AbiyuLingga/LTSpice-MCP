@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "0.1",
+  "name": "inverting_opamp_example",
+  "topology": "inverting_opamp",
+  "description": "Inverting op-amp (seed IR).",
+  "nodes": [
+    "in",
+    "out",
+    "vfb",
+    "vcc",
+    "vee",
+    "0"
+  ],
+  "components": [
+    {
+      "id": "Vin",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "in",
+        "0"
+      ],
+      "value": "SINE(0 0.5 1k)",
+      "role": "input"
+    },
+    {
+      "id": "Vcc",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "vcc",
+        "0"
+      ],
+      "value": "DC 12",
+      "role": "supply_positive"
+    },
+    {
+      "id": "Vee",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "vee",
+        "0"
+      ],
+      "value": "DC -12",
+      "role": "supply_negative"
+    },
+    {
+      "id": "R1",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": [
+        "in",
+        "vfb"
+      ],
+      "value": "10k",
+      "role": "input_resistor"
+    },
+    {
+      "id": "R2",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": [
+        "vfb",
+        "out"
+      ],
+      "value": "100k",
+      "role": "feedback_resistor"
+    },
+    {
+      "id": "U1",
+      "kind": "opamp",
+      "spicePrefix": "X",
+      "nodes": [
+        "in",
+        "vfb",
+        "vcc",
+        "vee",
+        "out"
+      ],
+      "value": "UniversalOpamp",
+      "role": "opamp"
+    }
+  ],
+  "subcircuits": [
+    {
+      "name": "UniversalOpamp",
+      "nodes": [
+        "in+",
+        "in-",
+        "v+",
+        "v-",
+        "out"
+      ],
+      "body": [
+        "G1 0 out in+ in- 100k",
+        "E1 out 0 in+ in- 1"
+      ]
+    }
+  ],
+  "analysis": [
+    {
+      "kind": "tran",
+      "stopTime": "5m"
+    }
+  ],
+  "measurements": [
+    {
+      "name": "VOUT_MAX",
+      "analysis": "tran",
+      "expression": "MAX V(out)"
+    },
+    {
+      "name": "VOUT_MIN",
+      "analysis": "tran",
+      "expression": "MIN V(out)"
+    }
+  ],
+  "probes": [
+    "V(in)",
+    "V(out)"
+  ],
+  "metadata": {
+    "createdBy": "ltagent",
+    "source": "seed"
+  }
+}

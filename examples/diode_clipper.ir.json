@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "0.1",
+  "name": "diode_clipper_example",
+  "topology": "diode_clipper",
+  "description": "Diode clipper (seed IR).",
+  "nodes": [
+    "in",
+    "out",
+    "high",
+    "low",
+    "0"
+  ],
+  "components": [
+    {
+      "id": "Vin",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "in",
+        "0"
+      ],
+      "value": "SINE(0 5 1k)"
+    },
+    {
+      "id": "R1",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": [
+        "in",
+        "out"
+      ],
+      "value": "1k"
+    },
+    {
+      "id": "D1",
+      "kind": "diode",
+      "spicePrefix": "D",
+      "nodes": [
+        "out",
+        "high"
+      ],
+      "value": "1N4148"
+    },
+    {
+      "id": "D2",
+      "kind": "diode",
+      "spicePrefix": "D",
+      "nodes": [
+        "low",
+        "out"
+      ],
+      "value": "1N4148"
+    }
+  ],
+  "models": [
+    {
+      "name": "1N4148",
+      "type": "D",
+      "params": [
+        "IS=2.55e-9",
+        "RS=0.5"
+      ]
+    }
+  ],
+  "analysis": [
+    {
+      "kind": "tran",
+      "stopTime": "5m"
+    }
+  ],
+  "measurements": [
+    {
+      "name": "VOUT_MAX",
+      "analysis": "tran",
+      "expression": "MAX V(out)"
+    },
+    {
+      "name": "VOUT_MIN",
+      "analysis": "tran",
+      "expression": "MIN V(out)"
+    }
+  ],
+  "probes": [
+    "V(in)",
+    "V(out)"
+  ],
+  "metadata": {
+    "createdBy": "ltagent",
+    "source": "seed"
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "0.1",
+  "name": "transistor_switch_example",
+  "topology": "transistor_switch",
+  "description": "NPN low-side switch (seed IR).",
+  "nodes": [
+    "in",
+    "base",
+    "vcc",
+    "out",
+    "0"
+  ],
+  "components": [
+    {
+      "id": "Vin",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "in",
+        "0"
+      ],
+      "value": "PULSE(0 5 0 1n 1n 1m 2m)"
+    },
+    {
+      "id": "Vcc",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": [
+        "vcc",
+        "0"
+      ],
+      "value": "DC 12"
+    },
+    {
+      "id": "Rb",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": [
+        "in",
+        "base"
+      ],
+      "value": "10k"
+    },
+    {
+      "id": "Rl",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": [
+        "vcc",
+        "out"
+      ],
+      "value": "1k"
+    },
+    {
+      "id": "Q1",
+      "kind": "npn",
+      "spicePrefix": "Q",
+      "nodes": [
+        "out",
+        "base",
+        "0"
+      ],
+      "value": "BC547"
+    }
+  ],
+  "models": [
+    {
+      "name": "BC547",
+      "type": "NPN",
+      "params": [
+        "BF=400",
+        "VAF=80"
+      ]
+    }
+  ],
+  "analysis": [
+    {
+      "kind": "tran",
+      "stopTime": "5m"
+    }
+  ],
+  "measurements": [
+    {
+      "name": "VOUT_MAX",
+      "analysis": "tran",
+      "expression": "MAX V(out)"
+    },
+    {
+      "name": "VOUT_MIN",
+      "analysis": "tran",
+      "expression": "MIN V(out)"
+    }
+  ],
+  "probes": [
+    "V(in)",
+    "V(out)"
+  ],
+  "metadata": {
+    "createdBy": "ltagent",
+    "source": "seed"
+  }
+}

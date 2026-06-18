@@ -1,10 +1,10 @@
 """Security helpers shared by the CLI and the MCP server.
 
 This module centralises the path-safety and identifier-validation
-helpers that Phase 0–9 inlined inside ``cli.py`` and ``templates.py``.
+helpers that Phase 0-9 inlined inside ``cli.py`` and ``templates.py``.
 Extracting them lets the Phase 10 MCP server reuse the **same**
 guards as the CLI so a path the CLI refuses is also refused by an
-MCP tool call (security.md §2, plan §17.5).
+MCP tool call (security.md section 2, plan section 17.5).
 
 Design rules (plan §18 + security.md):
 

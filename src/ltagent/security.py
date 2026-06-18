@@ -234,20 +234,24 @@ def parse_resource_uri(
 ) -> tuple[str, str, str | None]:
     """Parse an ``ltagent://`` resource URI.
 
-    Returns a 3-tuple ``(kind, identifier, subpath)``:
+    The URI structure is::
 
-    * ``kind`` is one of :data:`ALLOWED_RESOURCE_KINDS` (default).
-    * ``identifier`` is the slug-validated resource id (e.g. project id).
-    * ``subpath`` is the optional resource sub-name (e.g. ``"result"``)
-      or ``None`` for the collection root.
+        ltagent://<kind>             collection root, e.g. ltagent://projects
+        ltagent://<kind>/<id>        single item,    e.g. ltagent://projects/abc
+        ltagent://<kind>/<id>/<sub>  item sub-path,  e.g. ltagent://projects/abc/result
 
-    The identifier is validated against :data:`SLUG_PATTERN`. The
-    subpath is validated against ``allowed_subpaths[kind]`` when
-    provided. Traversal segments (``..``, ``.``, absolute paths) are
-    rejected. Empty identifiers are rejected.
+    The ``kind`` segment comes from the URI netloc. The identifier and
+    optional sub-path come from the path segments. ``<id>`` is validated
+    against :data:`SLUG_PATTERN`. ``<sub>`` is validated against
+    ``allowed_subpaths[kind]`` when provided. Traversal segments
+    (``..``, ``.``, absolute paths) are rejected. Empty identifiers are
+    rejected.
 
-    Raises :class:`ResourceUriError` with one of the stable codes
-    defined above.
+    Returns a 3-tuple ``(kind, identifier, subpath)`` where ``subpath`` is
+    ``None`` for both collection roots and single items.
+
+    Raises :class:`ResourceUriError` with one of the stable codes defined
+    above.
     """
     if not isinstance(uri, str) or not uri:
         raise ResourceUriError(
@@ -272,16 +276,13 @@ def parse_resource_uri(
             {"uri": uri, "scheme": parts.scheme},
         )
 
-    # ``/projects/abc123/result`` -> ["projects", "abc123", "result"]
-    segments = [unquote(seg) for seg in parts.path.split("/") if seg]
-    if not segments:
+    kind = unquote(parts.netloc)
+    if not kind:
         raise ResourceUriError(
             ERR_RESOURCE_URI_INVALID,
             "resource uri is missing a kind segment",
             {"uri": uri},
         )
-
-    kind = segments[0]
     if kind not in allowed_kinds:
         raise ResourceUriError(
             ERR_RESOURCE_KIND_UNKNOWN,
@@ -289,20 +290,19 @@ def parse_resource_uri(
             {"uri": uri, "kind": kind, "allowed": sorted(allowed_kinds)},
         )
 
-    if len(segments) == 1:
+    segments = [unquote(seg) for seg in parts.path.split("/") if seg]
+    if not segments:
         # collection root, e.g. ltagent://projects
-        identifier = ""
+        return kind, "", None
+
+    if len(segments) == 1:
+        identifier = segments[0]
         subpath: str | None = None
-    elif len(segments) == 2:
-        identifier = segments[1]
-        subpath = None
     else:
-        # last segment is the subpath; segments[1..-2] joined with '-' as id
-        identifier = "-".join(segments[1:-1])
+        identifier = "-".join(segments[:-1])
         subpath = segments[-1]
 
-    if identifier:
-        validate_slug(identifier, kind=f"{kind} id")
+    validate_slug(identifier, kind=f"{kind} id")
 
     if subpath is not None and allowed_subpaths is not None:
         allowed_for_kind = allowed_subpaths.get(kind)

@@ -197,11 +197,35 @@ def _to_jsonable(obj: Any) -> Any:
     return obj
 
 
+def _security_boundary(command: str):
+    """Decorator: convert any :class:`SecurityError` raised inside the tool
+    body into the standard JSON error payload.
+
+    This is what guarantees that ``validate_slug`` / ``safe_resolve_under``
+    / ``assert_no_raw_path`` rejections never propagate as raw Python
+    exceptions to MCP clients.
+    """
+
+    def wrap(fn: Callable[..., HandlerResult]) -> Callable[..., HandlerResult]:
+        def inner(*args: Any, **kwargs: Any) -> HandlerResult:
+            try:
+                return fn(*args, **kwargs)
+            except SecurityError as exc:
+                return _from_security_error(command, exc)
+
+        inner.__name__ = fn.__name__
+        inner.__doc__ = fn.__doc__
+        return inner
+
+    return wrap
+
+
 # ---------------------------------------------------------------------------
 # Tool implementations (pure functions - no MCP coupling)
 # ---------------------------------------------------------------------------
 
 
+@_security_boundary('create_project')
 def tool_create_project(
     ir_source: str,
     *,
@@ -276,15 +300,20 @@ def tool_create_project(
             },
         )
 
-    payload = _to_jsonable(pr)
-    if not isinstance(payload, dict):
-        payload = {"result": payload}
-    payload.setdefault("command", "create_project")
-    payload.setdefault("success", True)
-    payload.setdefault("message", f"project created at {payload.get('projectId', target)}")
-    return payload
+    payload_raw = _to_jsonable(pr)
+    payload_dict: dict[str, Any] = payload_raw if isinstance(payload_raw, dict) else {"result": payload_raw}
+    # Separate the standard contract keys from the project's domain payload.
+    contract_keys = {"success", "command", "message", "warnings", "errors"}
+    contract = {k: payload_dict[k] for k in contract_keys if k in payload_dict}
+    data = {k: v for k, v in payload_dict.items() if k not in contract_keys}
+    return _ok(
+        "create_project",
+        contract.get("message") or f"project created at {data.get('projectId', target)}",
+        data,
+    )
 
 
+@_security_boundary('inspect_project')
 def tool_inspect_project(
     project_id: str,
     *,
@@ -352,6 +381,7 @@ def tool_inspect_project(
     )
 
 
+@_security_boundary('generate_netlist')
 def tool_generate_netlist(
     ir_path: str,
     *,
@@ -420,6 +450,7 @@ def tool_generate_netlist(
     )
 
 
+@_security_boundary('generate_schematic')
 def tool_generate_schematic(
     ir_path: str,
     *,
@@ -493,6 +524,7 @@ def tool_generate_schematic(
     )
 
 
+@_security_boundary('run_simulation')
 def tool_run_simulation(
     project_id: str,
     *,
@@ -561,6 +593,7 @@ def tool_run_simulation(
     )
 
 
+@_security_boundary('read_measurements')
 def tool_read_measurements(
     project_id: str,
     *,
@@ -626,6 +659,7 @@ def tool_read_measurements(
     )
 
 
+@_security_boundary('check_layout')
 def tool_check_layout(
     ir_path: str,
     *,
@@ -669,6 +703,7 @@ def tool_check_layout(
     )
 
 
+@_security_boundary('find_template')
 def tool_find_template(
     ir_path: str | None = None,
     *,
@@ -730,6 +765,7 @@ def tool_find_template(
     )
 
 
+@_security_boundary('evaluate_template_candidate')
 def tool_evaluate_template_candidate(
     template_id: str,
     *,
@@ -764,6 +800,7 @@ def tool_evaluate_template_candidate(
     )
 
 
+@_security_boundary('promote_template')
 def tool_promote_template(
     template_id: str,
     *,

@@ -2497,12 +2497,13 @@ def cmd_digital_create(args: argparse.Namespace) -> dict[str, Any]:
         from .digital_generator import generate_project as _gen
 
         gen = _gen(ir, project_dir)
+        # The on-disk dir name is the resource key (ltagent://projects/<name>/...).
         result = type(
             "PR",
             (),
             {
                 "project": gen,
-                "project_id": ir.name,
+                "project_id": project_dir.name,
                 "project_dir": project_dir,
             },
         )()
@@ -2515,30 +2516,30 @@ def cmd_digital_create(args: argparse.Namespace) -> dict[str, Any]:
             name=ir.name, projects_root=projects_root
         )
 
-    try:
-        result = create_project(
-            ProjectRequest(
-                ir=ir,
-                projects_root=projects_root,
-                program_source=None,
-                program=None,
+        try:
+            result = create_project(
+                ProjectRequest(
+                    ir=ir,
+                    projects_root=projects_root,
+                    program_source=None,
+                    program=None,
+                )
             )
-        )
-    except Exception as exc:
-        return {
-            "success": False,
-            "command": "digital.create",
-            "message": f"Failed to create project: {exc}",
-            "data": {"source": source, "projectDir": str(project_dir)},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "PROJECT_CREATE_FAILED",
-                    "detail": str(exc),
-                    "data": {"projectDir": str(project_dir)},
-                }
-            ],
-        }
+        except Exception as exc:
+            return {
+                "success": False,
+                "command": "digital.create",
+                "message": f"Failed to create project: {exc}",
+                "data": {"source": source, "projectDir": str(project_dir)},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "PROJECT_CREATE_FAILED",
+                        "detail": str(exc),
+                        "data": {"projectDir": str(project_dir)},
+                    }
+                ],
+            }
 
     # Phase D will run simulate here if --simulate.
     payload = {

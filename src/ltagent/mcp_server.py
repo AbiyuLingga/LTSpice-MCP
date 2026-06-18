@@ -51,6 +51,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -847,6 +848,208 @@ def tool_promote_template(
 
 
 # ---------------------------------------------------------------------------
+# Phase 12: Tiny8 digital tools
+# ---------------------------------------------------------------------------
+
+
+# Digital project ids are the on-disk directory name. The
+# orchestrator uses ``<date>_<name>`` when no --out is given,
+# but a user-supplied --out can be any safe dir name. The
+# resource handler looks the project up by its dir name on
+# disk under ``projects_root``, so we accept the same shape
+# the analog layer does, plus the date-prefixed form.
+_DIGITAL_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
+
+
+def _validate_digital_project_id(project_id: str) -> str:
+    if not _DIGITAL_PROJECT_ID_RE.match(project_id):
+        raise ValueError(
+            f"project id {project_id!r} must match "
+            f"{_DIGITAL_PROJECT_ID_RE.pattern}"
+        )
+    return project_id
+
+
+def _run_cli(argv: list[str]) -> HandlerResult:
+    """Run a CLI subcommand and translate the JSON contract to
+    an MCP ``HandlerResult``. Used by the Phase 12 tool wrappers
+    so the MCP surface shares the same business logic as the CLI
+    (CLI parity, per the plan's "no business logic in MCP" rule).
+    """
+    import contextlib
+    import io
+
+    from .cli import main as _cli_main
+
+    buf_out = io.StringIO()
+    buf_err = io.StringIO()
+    with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(
+        buf_err
+    ), contextlib.suppress(SystemExit):
+        _cli_main(argv)
+    raw = buf_out.getvalue() or buf_err.getvalue()
+    if not raw:
+        return _err(
+            "ltagent cli",
+            "no JSON output from CLI",
+            "CLI_NO_OUTPUT",
+            "the CLI did not produce a JSON payload",
+            {"argv": argv},
+        )
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _err(
+            "ltagent cli",
+            "non-JSON output from CLI",
+            "CLI_NON_JSON_OUTPUT",
+            str(exc),
+            {"argv": argv, "raw": raw[:1024]},
+        )
+    if payload.get("success"):
+        return _ok(payload.get("command", "ltagent"), payload.get("message", ""), payload.get("data", {}))
+    # The CLI distinguishes refusals (errors[0].code) from
+    # clarifications (warnings[0].code) and roadmaps
+    # (warnings[0].code, data.roadmap=true).
+    errs = payload.get("errors") or []
+    warns = payload.get("warnings") or []
+    if errs:
+        return _err(
+            payload.get("command", "ltagent"),
+            payload.get("message", "command failed"),
+            errs[0].get("code", "CLI_ERROR"),
+            errs[0].get("detail", ""),
+            payload.get("data", {}),
+        )
+    if warns:
+        # Clarification request or roadmap suggestion. Treat as
+        # success=true with the warning surfaced in data.
+        return _ok(
+            payload.get("command", "ltagent"),
+            payload.get("message", ""),
+            {
+                **payload.get("data", {}),
+                "warningCode": warns[0].get("code"),
+                "warningDetail": warns[0].get("detail"),
+            },
+        )
+    return _err(
+        payload.get("command", "ltagent"),
+        payload.get("message", "command failed"),
+        "CLI_ERROR",
+        "no errors and no warnings in CLI payload",
+        payload.get("data", {}),
+    )
+
+
+@_security_boundary('plan_digital_system')
+def tool_plan_digital_system(
+    prompt: str,
+    *,
+    config: str | None = None,
+) -> HandlerResult:
+    """Plan a Tiny8 CPU from a natural-language prompt.
+
+    Returns one of:
+
+    * ``DesignIR`` — success. ``data.design`` is the IR.
+    * ``PlannerRefusal`` — ``errors[0].code`` is one of the stable
+      refusal codes; ``data.supportedKinds`` enumerates v1.
+    * ``ClarificationRequest`` — ``data.needsClarification`` is true.
+    * ``RoadmapSuggestion`` — ``data.roadmap`` is true; the
+      request is recognised but not v1.
+    """
+    _cfg, err = _resolve_config(config)
+    if err is not None:
+        return err
+    return _run_cli(["digital", "plan", prompt, "--json"])
+
+
+@_security_boundary('create_digital_project')
+def tool_create_digital_project(
+    source: str,
+    *,
+    out: str | None = None,
+    simulate: bool = False,
+    config: str | None = None,
+) -> HandlerResult:
+    """Create a Tiny8 project on disk."""
+    _cfg, err = _resolve_config(config)
+    if err is not None:
+        return err
+    argv = ["digital", "create", source, "--json"]
+    if out:
+        argv.extend(["--out", out])
+    if simulate:
+        argv.append("--simulate")
+    return _run_cli(argv)
+
+
+@_security_boundary('assemble_tiny8_program')
+def tool_assemble_tiny8_program(
+    source: str,
+    *,
+    out: str | None = None,
+    config: str | None = None,
+) -> HandlerResult:
+    """Assemble a Tiny8 .asm file into a .mem image."""
+    _cfg, err = _resolve_config(config)
+    if err is not None:
+        return err
+    argv = ["digital", "assemble", source, "--json"]
+    if out:
+        argv.extend(["--out", out])
+    return _run_cli(argv)
+
+
+@_security_boundary('simulate_hdl_project')
+def tool_simulate_hdl_project(
+    project_dir: str,
+    *,
+    strict: bool = False,
+    config: str | None = None,
+) -> HandlerResult:
+    """Run an Icarus simulation of a Tiny8 project's testbench."""
+    _cfg, err = _resolve_config(config)
+    if err is not None:
+        return err
+    argv = ["digital", "simulate", project_dir, "--json"]
+    if strict:
+        argv.append("--strict")
+    return _run_cli(argv)
+
+
+@_security_boundary('synth_check_hdl_project')
+def tool_synth_check_hdl_project(
+    project_dir: str,
+    *,
+    strict: bool = False,
+    config: str | None = None,
+) -> HandlerResult:
+    """Run a Yosys synthesis sanity check on a Tiny8 project."""
+    _cfg, err = _resolve_config(config)
+    if err is not None:
+        return err
+    argv = ["digital", "synth-check", project_dir, "--json"]
+    if strict:
+        argv.append("--strict")
+    return _run_cli(argv)
+
+
+@_security_boundary('inspect_digital_project')
+def tool_inspect_digital_project(
+    project_dir: str,
+    *,
+    config: str | None = None,
+) -> HandlerResult:
+    """Inspect a Tiny8 project directory."""
+    _cfg, err = _resolve_config(config)
+    if err is not None:
+        return err
+    return _run_cli(["digital", "inspect", project_dir, "--json"])
+
+
+# ---------------------------------------------------------------------------
 # Resource implementations
 # ---------------------------------------------------------------------------
 
@@ -1075,6 +1278,55 @@ def _build_server() -> Any:
         ),
     )(tool_promote_template)
 
+    # --- Phase 12: Tiny8 CPU digital design tools -----------------------
+    mcp.tool(
+        name="plan_digital_system",
+        description=(
+            "Convert a natural-language prompt into a Tiny8 Design IR. "
+            "v1 supports the 'tiny8_cpu' kind. Returns a "
+            "PlannerRefusal, ClarificationRequest, RoadmapSuggestion, "
+            "or DesignIR."
+        ),
+    )(tool_plan_digital_system)
+    mcp.tool(
+        name="create_digital_project",
+        description=(
+            "Create a Tiny8 project on disk from a Design IR file path "
+            "or a natural-language prompt. Writes rtl/, tb/, programs/, "
+            "and a manifest.json under --out (or the default projects_dir)."
+        ),
+    )(tool_create_digital_project)
+    mcp.tool(
+        name="assemble_tiny8_program",
+        description=(
+            "Assemble a Tiny8 .asm file into a .mem image. Returns the "
+            "instruction count, label map, and out path."
+        ),
+    )(tool_assemble_tiny8_program)
+    mcp.tool(
+        name="simulate_hdl_project",
+        description=(
+            "Run an Icarus (iverilog + vvp) simulation of the project's "
+            "testbench. Missing tools -> structured skip; --strict to "
+            "fail."
+        ),
+    )(tool_simulate_hdl_project)
+    mcp.tool(
+        name="synth_check_hdl_project",
+        description=(
+            "Run a Yosys synthesis sanity check (hierarchy + proc + opt + "
+            "stat) over the project's rtl/. Missing Yosys -> structured "
+            "skip."
+        ),
+    )(tool_synth_check_hdl_project)
+    mcp.tool(
+        name="inspect_digital_project",
+        description=(
+            "Inspect a Tiny8 project directory and return its manifest, "
+            "Design IR, and result.json (if present)."
+        ),
+    )(tool_inspect_digital_project)
+
     @mcp.resource(
         "ltagent://projects",
         name="projects",
@@ -1186,6 +1438,247 @@ def _build_server() -> Any:
             cfg = load_config(None)
         return json.dumps(_read_template_metadata(cfg, template_id), sort_keys=False)
 
+    # --- Phase 12: Tiny8 digital resources -------------------------------
+    @mcp.resource(
+        "ltagent://digital/capabilities",
+        name="digital-capabilities",
+        description=(
+            "Static description of the Phase 12 (Tiny8) v1 surface: "
+            "supported kinds, ISA, available tools, and roadmap beyond v1."
+        ),
+        mime_type="application/json",
+    )
+    def _res_digital_caps() -> str:
+        from .digital_ir import (
+            DESIGN_SCHEMA_VERSION,
+            SUPPORTED_DESIGN_KINDS,
+            SUPPORTED_ISA,
+        )
+
+        caps = {
+            "schemaVersion": DESIGN_SCHEMA_VERSION,
+            "supportedKinds": sorted(SUPPORTED_DESIGN_KINDS),
+            "supportedIsa": sorted(SUPPORTED_ISA),
+            "v1": {
+                "kind": "tiny8_cpu",
+                "isa": "tiny8_v0",
+                "dataWidth": 8,
+                "addressWidth": 8,
+                "instructionWidth": 16,
+                "romWords": 256,
+                "ramBytes": 256,
+            },
+            "roadmap": [
+                "tiny8_soc (memory-mapped IO, v1.1)",
+                "rv32i subset (v2)",
+                "full mini PC reference design (v3)",
+            ],
+            "tools": [
+                "plan_digital_system",
+                "create_digital_project",
+                "assemble_tiny8_program",
+                "simulate_hdl_project",
+                "synth_check_hdl_project",
+                "inspect_digital_project",
+            ],
+        }
+        return json.dumps(caps, sort_keys=False, indent=2)
+
+    @mcp.resource(
+        "ltagent://digital/tiny8/spec",
+        name="tiny8-spec",
+        description=(
+            "The Tiny8 v0 ISA spec: opcode table, instruction layout, "
+            "register model, reset behaviour, and verification contract."
+        ),
+        mime_type="application/json",
+    )
+    def _res_tiny8_spec() -> str:
+        spec = {
+            "isa": "tiny8_v0",
+            "dataWidth": 8,
+            "addressWidth": 8,
+            "instructionWidth": 16,
+            "instructionLayout": {
+                "opcode": "[15:12]",
+                "mode": "[11:8] (reserved 0)",
+                "operand": "[7:0]",
+            },
+            "state": {
+                "pc": "8-bit program counter",
+                "acc": "8-bit accumulator",
+                "zero_flag": "1-bit zero flag (set when acc==0)",
+                "halted": "1-bit sticky halt flag",
+            },
+            "reset": {
+                "synchronous": True,
+                "activeHigh": True,
+                "effect": "pc=0, acc=0, zero_flag=1, halted=0",
+            },
+            "opcodes": {
+                "0x0": "NOP",
+                "0x1": "LDI imm",
+                "0x2": "LDA addr",
+                "0x3": "STA addr",
+                "0x4": "ADD addr",
+                "0x5": "SUB addr",
+                "0x6": "AND addr",
+                "0x7": "OR addr",
+                "0x8": "XOR addr",
+                "0x9": "JMP addr",
+                "0xA": "JZ addr",
+                "0xB": "JNZ addr",
+                "0xC": "OUT port",
+                "0xD": "IN port",
+                "0xE": "reserved (illegal_instruction)",
+                "0xF": "HALT",
+            },
+        }
+        return json.dumps(spec, sort_keys=False, indent=2)
+
+    @mcp.resource(
+        "ltagent://digital/templates",
+        name="digital-templates",
+        description=(
+            "List of digital (Tiny8) Verilog templates available in "
+            "Phase 12. Always the same set: the seven generated "
+            "tiny8_*.v modules + the testbench."
+        ),
+        mime_type="application/json",
+    )
+    def _res_digital_templates() -> str:
+        from .digital_generator import (
+            ALL_RTL_PATHS,
+            ALL_TESTBENCH_PATHS,
+            PATH_PROGRAM_ASM,
+            PATH_PROGRAM_MEM,
+            PATH_SPICE_COMPANION,
+        )
+
+        return json.dumps(
+            {
+                "rtlFiles": list(ALL_RTL_PATHS),
+                "testbenches": list(ALL_TESTBENCH_PATHS),
+                "programs": [PATH_PROGRAM_ASM, PATH_PROGRAM_MEM],
+                "spiceCompanion": PATH_SPICE_COMPANION,
+            },
+            sort_keys=False,
+            indent=2,
+        )
+
+    @mcp.resource(
+        "ltagent://projects/{project_id}/digital-manifest",
+        name="digital-project-manifest",
+        description=(
+            "Tiny8 project manifest.json. v1.0 schema."
+        ),
+        mime_type="application/json",
+    )
+    def _res_digital_manifest(project_id: str) -> str:
+        from .digital_generator import PATH_MANIFEST
+
+        _validate_digital_project_id(project_id)
+        # Digital projects can live anywhere (the CLI's --out is
+        # an arbitrary path). Look up the project dir by name
+        # under the workspace and under the current dir, take
+        # the first that exists.
+        cfg, _ = _resolve_config(None)
+        if cfg is None:
+            cfg = load_config(None)
+        candidates = [
+            _resolve_projects_root(cfg) / project_id,
+            Path.cwd() / project_id,
+        ]
+        project_dir: Path | None = None
+        for cand in candidates:
+            if cand.is_dir():
+                project_dir = cand
+                break
+        if project_dir is None:
+            return json.dumps(
+                {"error": "PROJECT_NOT_FOUND", "projectId": project_id,
+                 "candidates": [str(c) for c in candidates]},
+                sort_keys=False,
+            )
+        manifest_path = project_dir / PATH_MANIFEST
+        if not manifest_path.exists():
+            return json.dumps(
+                {"error": "MANIFEST_NOT_FOUND", "path": str(manifest_path)},
+                sort_keys=False,
+            )
+        return manifest_path.read_text(encoding="utf-8")
+
+    @mcp.resource(
+        "ltagent://projects/{project_id}/rtl",
+        name="digital-project-rtl",
+        description=(
+            "Concatenated Verilog source for a Tiny8 project, in the "
+            "deterministic order emitted by the generator."
+        ),
+        mime_type="text/plain",
+    )
+    def _res_digital_rtl(project_id: str) -> str:
+        _validate_digital_project_id(project_id)
+        cfg, _ = _resolve_config(None)
+        if cfg is None:
+            cfg = load_config(None)
+        candidates = [
+            _resolve_projects_root(cfg) / project_id,
+            Path.cwd() / project_id,
+        ]
+        project_dir: Path | None = None
+        for cand in candidates:
+            if cand.is_dir():
+                project_dir = cand
+                break
+        if project_dir is None:
+            return ""
+
+        rtl_dir = project_dir / "rtl"
+        if not rtl_dir.is_dir():
+            return ""
+        parts: list[str] = []
+        for v in sorted(rtl_dir.glob("*.v")):
+            parts.append(f"// ===== {v.name} =====")
+            parts.append(v.read_text(encoding="utf-8"))
+        return "\n".join(parts)
+
+    @mcp.resource(
+        "ltagent://projects/{project_id}/verification-report",
+        name="digital-project-verification-report",
+        description=(
+            "Top-level result.json for a Tiny8 project: lint, "
+            "simulation, and synthesis status."
+        ),
+        mime_type="application/json",
+    )
+    def _res_digital_report(project_id: str) -> str:
+        _validate_digital_project_id(project_id)
+        cfg, _ = _resolve_config(None)
+        if cfg is None:
+            cfg = load_config(None)
+        candidates = [
+            _resolve_projects_root(cfg) / project_id,
+            Path.cwd() / project_id,
+        ]
+        project_dir: Path | None = None
+        for cand in candidates:
+            if cand.is_dir():
+                project_dir = cand
+                break
+        if project_dir is None:
+            return json.dumps(
+                {"error": "PROJECT_NOT_FOUND", "projectId": project_id},
+                sort_keys=False,
+            )
+        result_path = project_dir / "result.json"
+        if not result_path.exists():
+            return json.dumps(
+                {"error": "RESULT_NOT_FOUND", "path": str(result_path)},
+                sort_keys=False,
+            )
+        return result_path.read_text(encoding="utf-8")
+
     return mcp
 
 
@@ -1239,6 +1732,12 @@ _TOOL_NAMES: tuple[str, ...] = (
     "find_template",
     "evaluate_template_candidate",
     "promote_template",
+    "plan_digital_system",
+    "create_digital_project",
+    "assemble_tiny8_program",
+    "simulate_hdl_project",
+    "synth_check_hdl_project",
+    "inspect_digital_project",
 )
 _RESOURCE_URIS: tuple[str, ...] = (
     "ltagent://projects",
@@ -1249,6 +1748,12 @@ _RESOURCE_URIS: tuple[str, ...] = (
     "ltagent://projects/{project_id}/log",
     "ltagent://templates",
     "ltagent://templates/{template_id}/metadata",
+    "ltagent://digital/capabilities",
+    "ltagent://digital/tiny8/spec",
+    "ltagent://digital/templates",
+    "ltagent://projects/{project_id}/digital-manifest",
+    "ltagent://projects/{project_id}/rtl",
+    "ltagent://projects/{project_id}/verification-report",
 )
 
 

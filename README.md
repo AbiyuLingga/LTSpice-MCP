@@ -174,4 +174,4 @@ PYTHONPATH=src .venv/bin/python tools/generate_schema.py
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+MIT. See [`LICENSE`](LICENSE).# LTSpice-MCP

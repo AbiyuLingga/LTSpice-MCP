@@ -37,9 +37,16 @@ dev = [
     "mypy>=1.10",
     "build>=1.2",
 ]
+# Phase 10: MCP server v1.
+# Install with: pip install "ltspice-ai-agent[mcp]"
+# The CLI works without this extra; only `ltagent-mcp` needs it.
+mcp = [
+    "mcp[cli]>=1.0,<2.0",
+]
 
 [project.scripts]
 ltagent = "ltagent.cli:main"
+ltagent-mcp = "ltagent.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/abiyulinx/ltspice-ai-agent"
@@ -62,6 +69,11 @@ include = [
     "MCP.md",
     "config.example.toml",
 ]
+
+[tool.hatch.build.targets.wheel]
+# Force-include the mcp_server module even though it's optional at runtime,
+# so the wheel ships with the entry-point and graceful fallback.
+include = ["src/ltagent/mcp_server.py"]
 
 [tool.ruff]
 line-length = 100

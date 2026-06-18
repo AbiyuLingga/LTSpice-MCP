@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "0.1",
+  "name": "rc_lowpass_1khz",
+  "topology": "rc_lowpass",
+  "description": "First-order RC low-pass filter with cutoff ~1 kHz (R=1.59k, C=100n).",
+  "nodes": ["in", "out", "0"],
+  "components": [
+    {
+      "id": "Vin",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": ["in", "0"],
+      "value": "SINE(0 1 1k)",
+      "role": "input_source"
+    },
+    {
+      "id": "R1",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": ["in", "out"],
+      "value": "1.59k",
+      "role": "series_resistor"
+    },
+    {
+      "id": "C1",
+      "kind": "capacitor",
+      "spicePrefix": "C",
+      "nodes": ["out", "0"],
+      "value": "100n",
+      "role": "shunt_capacitor"
+    }
+  ],
+  "analysis": [
+    {
+      "kind": "tran",
+      "stopTime": "5m"
+    }
+  ],
+  "measurements": [
+    {
+      "name": "VOUT_MAX",
+      "analysis": "tran",
+      "expression": "MAX V(out)"
+    },
+    {
+      "name": "VOUT_MIN",
+      "analysis": "tran",
+      "expression": "MIN V(out)"
+    }
+  ],
+  "probes": ["V(in)", "V(out)"],
+  "constraints": {
+    "targetCutoffHz": 1000
+  },
+  "metadata": {
+    "createdBy": "ltagent",
+    "source": "example"
+  }
+}

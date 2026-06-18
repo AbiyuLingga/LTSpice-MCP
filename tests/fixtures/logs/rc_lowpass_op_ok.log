@@ -1,0 +1,15 @@
+Circuit: * /home/user/projects/rc_lowpass_1khz/circuit.cir
+Info: GND node is node 0
+Title: *
+Date: Wed Jun 17 22:38:11 2026
+ltag: ltspice-ai-agent 0.0.1
+op
+Operating point found by successive approximation.
+v(in)=1.0
+v(out)=0.5
+i(R1)=5e-04
+i(R2)=5e-04
+vout: FIND(v(out))=0.5 AT 0
+v(r1)=0.5
+v(r2)=0.5
+Elapsed time: 0.012 seconds.

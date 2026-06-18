@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "0.1",
+  "name": "empty_components",
+  "topology": "voltage_divider",
+  "nodes": ["in", "out", "0"],
+  "components": [],
+  "analysis": [{"kind": "op"}]
+}

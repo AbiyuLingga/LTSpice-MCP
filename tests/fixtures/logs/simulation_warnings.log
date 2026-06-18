@@ -1,0 +1,7 @@
+Circuit: * /home/user/projects/rc_lowpass_1khz/circuit.cir
+Title: *
+Date: Wed Jun 17 22:38:11 2026
+tran
+vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005
+Warning: missing sync word at time 0.001
+Elapsed time: 0.024 seconds.

@@ -1,0 +1,68 @@
+# ltspice-ai-agent
+#
+# Copy to one of these locations (highest priority first):
+#   ./config.toml
+#   ~/.config/ltagent/config.toml
+#   $XDG_CONFIG_HOME/ltagent/config.toml
+#
+# All fields are optional. Missing fields fall back to safe defaults.
+# Paths may use ~ for the user's home directory.
+
+[workspace]
+# Where generated projects are written. Created on first `ltagent init` if missing.
+projects_dir = "projects"
+# Where the local template library lives. Populated in later phases.
+templates_dir = "templates"
+
+[ltspice]
+# Execution mode: "wine" (Linux LTspice under Wine) or "native" (Windows LTspice).
+mode = "wine"
+# Absolute path to the LTspice executable. On Linux/Wine this is the .exe inside
+# the Wine prefix. If null, `ltagent doctor` will report the executable as missing.
+executable = "/home/abiyulinx/.wine/drive_c/Program Files/LTC/LTspiceXVII/XVIIx64.exe"
+# Path to the `wine` binary. If null, doctor tries `which wine` and well-known
+# fallbacks such as /opt/wine-stable/bin/wine.
+wine_command = "/opt/wine-stable/bin/wine"
+# Working directory passed to LTspice. Use a Wine-visible path on Linux.
+working_dir = "/home/abiyulinx/Documents/LTspiceXVII"
+
+[runner]
+# Maximum time a single batch simulation is allowed to run before it is killed.
+timeout_seconds = 30
+# Attempt to terminate the LTspice child process when the timeout elapses.
+kill_on_timeout = true
+# Save .raw waveform files. Off by default to avoid disk bloat.
+save_raw = false
+# Force ASCII .raw output. Slower; off by default per Analog documentation.
+force_ascii_raw = false
+# Run each simulation in a fresh temporary directory under the project.
+run_in_temp_dir = true
+
+[layout]
+# Grid step in LTspice schematic units (1 unit = 10 mil in the default sheet).
+grid_x = 160
+grid_y = 96
+# Vertical placement of the main signal rail and the ground rail.
+main_y = 160
+ground_y = 352
+# Minimum allowed spacing between any two schematic symbols.
+min_spacing = 80
+# Minimum layout-checker score (out of 100) for a project to be considered
+# for promotion to an official template.
+official_template_min_score = 85
+
+[templates]
+# Whether `ltagent template promote` may move a candidate to official without
+# a human confirmation prompt. Off in MVP; promotion is always manual.
+auto_promote = false
+# Minimum evaluator score to consider a project a candidate template.
+candidate_threshold = 3
+# Minimum evaluator score to consider promoting a project to official.
+official_threshold = 6
+
+[agent]
+# Default to JSON output for agent callers. Human users can pass --text.
+json_output_default = true
+# When true, the runner rejects any directive not in the allowlist and the
+# CLI refuses paths outside the configured workspace.
+safe_mode = true

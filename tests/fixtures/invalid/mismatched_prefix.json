@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1",
+  "name": "mismatched_prefix",
+  "topology": "rc_lowpass",
+  "nodes": ["in", "out", "0"],
+  "components": [
+    {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V", "nodes": ["in", "0"], "value": "DC 1"},
+    {"id": "R1",  "kind": "resistor",        "spicePrefix": "V", "nodes": ["in", "out"], "value": "1k"},
+    {"id": "C1",  "kind": "capacitor",       "spicePrefix": "C", "nodes": ["out", "0"], "value": "100n"}
+  ],
+  "analysis": [{"kind": "op"}]
+}

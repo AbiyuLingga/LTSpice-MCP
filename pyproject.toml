@@ -1,0 +1,120 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ltspice-ai-agent"
+version = "0.0.1"
+description = "Local CLI and MCP adapter for safely generating, simulating, and inspecting LTspice circuits from structured input."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [
+    { name = "abiyulinx" },
+]
+keywords = ["ltspice", "spice", "circuit", "eda", "agent", "mcp"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "build>=1.2",
+]
+
+[project.scripts]
+ltagent = "ltagent.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/abiyulinx/ltspice-ai-agent"
+Documentation = "https://github.com/abiyulinx/ltspice-ai-agent/blob/main/docs/SPEC.md"
+Issues = "https://github.com/abiyulinx/ltspice-ai-agent/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ltagent"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/ltagent",
+    "docs",
+    "examples",
+    "tests",
+    "README.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "OPENCODE.md",
+    "MCP.md",
+    "config.example.toml",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",   # pycodestyle, pyflakes
+    "I",              # isort
+    "B",              # bugbear
+    "UP",             # pyupgrade
+    "SIM",            # simplify
+    "RUF",            # ruff-specific
+]
+ignore = [
+    "E501",  # line length handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B008", "SIM117"]
+# ``(str, Enum)`` is the project convention for serialisable enums
+# (see ``ir.ComponentKind``/``AnalysisKind``). ``StrEnum`` would
+# change the runtime type and break symmetry with persisted JSON.
+"src/ltagent/templates.py" = ["UP042"]
+"src/ltagent/evaluator.py" = ["UP042"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+disallow_any_unimported = false
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+]
+testpaths = ["tests"]
+markers = [
+    "integration: requires LTspice executable and Wine on the host",
+    "doctor_simulate: invokes the optional LTspice smoke simulation",
+]

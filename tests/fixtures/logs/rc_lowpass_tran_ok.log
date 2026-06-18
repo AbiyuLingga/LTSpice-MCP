@@ -1,0 +1,12 @@
+Circuit: * /home/user/projects/rc_lowpass_1khz/circuit.cir
+Info: GND node is node 0
+Title: *
+Date: Wed Jun 17 22:38:11 2026
+ltag: ltspice-ai-agent 0.0.1
+tran
+vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005
+vout_min: MIN(v(out))=-0.70710678 FROM 0 TO 0.005
+vout_avg: AVG(v(out))=4.2e-05 FROM 0 TO 0.005
+vout_pp: PP(v(out))=1.41421356 FROM 0 TO 0.005
+vout_rms: RMS(v(out))=0.5001245 FROM 0 TO 0.005
+Elapsed time: 0.025 seconds.

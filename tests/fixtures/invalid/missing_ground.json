@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1",
+  "name": "missing_ground",
+  "topology": "rc_lowpass",
+  "nodes": ["in", "out"],
+  "components": [
+    {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V", "nodes": ["in", "out"], "value": "DC 1"},
+    {"id": "R1",  "kind": "resistor",        "spicePrefix": "R", "nodes": ["in", "out"], "value": "1k"},
+    {"id": "C1",  "kind": "capacitor",       "spicePrefix": "C", "nodes": ["out", "in"], "value": "100n"}
+  ],
+  "analysis": [{"kind": "op"}]
+}

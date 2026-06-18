@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "0.1",
+  "name": "rc_highpass_500hz",
+  "topology": "rc_highpass",
+  "description": "First-order RC high-pass filter with cutoff ~500 Hz (R=3.18k, C=100n).",
+  "nodes": ["in", "out", "0"],
+  "components": [
+    {
+      "id": "Vin",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": ["in", "0"],
+      "value": "SINE(0 1 200)",
+      "role": "input_source"
+    },
+    {
+      "id": "C1",
+      "kind": "capacitor",
+      "spicePrefix": "C",
+      "nodes": ["in", "out"],
+      "value": "100n",
+      "role": "series_capacitor"
+    },
+    {
+      "id": "R1",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": ["out", "0"],
+      "value": "3.18k",
+      "role": "shunt_resistor"
+    }
+  ],
+  "analysis": [
+    {
+      "kind": "tran",
+      "stopTime": "20m"
+    },
+    {
+      "kind": "ac",
+      "stopFreq": "10k",
+      "pointsPerDecade": 20
+    }
+  ],
+  "measurements": [
+    {
+      "name": "VOUT_MAX",
+      "analysis": "tran",
+      "expression": "MAX V(out)"
+    }
+  ],
+  "probes": ["V(in)", "V(out)"],
+  "constraints": {
+    "targetCutoffHz": 500
+  },
+  "metadata": {
+    "createdBy": "ltagent",
+    "source": "example"
+  }
+}

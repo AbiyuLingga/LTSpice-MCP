@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "0.1",
+  "name": "voltage_divider_12v_to_5v",
+  "topology": "voltage_divider",
+  "description": "Resistive voltage divider from 12V to ~5V using R1=1.4k, R2=1k.",
+  "nodes": ["in", "out", "0"],
+  "components": [
+    {
+      "id": "Vin",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": ["in", "0"],
+      "value": "DC 12",
+      "role": "input_source"
+    },
+    {
+      "id": "R1",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": ["in", "out"],
+      "value": "1.4k",
+      "role": "series_resistor"
+    },
+    {
+      "id": "R2",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": ["out", "0"],
+      "value": "1k",
+      "role": "shunt_resistor"
+    }
+  ],
+  "analysis": [
+    {"kind": "op"}
+  ],
+  "measurements": [
+    {
+      "name": "VOUT",
+      "analysis": "op",
+      "expression": "V(out)"
+    }
+  ],
+  "probes": ["V(in)", "V(out)"],
+  "constraints": {
+    "targetVout": 5.0,
+    "vin": 12.0
+  },
+  "metadata": {
+    "createdBy": "ltagent",
+    "source": "example"
+  }
+}

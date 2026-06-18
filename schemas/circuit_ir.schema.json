@@ -1,0 +1,368 @@
+{
+  "$defs": {
+    "Analysis": {
+      "additionalProperties": false,
+      "description": "Structured simulation analysis.\n\nReplaces free-form `.tran`, `.op`, `.dc`, `.ac` strings with typed\nfields. Phase 2 will translate these into SPICE directives.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/AnalysisKind"
+        },
+        "startTime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "e.g. '0', '1m'. Required for tran.",
+          "title": "Starttime"
+        },
+        "stopTime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "e.g. '5m'. Required for tran.",
+          "title": "Stoptime"
+        },
+        "stepTime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Steptime"
+        },
+        "startFreq": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startfreq"
+        },
+        "stopFreq": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stopfreq"
+        },
+        "pointsPerDecade": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pointsperdecade"
+        },
+        "sweepVariable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweepvariable"
+        },
+        "sweepStart": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweepstart"
+        },
+        "sweepStop": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweepstop"
+        },
+        "sweepStep": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweepstep"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Analysis",
+      "type": "object"
+    },
+    "AnalysisKind": {
+      "enum": [
+        "op",
+        "dc",
+        "tran",
+        "ac"
+      ],
+      "title": "AnalysisKind",
+      "type": "string"
+    },
+    "Component": {
+      "additionalProperties": false,
+      "description": "One circuit element.\n\n`kind` is semantic (what it is). `spicePrefix` is the SPICE letter\n(V, I, R, C, L). Both must agree. This redundancy lets humans read\nthe IR while keeping a single source of truth for generation.",
+      "properties": {
+        "id": {
+          "description": "Unique identifier, e.g. R1, C1, Vin",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ComponentKind"
+        },
+        "spicePrefix": {
+          "description": "SPICE letter, must match kind",
+          "title": "Spiceprefix",
+          "type": "string"
+        },
+        "nodes": {
+          "description": "Node terminals in canonical order for the kind",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SPICE value string. Required for sources, optional otherwise.",
+          "title": "Value"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Semantic role used by planner and layout, e.g. series_resistor",
+          "title": "Role"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "spicePrefix",
+        "nodes"
+      ],
+      "title": "Component",
+      "type": "object"
+    },
+    "ComponentKind": {
+      "enum": [
+        "voltage_source",
+        "current_source",
+        "resistor",
+        "capacitor",
+        "inductor"
+      ],
+      "title": "ComponentKind",
+      "type": "string"
+    },
+    "Constraints": {
+      "additionalProperties": true,
+      "description": "Optional design targets (targetCutoffHz, targetGain, etc.).\n\nKeys are free-form (e.g. targetCutoffHz). Values must be flat scalars\n(str, int, float, bool). No nested dicts, no lists. This keeps the\ncontract reviewable and prevents accidental injection of complex\nobjects.",
+      "properties": {},
+      "title": "Constraints",
+      "type": "object"
+    },
+    "Measurement": {
+      "additionalProperties": false,
+      "description": "A .meas expression to extract after simulation.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "analysis": {
+          "$ref": "#/$defs/AnalysisKind"
+        },
+        "expression": {
+          "minLength": 1,
+          "title": "Expression",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "analysis",
+        "expression"
+      ],
+      "title": "Measurement",
+      "type": "object"
+    },
+    "Metadata": {
+      "additionalProperties": true,
+      "description": "Optional free-form metadata. Flat only, like Constraints.",
+      "properties": {},
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "LTspice AI Agent Circuit IR v0.1. Stable contract between AI intent and generated LTspice files. Validation rules in ir.py are the source of truth; this schema is a first-pass contract only.",
+  "properties": {
+    "schemaVersion": {
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "topology": {
+      "title": "Topology",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "nodes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "components": {
+      "items": {
+        "$ref": "#/$defs/Component"
+      },
+      "minItems": 1,
+      "title": "Components",
+      "type": "array"
+    },
+    "analysis": {
+      "items": {
+        "$ref": "#/$defs/Analysis"
+      },
+      "minItems": 1,
+      "title": "Analysis",
+      "type": "array"
+    },
+    "measurements": {
+      "items": {
+        "$ref": "#/$defs/Measurement"
+      },
+      "title": "Measurements",
+      "type": "array"
+    },
+    "probes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Probes",
+      "type": "array"
+    },
+    "directives": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Directives",
+      "type": "array"
+    },
+    "constraints": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Constraints"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "metadata": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Metadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "name",
+    "topology",
+    "nodes",
+    "components",
+    "analysis"
+  ],
+  "title": "CircuitIR",
+  "type": "object",
+  "$id": "https://ltspice-ai-agent.local/schemas/circuit_ir.v0.1.schema.json"
+}

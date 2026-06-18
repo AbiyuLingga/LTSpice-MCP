@@ -6,32 +6,33 @@ MCP-specific pointers.
 
 ## MCP status
 
-**Not yet implemented.** A Model Context Protocol server for `ltagent`
-is **Phase 10** of [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md).
-Phase 0 (this phase) only delivers the `ltagent` CLI.
+**Phase 10 (MCP Server v1) is complete.** The `ltagent-mcp` script
+on `PATH` runs a stdio MCP server that exposes 10 curated tools and
+8 curated resources backed by the same `ltagent` Python core the CLI
+uses.
 
-Until Phase 10 lands, do not configure any MCP client (Claude Code,
-OpenCode, Cursor, Cline, etc.) to connect to an MCP server spawned
-from this repository. There is no `ltagent-mcp` script on `PATH` yet.
+For installation, configuration, and per-client wiring, see
+[`docs/mcp_setup.md`](docs/mcp_setup.md). The short version:
 
-## When Phase 10 lands
+```bash
+pip install "ltspice-ai-agent[mcp]"
+ltagent-mcp --check
+ltagent-mcp --list-tools
+ltagent-mcp --list-resources
+```
 
-The MCP server will:
+## Server surface
 
-- Use **local stdio transport only**. No remote / HTTP / SSE transport
-  in v1.
-- Expose only **curated tools** (no `run_shell`, no `execute_python`,
-  no arbitrary file read/write). The full candidate list is in
-  `docs/PROJECT_PLAN.md` section 17.3.
-- Expose **resources** through controlled URI schemes
-  (`ltagent://projects/...`, `ltagent://templates/...`) with path
-  traversal rejected.
-- Wrap the same `ltagent` Python core that the CLI uses. No business
-  logic may live only in the MCP layer.
+| Tools (10) | Resources (8) |
+|---|---|
+| `create_project`, `inspect_project`, `generate_netlist`, `generate_schematic`, `run_simulation`, `read_measurements`, `check_layout`, `find_template`, `evaluate_template_candidate`, `promote_template` | `ltagent://projects`, `ltagent://projects/{id}/{metadata,result,circuit-ir,netlist,log}`, `ltagent://templates`, `ltagent://templates/{id}/metadata` |
+
+Transport: **stdio only**. No HTTP / SSE in v1 (plan §17.2).
 
 ## Working agreement
 
-Follow `AGENTS.md` for hard rules (no LLM-written `.asc` coordinates,
-no arbitrary shell, no path traversal, no `shell=True`, JSON output
-contract on every command). If an MCP-specific question is not
-answered here, prefer the project-level rule in `AGENTS.md`.
+Follow `AGENTS.md` for hard rules (no LLM-written `.asc`
+coordinates, no arbitrary shell, no path traversal, no `shell=True`,
+JSON output contract on every command). If an MCP-specific question
+is not answered here, prefer the project-level rule in `AGENTS.md`,
+then `docs/security.md`, then `docs/mcp_setup.md`.

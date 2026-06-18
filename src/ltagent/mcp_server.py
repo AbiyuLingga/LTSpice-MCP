@@ -53,9 +53,9 @@ import dataclasses
 import json
 import logging
 import sys
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any, ParamSpec, TypeAlias, TypeVar
 
 from . import __version__
 from .config import Config, ConfigError, load_config
@@ -86,6 +86,9 @@ else:
     _IMPORT_ERROR = None
 
 HandlerResult: TypeAlias = dict[str, Any]
+
+_T = TypeVar("_T", bound=Callable[..., HandlerResult])
+_P = ParamSpec("_P")
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +200,7 @@ def _to_jsonable(obj: Any) -> Any:
     return obj
 
 
-def _security_boundary(command: str):
+def _security_boundary(command: str) -> Callable[[_T], _T]:
     """Decorator: convert any :class:`SecurityError` raised inside the tool
     body into the standard JSON error payload.
 
@@ -206,8 +209,8 @@ def _security_boundary(command: str):
     exceptions to MCP clients.
     """
 
-    def wrap(fn: Callable[..., HandlerResult]) -> Callable[..., HandlerResult]:
-        def inner(*args: Any, **kwargs: Any) -> HandlerResult:
+    def wrap(fn: _T) -> _T:
+        def inner(*args: _P.args, **kwargs: _P.kwargs) -> HandlerResult:  # type: ignore[valid-type]
             try:
                 return fn(*args, **kwargs)
             except SecurityError as exc:
@@ -215,7 +218,7 @@ def _security_boundary(command: str):
 
         inner.__name__ = fn.__name__
         inner.__doc__ = fn.__doc__
-        return inner
+        return inner  # type: ignore[return-value]
 
     return wrap
 
@@ -1310,8 +1313,3 @@ __all__ = [
     "tool_read_measurements",
     "tool_run_simulation",
 ]
-
-
-# Silence unused import warnings for Awaitable/Callable kept for type clarity.
-del Awaitable
-del Callable

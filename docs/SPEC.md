@@ -1,8 +1,8 @@
 # SPEC — ltspice-ai-agent MVP
 
-> Version: Phase 0 (scaffolding). The full MVP definition is in
-> [`PROJECT_PLAN.md`](PROJECT_PLAN.md) section 26 ("Definition Of Done
-> For MVP"). This document only specifies what each phase must
+> Version: Phase 10 (MCP Server v1) complete. The full MVP definition
+> is in [`PROJECT_PLAN.md`](PROJECT_PLAN.md) section 26 ("Definition
+> Of Done For MVP"). This document only specifies what each phase must
 > deliver and what the agent-facing contract looks like.
 
 ## 1. Phasing
@@ -26,6 +26,32 @@
 
 Phases 1+ require Phase 0 to be green. Do not start a phase until the
 previous one is merged and CI is green.
+
+## 2. Phase 10 acceptance (current phase)
+
+- `pip install "ltspice-ai-agent[mcp]"` succeeds on Python 3.11+.
+- `ltagent-mcp --help` exits 0 and lists `--version`, `--config`,
+  `--list-tools`, `--list-resources`, `--check`.
+- `ltagent-mcp --check` exits 0 with `success: true` and reports
+  `data.sdk == "mcp"`.
+- `ltagent-mcp --list-tools` returns exactly the 10 tool names
+  documented in [`mcp_setup.md`](mcp_setup.md).
+- `ltagent-mcp --list-resources` returns exactly the 8 resource URIs
+  documented in `mcp_setup.md`.
+- The FastMCP server exposes no `run_shell`, `execute_python`,
+  `read_file`, or `write_file` tool; `.raw` files are blocked at
+  both the path level (`assert_no_raw_path`) and the resource-URI
+  level (no `.raw` URI registered).
+- `tool_create_project` produces the same artifact set as
+  `ltagent create <ir> --out <dir>` (CLI parity, see
+  `tests/test_mcp_server.py::test_tool_create_project_matches_cli`).
+- Missing SDK (no `[mcp]` extra) returns exit code 1 with a JSON
+  payload on stderr whose top-level `errors[0].code` is
+  `MCP_SDK_MISSING` and whose `data.installHint` includes
+  `pip install "ltspice-ai-agent[mcp]"`.
+- `pytest tests/test_mcp_server.py` passes with zero LTspice /
+  Wine invocations (33 tests).
+- `ruff check` and `mypy src` are clean on the touched files.
 
 ## 2. Phase 0 acceptance (this phase)
 

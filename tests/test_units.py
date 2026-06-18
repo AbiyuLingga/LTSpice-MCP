@@ -12,14 +12,20 @@ def test_ir_schema_version_is_string() -> None:
     assert ir.SCHEMA_VERSION == "0.1"
 
 
-def test_ir_supported_topologies_are_three_for_mvp() -> None:
+def test_ir_supported_topologies_include_mvp_and_phase11() -> None:
     # Phase 1 renamed the public constant from SUPPORTED_TOPOLOGIES to
-    # MVP_TOPOLOGIES to match the plan's terminology.
-    assert set(ir.MVP_TOPOLOGIES) == {
-        "voltage_divider",
-        "rc_lowpass",
-        "rc_highpass",
-    }
+    # MVP_TOPOLOGIES to match the plan's terminology. Phase 11
+    # extended the set to include the seven analog templates. The MVP
+    # passive trio (voltage_divider, rc_lowpass, rc_highpass) must
+    # still be present.
+    assert {"voltage_divider", "rc_lowpass", "rc_highpass"} <= set(ir.MVP_TOPOLOGIES)
+    assert "inverting_opamp" in ir.MVP_TOPOLOGIES
+    assert "noninv_opamp" in ir.MVP_TOPOLOGIES
+    assert "comparator" in ir.MVP_TOPOLOGIES
+    assert "diode_clipper" in ir.MVP_TOPOLOGIES
+    assert "halfwave_rectifier" in ir.MVP_TOPOLOGIES
+    assert "bridge_rectifier" in ir.MVP_TOPOLOGIES
+    assert "transistor_switch" in ir.MVP_TOPOLOGIES
 
 
 @pytest.mark.parametrize(

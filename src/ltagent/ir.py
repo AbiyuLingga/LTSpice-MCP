@@ -10,20 +10,30 @@ Phase 1 scope:
 - Reject invalid IR with structured, actionable error codes.
 - Export JSON Schema for consumers (other agents, IDE plugins).
 
-Phase 1 does NOT include:
-- Netlist generation (Phase 2).
-- LTspice execution (Phase 3).
-- Log parsing (Phase 4).
-- Schematic generation (Phase 5).
-- Template matching (Phase 6).
-- Planner (Phase 8).
-- MCP server (Phase 10).
+Phase 11 scope (additive):
+- New component kinds: diode, npn, pnp, nmos, pmos, opamp.
+- New topologies: inverting_opamp, noninv_opamp, comparator,
+  diode_clipper, halfwave_rectifier, bridge_rectifier,
+  transistor_switch.
+- The IR carries optional ``models`` (per-kind ``.model`` blocks) and
+  ``subcircuits`` (``.subckt ... .ends`` definitions). The netlist
+  generator (Phase 2) emits those once, in IR order, before any
+  component lines. Path-bearing directives (``.include``/``.lib``)
+  remain off the allowlist per plan section 18.1.
+
+Phase 11 does NOT include:
+- LLM-based prompt expansion.
+- Auto-layout beyond the deterministic per-topology placers in asc.py.
+- Promotion of new templates by default (still manual, Phase 9).
 
 Security notes (per plan section 18):
 - All raw SPICE directives are rejected by default (allowlist empty).
 - Component IDs and IR names are validated against a strict slug pattern to
   prevent path traversal when files are written downstream.
 - The model is strict: unknown fields are rejected so typos surface early.
+- Subcircuit names are validated against the same SPICE identifier
+  pattern as component IDs so they cannot smuggle SPICE syntax through
+  the IR.
 """
 
 from __future__ import annotations
@@ -46,11 +56,24 @@ from pydantic import (
 SCHEMA_VERSION = "0.1"
 """Only schema version currently accepted by the validator."""
 
-# Topology names allowed in MVP. Extend only after layout + simulation
-# coverage is verified per plan section 4 (Non-Goals) and section 6
-# (Evidence-Based Decisions: MVP topology limited to 3).
+# Topology names allowed. MVP ships with the three passive-only
+# topologies; Phase 11 adds seven analog templates (op-amp, comparator,
+# diode clipper, half/bridge rectifiers, BJT switch). Extend only
+# after layout + simulation coverage is verified per plan section 4
+# (Non-Goals) and section 6 (Evidence-Based Decisions).
 MVP_TOPOLOGIES: frozenset[str] = frozenset(
-    {"voltage_divider", "rc_lowpass", "rc_highpass"}
+    {
+        "voltage_divider",
+        "rc_lowpass",
+        "rc_highpass",
+        "inverting_opamp",
+        "noninv_opamp",
+        "comparator",
+        "diode_clipper",
+        "halfwave_rectifier",
+        "bridge_rectifier",
+        "transistor_switch",
+    }
 )
 
 # Analysis kinds supported by the structured `analysis` block. Raw SPICE
@@ -66,18 +89,41 @@ KIND_TO_SPICE_PREFIX: dict[str, str] = {
     "resistor": "R",
     "capacitor": "C",
     "inductor": "L",
+    # Phase 11 additions: semiconductor and subcircuit-call kinds.
+    "diode": "D",
+    "npn": "Q",
+    "pnp": "Q",
+    "nmos": "M",
+    "pmos": "M",
+    "opamp": "X",
 }
 
-# Node arity per component kind. A resistor has 2 terminals. Sources have
-# 2 terminals (positive, negative). Subckt, bjt, mosfet are intentionally
-# excluded from MVP per plan section 11.1.
+# Node arity per component kind. Phase 11 added kinds follow the SPICE
+# convention:
+#   diode:     2 nodes (anode, cathode)
+#   npn / pnp: 3 nodes (collector, base, emitter)
+#   nmos/pmos: 4 nodes (drain, gate, source, bulk)
+#   opamp:     5 nodes (in+, in-, v+, v-, out) — subcircuit invocation
 KIND_ARITY: dict[str, int] = {
     "voltage_source": 2,
     "current_source": 2,
     "resistor": 2,
     "capacitor": 2,
     "inductor": 2,
+    "diode": 2,
+    "npn": 3,
+    "pnp": 3,
+    "nmos": 4,
+    "pmos": 4,
+    "opamp": 5,
 }
+
+# Patterns for semiconductor model / subcircuit names. The model field
+# on diode / BJT / MOSFET is the SPICE model name (e.g. "1N4148",
+# "BC547", "2N7000"); the value field on an opamp is the subcircuit
+# name (e.g. "UniversalOpamp"). All names must match the same SPICE
+# identifier pattern as component IDs.
+SEMICON_MODEL_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 # Pattern for safe node names. We allow letters, digits, underscores, and
 # a few common SPICE node characters. Ground must be exactly "0" per plan
@@ -153,6 +199,13 @@ class ComponentKind(str, Enum):
     RESISTOR = "resistor"
     CAPACITOR = "capacitor"
     INDUCTOR = "inductor"
+    # Phase 11 additions. Semiconductor and subcircuit-call kinds.
+    DIODE = "diode"
+    NPN = "npn"
+    PNP = "pnp"
+    NMOS = "nmos"
+    PMOS = "pmos"
+    OPAMP = "opamp"
 
 
 class AnalysisKind(str, Enum):
@@ -181,7 +234,24 @@ class Component(BaseModel):
     )
     value: str | None = Field(
         default=None,
-        description="SPICE value string. Required for sources, optional otherwise.",
+        description=(
+            "SPICE value string. Required for sources; for resistor / "
+            "capacitor / inductor it is the value (e.g. '1k'). For "
+            "diode / npn / pnp / nmos / pmos it is the SPICE model name "
+            "(e.g. '1N4148', 'BC547', '2N7000'). For opamp it is the "
+            "subcircuit name (e.g. 'UniversalOpamp')."
+        ),
+    )
+    model: str | None = Field(
+        default=None,
+        description=(
+            "Optional separate SPICE model name. When set on diode / "
+            "npn / pnp / nmos / pmos, takes precedence over `value` "
+            "for the model's model-name lookup. Kept separate so the "
+            "value field on a resistor-style element still carries the "
+            "physical value (e.g. '10k') without colliding with the "
+            "model field on a semiconductor."
+        ),
     )
     role: str | None = Field(
         default=None,
@@ -235,6 +305,38 @@ class Component(BaseModel):
             if not self.value or not self.value.strip():
                 raise ValueError(
                     f"source {self.id!r} requires a non-empty value"
+                )
+        # Phase 11: diode / BJT / MOSFET need a model name (either via
+        # `model` or `value`); opamp needs a subcircuit name via `value`.
+        semicon_kinds = (
+            ComponentKind.DIODE,
+            ComponentKind.NPN,
+            ComponentKind.PNP,
+            ComponentKind.NMOS,
+            ComponentKind.PMOS,
+        )
+        if self.kind in semicon_kinds:
+            model_name = self.model or self.value
+            if not model_name or not model_name.strip():
+                raise ValueError(
+                    f"semiconductor {self.id!r} requires a non-empty "
+                    "model name in `model` or `value`"
+                )
+            if not SEMICON_MODEL_PATTERN.match(model_name.strip()):
+                raise ValueError(
+                    f"semiconductor {self.id!r} model name {model_name!r} "
+                    f"must match {SEMICON_MODEL_PATTERN.pattern}"
+                )
+        if self.kind == ComponentKind.OPAMP:
+            if not self.value or not self.value.strip():
+                raise ValueError(
+                    f"opamp {self.id!r} requires a non-empty subcircuit "
+                    "name in `value`"
+                )
+            if not SEMICON_MODEL_PATTERN.match(self.value.strip()):
+                raise ValueError(
+                    f"opamp {self.id!r} subcircuit name {self.value!r} "
+                    f"must match {SEMICON_MODEL_PATTERN.pattern}"
                 )
         return self
 
@@ -337,11 +439,81 @@ class Metadata(BaseModel):
         return v
 
 
+class SemiconductorModel(BaseModel):
+    """A SPICE ``.model`` block for a diode / BJT / MOSFET.
+
+    The model is emitted verbatim by the netlist generator (Phase 2)
+    as ``.model <name> <type> (<params>)``. The ``name`` and ``type``
+    are validated against the SPICE identifier pattern so they cannot
+    smuggle SPICE syntax through the IR.
+
+    Examples::
+
+        SemiconductorModel(name="1N4148", type="D", params=("IS=2.55e-9", "RS=0.5"))
+        SemiconductorModel(name="BC547", type="NPN", params=("BF=400", "VAF=80"))
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    type: str = Field(min_length=1, description="SPICE model type, e.g. 'D', 'NPN', 'NMOS'")
+    params: list[str] = Field(default_factory=list, description="Raw SPICE model parameters")
+
+    @field_validator("name")
+    @classmethod
+    def _name_matches(cls, v: str) -> str:
+        if not SEMICON_MODEL_PATTERN.match(v):
+            raise ValueError(
+                f"model name {v!r} must match {SEMICON_MODEL_PATTERN.pattern}"
+            )
+        return v
+
+    @field_validator("type")
+    @classmethod
+    def _type_matches(cls, v: str) -> str:
+        if not SEMICON_MODEL_PATTERN.match(v):
+            raise ValueError(
+                f"model type {v!r} must match {SEMICON_MODEL_PATTERN.pattern}"
+            )
+        return v
+
+
+class Subcircuit(BaseModel):
+    """A SPICE ``.subckt ... .ends`` definition for an opamp (or any X-prefixed call).
+
+    The netlist generator emits the block verbatim after all ``.model``
+    blocks and before any component lines. The ``name`` becomes the
+    first token of the ``.subckt`` line and the positional nodes are
+    listed before the inline ``params``. The optional ``body`` field
+    is emitted verbatim inside the ``.subckt ... .ends`` block; the
+    generator escapes nothing in it because the IR is internal.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    nodes: list[str] = Field(min_length=1)
+    params: list[str] = Field(default_factory=list)
+    body: list[str] = Field(default_factory=list)
+
+    @field_validator("name")
+    @classmethod
+    def _name_matches(cls, v: str) -> str:
+        if not SEMICON_MODEL_PATTERN.match(v):
+            raise ValueError(
+                f"subcircuit name {v!r} must match {SEMICON_MODEL_PATTERN.pattern}"
+            )
+        return v
+
+
 class CircuitIR(BaseModel):
     """Top-level Circuit IR v0.1.
 
     See plan section 10 for the original specification. Validation rules
-    in section 10.3 are enforced by Pydantic validators below.
+    in section 10.3 are enforced by Pydantic validators below. Phase 11
+    adds the optional ``models`` and ``subcircuits`` fields; older IR
+    JSON without these fields round-trips unchanged because both have
+    default empty lists.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -357,6 +529,8 @@ class CircuitIR(BaseModel):
     probes: list[str] = Field(default_factory=list)
     directives: list[str] = Field(default_factory=list)
     constraints: Constraints | None = None
+    models: list[SemiconductorModel] = Field(default_factory=list)
+    subcircuits: list[Subcircuit] = Field(default_factory=list)
     metadata: Metadata | None = None
 
     @field_validator("schemaVersion")
@@ -635,6 +809,7 @@ __all__ = [
     "IDENTIFIER_PATTERN",
     "PROBE_PATTERN",
     "DIRECTIVE_ALLOWLIST",
+    "SEMICON_MODEL_PATTERN",
     "GROUND_NODE",
     "IRError",
     "ComponentKind",
@@ -644,6 +819,8 @@ __all__ = [
     "Measurement",
     "Constraints",
     "Metadata",
+    "SemiconductorModel",
+    "Subcircuit",
     "CircuitIR",
     "load_ir",
     "dump_ir",

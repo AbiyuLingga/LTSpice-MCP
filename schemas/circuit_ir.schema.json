@@ -183,8 +183,21 @@
             }
           ],
           "default": null,
-          "description": "SPICE value string. Required for sources, optional otherwise.",
+          "description": "SPICE value string. Required for sources; for resistor / capacitor / inductor it is the value (e.g. '1k'). For diode / npn / pnp / nmos / pmos it is the SPICE model name (e.g. '1N4148', 'BC547', '2N7000'). For opamp it is the subcircuit name (e.g. 'UniversalOpamp').",
           "title": "Value"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional separate SPICE model name. When set on diode / npn / pnp / nmos / pmos, takes precedence over `value` for the model's model-name lookup. Kept separate so the value field on a resistor-style element still carries the physical value (e.g. '10k') without colliding with the model field on a semiconductor.",
+          "title": "Model"
         },
         "role": {
           "anyOf": [
@@ -215,7 +228,13 @@
         "current_source",
         "resistor",
         "capacitor",
-        "inductor"
+        "inductor",
+        "diode",
+        "npn",
+        "pnp",
+        "nmos",
+        "pmos",
+        "opamp"
       ],
       "title": "ComponentKind",
       "type": "string"
@@ -257,6 +276,76 @@
       "description": "Optional free-form metadata. Flat only, like Constraints.",
       "properties": {},
       "title": "Metadata",
+      "type": "object"
+    },
+    "SemiconductorModel": {
+      "additionalProperties": false,
+      "description": "A SPICE ``.model`` block for a diode / BJT / MOSFET.\n\nThe model is emitted verbatim by the netlist generator (Phase 2)\nas ``.model <name> <type> (<params>)``. The ``name`` and ``type``\nare validated against the SPICE identifier pattern so they cannot\nsmuggle SPICE syntax through the IR.\n\nExamples::\n\n    SemiconductorModel(name=\"1N4148\", type=\"D\", params=(\"IS=2.55e-9\", \"RS=0.5\"))\n    SemiconductorModel(name=\"BC547\", type=\"NPN\", params=(\"BF=400\", \"VAF=80\"))",
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "description": "SPICE model type, e.g. 'D', 'NPN', 'NMOS'",
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "description": "Raw SPICE model parameters",
+          "items": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "SemiconductorModel",
+      "type": "object"
+    },
+    "Subcircuit": {
+      "additionalProperties": false,
+      "description": "A SPICE ``.subckt ... .ends`` definition for an opamp (or any X-prefixed call).\n\nThe netlist generator emits the block verbatim after all ``.model``\nblocks and before any component lines. The ``name`` becomes the\nfirst token of the ``.subckt`` line and the positional nodes are\nlisted before the inline ``params``. The optional ``body`` field\nis emitted verbatim inside the ``.subckt ... .ends`` block; the\ngenerator escapes nothing in it because the IR is internal.",
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "params": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "array"
+        },
+        "body": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Body",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "nodes"
+      ],
+      "title": "Subcircuit",
       "type": "object"
     }
   },
@@ -341,6 +430,20 @@
         }
       ],
       "default": null
+    },
+    "models": {
+      "items": {
+        "$ref": "#/$defs/SemiconductorModel"
+      },
+      "title": "Models",
+      "type": "array"
+    },
+    "subcircuits": {
+      "items": {
+        "$ref": "#/$defs/Subcircuit"
+      },
+      "title": "Subcircuits",
+      "type": "array"
     },
     "metadata": {
       "anyOf": [

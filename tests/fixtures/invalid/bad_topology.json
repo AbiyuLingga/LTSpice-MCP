@@ -1,7 +1,7 @@
 {
   "schemaVersion": "0.1",
   "name": "bad_topology",
-  "topology": "inverting_opamp",
+  "topology": "quadruple_well_filter",
   "nodes": ["in", "out", "0"],
   "components": [
     {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V", "nodes": ["in", "0"], "value": "DC 1"},

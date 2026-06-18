@@ -44,6 +44,8 @@ from .ir import (
     Component,
     ComponentKind,
     Measurement,
+    SemiconductorModel,
+    Subcircuit,
 )
 
 GENERATOR_NAME = "ltspice-ai-agent"
@@ -132,6 +134,12 @@ class NetlistResult:
         component_count: Number of component lines.
         analysis_count: Number of analysis directive lines.
         measurement_count: Number of ``.meas`` directive lines.
+        model_count: Number of ``.model`` lines (Phase 11).
+        subcircuit_count: Number of ``.subckt ... .ends`` blocks
+            (Phase 11). Each block emits one ``.subckt`` line plus one
+            ``.ends`` line, so ``subcircuit_block_count`` = ``subcircuit_count``
+            and the total directive lines from subcircuits is
+            ``2 * subcircuit_count + len(body)``.
         rejected_directives: List of raw-directive strings that the IR
             listed but the generator dropped because they are not in
             ``DIRECTIVE_ALLOWLIST``. Empty in the success path; the
@@ -146,6 +154,8 @@ class NetlistResult:
     component_count: int
     analysis_count: int
     measurement_count: int
+    model_count: int = 0
+    subcircuit_count: int = 0
     rejected_directives: list[str] = field(default_factory=list)
 
 
@@ -176,6 +186,19 @@ def _format_component_line(comp: Component) -> str:
     components need it after the two nodes as well. We preserve the
     value exactly as authored so SPICE-rich expressions like
     ``SINE(0 1 1k)`` and ``DC 12`` survive untouched.
+
+    Phase 11 added kinds render as follows (per plan section 11):
+
+    * diode:    ``Did anode cathode modelname``
+    * npn/pnp:  ``Qid collector base emitter modelname``
+    * nmos/pmos:``Mid drain gate source bulk modelname``
+    * opamp:    ``Xid in+ in- v+ v- out subcktname``
+
+    The model name is taken from ``comp.model`` when set, otherwise
+    from ``comp.value`` (the IR validator guarantees one of them is
+    present for semiconductor kinds; the netlist generator never
+    decides which is right). Opamp uses ``comp.value`` as the
+    subcircuit name.
     """
     nodes = " ".join(comp.nodes)
     value = comp.value or ""
@@ -189,6 +212,34 @@ def _format_component_line(comp: Component) -> str:
                 data={"componentId": comp.id},
             )
         return f"{comp.id} {nodes} {value}"
+
+    semicon_kinds = (
+        ComponentKind.DIODE,
+        ComponentKind.NPN,
+        ComponentKind.PNP,
+        ComponentKind.NMOS,
+        ComponentKind.PMOS,
+    )
+    if comp.kind in semicon_kinds:
+        model_name = (comp.model or comp.value or "").strip()
+        if not model_name:
+            raise NetlistError(
+                "COMP_MODEL_REQUIRED",
+                f"semiconductor {comp.id!r} has no model name",
+                data={"componentId": comp.id, "kind": comp.kind.value},
+            )
+        return f"{comp.id} {nodes} {model_name}"
+
+    if comp.kind == ComponentKind.OPAMP:
+        subckt_name = value.strip()
+        if not subckt_name:
+            raise NetlistError(
+                "COMP_SUBCKT_REQUIRED",
+                f"opamp {comp.id!r} has no subcircuit name",
+                data={"componentId": comp.id},
+            )
+        return f"{comp.id} {nodes} {subckt_name}"
+
     return f"{comp.id} {nodes} {value}".rstrip()
 
 
@@ -200,6 +251,59 @@ def _render_components(components: Sequence[Component]) -> list[str]:
     series / shunt elements.
     """
     return [_format_component_line(c) for c in components]
+
+
+# --- model and subcircuit lines (Phase 11) -------------------------------
+
+
+def _format_model(model: SemiconductorModel) -> str:
+    """Render one ``.model <name> <type> (<params>)`` line.
+
+    Model name and type come from the structured IR; the parameter
+    list is emitted verbatim inside parentheses (separated by spaces).
+    An empty parameter list emits the closed form ``()`` so the
+    directive is unambiguous even with no parameters.
+    """
+    if model.params:
+        joined = " ".join(p.strip() for p in model.params if p.strip())
+        return f".model {model.name} {model.type} ({joined})"
+    return f".model {model.name} {model.type} ()"
+
+
+def _format_subcircuit(sub: Subcircuit) -> list[str]:
+    """Render one ``.subckt <name> <nodes...> [params]`` ... ``.ends`` block.
+
+    The first emitted line is the ``.subckt`` declaration. Optional
+    ``body`` lines are emitted verbatim between the declaration and
+    the closing ``.ends``. Per SPICE convention the closing line
+    carries the subcircuit name; we preserve that for readability.
+    """
+    nodes = " ".join(sub.nodes)
+    head = f".subckt {sub.name} {nodes}".rstrip()
+    if sub.params:
+        head = f"{head} {' '.join(p.strip() for p in sub.params if p.strip())}".rstrip()
+    lines = [head]
+    for line in sub.body:
+        lines.append(line.rstrip())
+    lines.append(f".ends {sub.name}")
+    return lines
+
+
+def _render_models_and_subcircuits(ir: CircuitIR) -> list[str]:
+    """Emit all ``.model`` and ``.subckt`` blocks in IR order.
+
+    Phase 2 never saw these fields; the emitter handles them
+    transparently for IRs whose models / subcircuits lists are empty
+    (the MVP IRs all qualify). The blocks appear before any component
+    lines so a component that references ``X``-prefixed subcircuits
+    or ``Q``-prefixed models has those definitions already in scope.
+    """
+    lines: list[str] = []
+    for model in ir.models:
+        lines.append(_format_model(model))
+    for sub in ir.subcircuits:
+        lines.extend(_format_subcircuit(sub))
+    return lines
 
 
 # --- analysis lines -------------------------------------------------------
@@ -389,6 +493,7 @@ def render_netlist(
         :class:`NetlistResult` with the rendered text and counters.
     """
     header = _build_header(ir)
+    definitions = _render_models_and_subcircuits(ir)
     component_lines = _render_components(ir.components)
     analysis_lines = _render_analyses(ir.analysis)
     measurement_lines = _render_measurements(ir.measurements)
@@ -399,6 +504,8 @@ def render_netlist(
 
     sections: list[str] = []
     sections.append("\n".join(header))
+    if definitions:
+        sections.append("\n".join(definitions))
     if component_lines:
         sections.append("\n".join(component_lines))
     if analysis_lines:
@@ -419,6 +526,8 @@ def render_netlist(
         component_count=len(component_lines),
         analysis_count=len(analysis_lines),
         measurement_count=len(measurement_lines),
+        model_count=len(ir.models),
+        subcircuit_count=len(ir.subcircuits),
         rejected_directives=rejected,
     )
 

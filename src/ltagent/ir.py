@@ -121,9 +121,14 @@ KIND_ARITY: dict[str, int] = {
 # Patterns for semiconductor model / subcircuit names. The model field
 # on diode / BJT / MOSFET is the SPICE model name (e.g. "1N4148",
 # "BC547", "2N7000"); the value field on an opamp is the subcircuit
-# name (e.g. "UniversalOpamp"). All names must match the same SPICE
-# identifier pattern as component IDs.
-SEMICON_MODEL_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+# name (e.g. "UniversalOpamp").
+#
+# Unlike component IDs (which must start with a letter because they
+# appear as SPICE labels that conflict with numeric constants), SPICE
+# model names commonly start with digits (e.g. "1N4148"). The pattern
+# here accepts a leading letter or digit, but forbids leading symbols
+# that would be SPICE syntax (parens, dots, brackets).
+SEMICON_MODEL_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.]*$")
 
 # Pattern for safe node names. We allow letters, digits, underscores, and
 # a few common SPICE node characters. Ground must be exactly "0" per plan

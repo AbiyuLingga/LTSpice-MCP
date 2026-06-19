@@ -6,10 +6,9 @@ MCP-specific pointers.
 
 ## MCP status
 
-**Phase 10 (MCP Server v1) is complete.** The `ltagent-mcp` script
-on `PATH` runs a stdio MCP server that exposes 10 curated tools and
-8 curated resources backed by the same `ltagent` Python core the CLI
-uses.
+**The stdio MCP server is integrated through the Phase 13 prototype.**
+The `ltagent-mcp` script exposes 24 curated tools and 14 curated
+resources backed by the same `ltagent` Python core the CLI uses.
 
 For installation, configuration, and per-client wiring, see
 [`docs/mcp_setup.md`](docs/mcp_setup.md). The short version:
@@ -23,9 +22,15 @@ ltagent-mcp --list-resources
 
 ## Server surface
 
-| Tools (10) | Resources (8) |
-|---|---|
-| `create_project`, `inspect_project`, `generate_netlist`, `generate_schematic`, `run_simulation`, `read_measurements`, `check_layout`, `find_template`, `evaluate_template_candidate`, `promote_template` | `ltagent://projects`, `ltagent://projects/{id}/{metadata,result,circuit-ir,netlist,log}`, `ltagent://templates`, `ltagent://templates/{id}/metadata` |
+| Surface | Count | Included capabilities |
+|---|---:|---|
+| Analog MCP tools | 10 | Project creation/inspection, deterministic netlist and schematic generation, simulation/results, layout, and template evaluation/promotion |
+| Live editing + Math Core tools | 8 | Open/inspect/edit, snapshot/restore, run-and-verify, calculate, and explain |
+| Tiny8 digital tools | 6 | Plan/create, assemble, HDL simulation, synthesis check, and inspection |
+| Resources | 14 | 8 analog project/template resources plus 6 digital capability/project resources |
+
+Run `ltagent-mcp --list-tools` and `ltagent-mcp --list-resources` for
+the authoritative machine-readable names.
 
 Transport: **stdio only**. No HTTP / SSE in v1 (plan §17.2).
 

@@ -110,8 +110,8 @@ MUST be true for the rest of this file to apply:
   plus `evaluate_template_candidate` and `promote_template`.
 - `ltagent-mcp --list-resources` returns the 8 resource URIs from
   plan §17.4.
-- The FastMCP server (`src/ltagent/mcp_server.py`) registers exactly
-  10 tools and 8 resources; tests assert both counts and forbid
+- The FastMCP server (`src/ltagent/mcp_server.py`) currently registers
+  24 tools and 14 resources; tests assert both counts and forbid
   dangerous names (`run_shell`, `execute_python`, `read_file`,
   `write_file`).
 - `tool_create_project` produces the same artifact set as
@@ -238,7 +238,7 @@ src/ltagent/
   evaluator.py       Phase 9: evaluator + promoter (score + gates)
   security.py        Phase 10 (shared): slug/path/URI validators
                      shared by CLI and MCP, see security.md
-  mcp_server.py      Phase 10: stdio MCP server, 10 tools, 8 resources,
+  mcp_server.py      stdio MCP server, 24 tools, 14 resources,
                      ltagent-mcp entry point, SDK-missing fallback
 
 tests/

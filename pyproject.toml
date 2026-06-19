@@ -110,6 +110,8 @@ ignore = [
 "src/ltagent/digital_ir.py" = ["UP042"]
 "src/ltagent/templates.py" = ["UP042"]
 "src/ltagent/evaluator.py" = ["UP042"]
+"src/ltagent/live/graph_schema.py" = ["UP042"]
+"src/ltagent/live/graph_validation.py" = ["UP042"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -62,8 +62,8 @@ def test_digital_resources_present() -> None:
     assert expected.issubset(all_uris)
 
 
-def test_tool_count_16() -> None:
-    assert len(_TOOL_NAMES) == 16
+def test_tool_count_24_after_live_tools() -> None:
+    assert len(_TOOL_NAMES) == 24
 
 
 def test_resource_count_14() -> None:

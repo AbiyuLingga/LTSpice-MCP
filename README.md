@@ -6,18 +6,20 @@ coding agents (Codex, Claude Code, OpenCode, Cursor, Cline) and
 humans who want repeatable LTspice workflows without trusting an LLM
 to edit `.asc` files directly.
 
-> **Status:** Phase 11 (Advanced Analog Templates) complete. The CLI
-> covers the full project workflow (Phases 0-9); the `ltagent-mcp`
-> stdio server exposes 10 curated tools and 8 curated resources
-> (Phase 10); the Circuit IR supports 6 new component kinds
+> **Status:** Phase 12 (Tiny8) is complete and the Phase 13
+> File-Based Live Editing + Math Core foundation is integrated as a
+> prototype. The `ltagent-mcp` stdio server exposes 24 curated tools
+> and 14 curated resources. The Circuit IR supports 6 new component kinds
 > (diode, BJT, MOSFET, opamp) and 7 new analog topologies
 > (inverting_opamp, noninv_opamp, comparator, diode_clipper,
 > halfwave_rectifier, bridge_rectifier, transistor_switch) with
 > hand-crafted official templates and deterministic .asc layouts
 > (Phase 11). See [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md)
-> for the full plan.
+> for the established roadmap and
+> [`ltspice_file_based_live_editing_math_plan.md`](ltspice_file_based_live_editing_math_plan.md)
+> for the live-editing workstream.
 
-## What works in Phase 11
+## What works
 
 - **Phase 0** &mdash; `ltagent --version`, `ltagent doctor [--json]
   [--simulate]`, `ltagent init [DIR]`, `ltagent config show|validate`
@@ -36,8 +38,8 @@ to edit `.asc` files directly.
 - **Phase 8** &mdash; Rule-based prompt planner (`ltagent plan`)
 - **Phase 9** &mdash; Template evaluator + promoter (`ltagent template
   evaluate/promote/audit-promotability`)
-- **Phase 10** &mdash; stdio MCP server (`ltagent-mcp`) with 10 tools
-  + 8 resources; same Python core, no `run_shell`, no `.raw`
+- **Phase 10** &mdash; stdio MCP server (`ltagent-mcp`); same Python
+  core, no `run_shell`, no `.raw`
   exposure, structured JSON contract on every call
 - **Phase 11** &mdash; 6 new component kinds (D / Q / M / X), 7 new
   analog topologies, 7 new hand-crafted official templates, 10
@@ -47,6 +49,11 @@ to edit `.asc` files directly.
   topology. The bundled official library auto-seeds on the first
   read path; `ltagent template seed` remains available as the
   explicit, idempotent form.
+- **Phase 12** &mdash; deterministic Tiny8 planning, generation,
+  assembly, simulation, synthesis checks, and roadmap reporting.
+- **Phase 13 prototype** &mdash; Circuit Graph, safe edit operations,
+  snapshots/history, Graph-to-IR generation, deterministic Math Core,
+  formula-versus-simulation verification, and 8 live/math MCP tools.
 - Structured JSON output contract for every command
 - Centralised path / URI / slug validators in `ltagent.security`,
   shared by CLI and MCP
@@ -62,8 +69,8 @@ to edit `.asc` files directly.
 - LLM-based prompt expansion of MCP tool inputs. MCP wraps the
   rule-based planner and the deterministic project orchestrator;
   it does not introduce a new LLM call.
-- Phase 12 E-series value optimisation. The templates ship with
-  hand-tuned values; the optimisation loop is a future phase.
+- Multi-variable optimizer, tolerance/Monte Carlo analysis, visual
+  diff, and the planned live CLI remain future work.
 
 ## Supported OS / runtime
 

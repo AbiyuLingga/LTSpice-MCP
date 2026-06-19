@@ -9,9 +9,8 @@ Covers the acceptance criteria from plan section 21:
 
 Plus the security and contract tests added during Phase 10 design:
 
-* 10 tools registered, exactly the names listed in plan section 17.3
-  plus the two already-implemented Phase 9 evaluators.
-* 8 resources registered, exactly the URIs listed in plan section 17.4.
+* 24 curated tools registered across analog, digital, and live/math.
+* 14 curated resources registered across analog and digital surfaces.
 * Resource URI path traversal is rejected.
 * No ``run_shell``, ``execute_python``, ``read_file``, or ``write_file``
   tool is exposed.
@@ -30,6 +29,7 @@ transport is started.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import os
 import subprocess
@@ -57,6 +57,10 @@ from ltagent.security import (
     ALLOWED_TEMPLATE_RESOURCE_NAMES,
     parse_resource_uri,
 )
+
+
+def test_create_project_does_not_expose_workspace_escape_hatch() -> None:
+    assert "allow_outside_workspace" not in inspect.signature(tool_create_project).parameters
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -221,7 +225,7 @@ def test_ltagent_mcp_version_reports_package_version() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_server_lists_sixteen_tools() -> None:
+def test_server_lists_all_curated_tools() -> None:
     server = _make_server()
     tools = asyncio.run(server.list_tools())
     names = sorted(t.name for t in tools)

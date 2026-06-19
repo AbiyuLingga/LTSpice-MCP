@@ -59,9 +59,18 @@ from typing import Any, ParamSpec, TypeAlias, TypeVar
 
 from . import __version__
 from .config import Config, ConfigError, load_config
+from .mcp_live_tools import (
+    tool_calculate_circuit,
+    tool_explain_calculation,
+    tool_live_apply_edit,
+    tool_live_inspect_project,
+    tool_live_open_project,
+    tool_live_restore_snapshot,
+    tool_live_run_and_verify,
+    tool_live_snapshot,
+)
 from .security import (
     ALLOWED_PROJECT_RESOURCE_NAMES,
-    ERR_PATH_TRAVERSAL,
     PathSafetyError,
     SecurityError,
     assert_no_raw_path,
@@ -235,7 +244,6 @@ def tool_create_project(
     templates_dir: str | None = None,
     run: bool = False,
     config: str | None = None,
-    allow_outside_workspace: bool = False,
 ) -> HandlerResult:
     """Phase 7 wrapper exposed as MCP ``create_project``."""
     from .cli import CreatePlannerRefused  # defined in cli for dispatch glue
@@ -252,10 +260,7 @@ def tool_create_project(
     try:
         target = safe_resolve_under(target_arg, projects_root)
     except PathSafetyError as exc:
-        if exc.code == ERR_PATH_TRAVERSAL and allow_outside_workspace:
-            target = Path(target_arg).expanduser().resolve(strict=False)
-        else:
-            return _from_security_error("create_project", exc)
+        return _from_security_error("create_project", exc)
 
     templates_root_arg = Path(templates_dir).expanduser() if templates_dir else templates_root
     try:
@@ -1278,6 +1283,40 @@ def _build_server() -> Any:
         ),
     )(tool_promote_template)
 
+    # --- File-based live editing + deterministic Math Core ------------
+    mcp.tool(
+        name="live_open_project",
+        description="Open a live project inside the configured projects root.",
+    )(tool_live_open_project)
+    mcp.tool(
+        name="live_inspect_project",
+        description="Inspect graph, IR, results, and snapshots for a live project.",
+    )(tool_live_inspect_project)
+    mcp.tool(
+        name="live_apply_edit",
+        description="Apply one validated graph operation with snapshot and history.",
+    )(tool_live_apply_edit)
+    mcp.tool(
+        name="live_snapshot",
+        description="Create a bounded snapshot of a live project.",
+    )(tool_live_snapshot)
+    mcp.tool(
+        name="live_restore_snapshot",
+        description="Restore a validated snapshot inside a live project.",
+    )(tool_live_restore_snapshot)
+    mcp.tool(
+        name="live_run_and_verify",
+        description="Run a live project through the simulation verification boundary.",
+    )(tool_live_run_and_verify)
+    mcp.tool(
+        name="calculate_circuit",
+        description="Calculate supported circuit values using deterministic Math Core.",
+    )(tool_calculate_circuit)
+    mcp.tool(
+        name="explain_calculation",
+        description="Return Math Core formulas, assumptions, and calculated values.",
+    )(tool_explain_calculation)
+
     # --- Phase 12: Tiny8 CPU digital design tools -----------------------
     mcp.tool(
         name="plan_digital_system",
@@ -1732,6 +1771,14 @@ _TOOL_NAMES: tuple[str, ...] = (
     "find_template",
     "evaluate_template_candidate",
     "promote_template",
+    "live_open_project",
+    "live_inspect_project",
+    "live_apply_edit",
+    "live_snapshot",
+    "live_restore_snapshot",
+    "live_run_and_verify",
+    "calculate_circuit",
+    "explain_calculation",
     "plan_digital_system",
     "create_digital_project",
     "assemble_tiny8_program",

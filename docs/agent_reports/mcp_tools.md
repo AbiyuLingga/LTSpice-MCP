@@ -1,9 +1,11 @@
 # Agent 6 — MCP Tools — Report
 
 **Branch:** `agent-6-mcp-tools`
-**Status:** Implementation complete. Module ships on this branch
-without touching any file outside the Agent 6 ownership matrix
-(`docs/AGENT_LOCKS.md` §7).
+**Status:** Historical Agent 6 handoff, now integrated. The final
+integrator registered all eight tools in FastMCP, connected them to
+the real live and Math Core backends, removed the temporary built-in
+formula fallback, and added project-level simulation verification.
+See `integration_final.md` for the authoritative final state.
 
 ## 1. Summary of changes
 

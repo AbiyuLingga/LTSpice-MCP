@@ -2,9 +2,8 @@
 
 These tests cover the public surface defined in
 ``ltspice_file_based_live_editing_math_plan.md`` §11 — MCP live
-editing tools — without depending on :mod:`ltagent.live` or
-:mod:`ltagent.math_core` (which other agents are building in
-parallel). The tests:
+editing tools. Backend fallback behavior is isolated with monkeypatches.
+The tests:
 
 * verify that invalid input is rejected with a stable error code,
 * verify that every tool payload is JSON-serializable,
@@ -12,9 +11,8 @@ parallel). The tests:
 * verify the live-editing tools return the structured
   ``LIVE_MODULE_UNAVAILABLE`` / ``LIVE_METHOD_MISSING`` payload when
   the live module does not expose the expected entry point,
-* verify that the math tools produce correct ideal values via the
-  built-in mini library, and
-* verify that a monkey-patched fake live / math_core module is
+* verify that Math Core is the sole numerical backend, and
+* verify that monkey-patched live / Math Core modules are
   accepted by the dispatch helper.
 """
 
@@ -29,6 +27,7 @@ from pathlib import Path
 import pytest
 
 from ltagent import mcp_live_tools
+from ltagent.live.project import create_live_project, write_graph
 
 # Short alias used in the test bodies below. Defined as a module-
 # level binding (rather than `import ... as ml`) so ruff's isort
@@ -79,7 +78,7 @@ def live_module_mock(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
             "projectDir": str(project_dir),
         }
 
-    def fake_run_and_verify(project_dir, **kwargs):
+    def fake_run_and_verify(project_dir, *_args, **kwargs):
         return {
             "passed": True,
             "projectDir": str(project_dir),
@@ -91,6 +90,7 @@ def live_module_mock(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
     fake.snapshot = fake_snapshot
     fake.restore = fake_restore
     fake.run_and_verify = fake_run_and_verify
+    fake.run_project_and_verify = fake_run_and_verify
     monkeypatch.setattr(mcp_live_tools, "_LIVE_MODULE", fake)
     return fake
 
@@ -305,6 +305,23 @@ def test_run_and_verify_missing_id() -> None:
     _assert_jsonable(result)
 
 
+def test_run_and_verify_requires_explicit_checks(workspace: Path) -> None:
+    project = workspace / "projects" / "rc1k"
+    project.mkdir()
+    (project / "circuit.cir").write_text(".end\n", encoding="utf-8")
+
+    result = ml.tool_live_run_and_verify("rc1k")
+
+    _err_payload(result, code="VERIFY_TARGETS_MISSING")
+
+
+def test_run_and_verify_rejects_invalid_checks(workspace: Path) -> None:
+    project = workspace / "projects" / "rc1k"
+    project.mkdir()
+    result = ml.tool_live_run_and_verify("rc1k", checks=["bad"])  # type: ignore[list-item]
+    _err_payload(result, code="INVALID_INPUT")
+
+
 def test_calculate_circuit_missing_topology() -> None:
     result = ml.tool_calculate_circuit("", {"fc": 1000})
     _err_payload(result, code="MISSING_PARAM")
@@ -493,6 +510,55 @@ def test_apply_edit_uses_live_module(workspace: Path, live_module_mock) -> None:
     _assert_jsonable(result)
 
 
+def test_apply_edit_uses_real_live_backend(workspace: Path) -> None:
+    paths = create_live_project(workspace / "projects", "rc1k")
+    graph = {
+        "schemaVersion": "0.2",
+        "projectId": "rc1k",
+        "domain": "analog",
+        "topology": "rc_lowpass",
+        "components": {
+            "R1": {
+                "id": "R1",
+                "kind": "resistor",
+                "value": "1.59k",
+                "pins": {"pins": {"1": "in", "2": "out"}},
+            },
+            "C1": {
+                "id": "C1",
+                "kind": "capacitor",
+                "value": "100n",
+                "pins": {"pins": {"1": "out", "2": "0"}},
+            },
+        },
+        "nets": {
+            "0": {"name": "0", "type": "ground", "aliases": []},
+            "in": {"name": "in", "type": "signal", "aliases": []},
+            "out": {"name": "out", "type": "signal", "aliases": []},
+        },
+        "analyses": [],
+        "measurements": [],
+        "directives": [],
+        "constraints": {},
+        "layoutHints": None,
+    }
+    write_graph(paths.project_dir, graph, projects_root=workspace / "projects")
+
+    result = ml.tool_live_apply_edit(
+        "rc1k",
+        {
+            "op": "set_component_value",
+            "args": {"componentId": "R1", "value": "1.6k"},
+            "reason": "select E24 value",
+        },
+    )
+
+    _ok_payload(result)
+    persisted = json.loads(paths.graph.read_text(encoding="utf-8"))
+    assert persisted["components"]["R1"]["value"] == "1.6k"
+    assert result["data"]["snapshotId"] == "001_before_set_component_value"
+
+
 def test_snapshot_uses_live_module(workspace: Path, live_module_mock) -> None:
     (workspace / "projects" / "rc1k").mkdir()
     result = ml.tool_live_snapshot("rc1k", reason="manual checkpoint")
@@ -539,7 +605,7 @@ def test_apply_edit_propagates_value_error_from_live(
 
 
 # ---------------------------------------------------------------------------
-# Math tools: built-in mini library + math_core dispatch
+# Math tools: Math Core dispatch
 # ---------------------------------------------------------------------------
 
 
@@ -552,7 +618,7 @@ def test_calculate_circuit_rc_lowpass_solves_r(workspace: Path) -> None:
     expected = 1.0 / (2.0 * math.pi * 1000.0 * 1e-7)
     assert math.isclose(r["value"], expected, rel_tol=1e-9)
     assert r["unit"] == "ohm"
-    assert result["data"]["source"] == "builtin_fallback"
+    assert result["data"]["source"] == "math_core"
     _assert_jsonable(result)
 
 
@@ -649,6 +715,20 @@ def test_calculate_circuit_uses_math_core_when_available(
     assert result["data"]["source"] == "math_core"
     assert result["data"]["idealValues"]["R"]["value"] == 42.0
     _assert_jsonable(result)
+
+
+def test_calculate_circuit_never_falls_back_outside_math_core(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ml, "_MATH_CORE_MODULE", None)
+    result = ml.tool_calculate_circuit("rc_lowpass", {"fc": 1000, "C": "100nF"})
+    _err_payload(result, code="MATH_CORE_UNAVAILABLE")
+
+
+def test_mcp_adapter_contains_no_builtin_formula_engine() -> None:
+    source = Path(ml.__file__).read_text(encoding="utf-8")
+    assert "class _BuiltinFormula" not in source
+    assert "_builtin_solve" not in source
 
 
 def test_explain_calculation_rc_lowpass(workspace: Path) -> None:

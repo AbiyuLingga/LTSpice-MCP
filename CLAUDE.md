@@ -18,9 +18,9 @@ Claude Code–specific pointers.
 - **Never bypass `ltagent` to invoke `wine` or `XVIIx64.exe` directly.**
   Every simulation must go through the runner so that doctor-style
   diagnostics, timeouts, and structured output are preserved.
-- For MCP, the server entry point will be `ltagent-mcp` (registered in
-  Phase 10). Until then, do not configure Claude Code to spawn an MCP
-  server from this repo.
+- For MCP, use the installed `ltagent-mcp` stdio entry point. Verify
+  the active surface with `ltagent-mcp --list-tools` and
+  `ltagent-mcp --list-resources` before configuring Claude Code.
 
 ## Working agreement
 

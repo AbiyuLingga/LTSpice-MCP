@@ -45,13 +45,14 @@ MCP layer.
 
 from __future__ import annotations
 
+import json
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, Final, Protocol
+from typing import Any, Final, Protocol, cast
 
 from ltagent import log_parser
 
@@ -61,6 +62,9 @@ from .verification import (
     VerificationCheck,
     VerificationResult,
     aggregate_verification,
+    check_max,
+    check_min,
+    check_near_target,
 )
 
 # ---------------------------------------------------------------------------
@@ -343,6 +347,122 @@ def run_and_verify(
         result=result,
         reason_codes=reasons,
     )
+
+
+def run_project_and_verify(
+    project_dir: Path | str,
+    config: Any,
+    check_specs: list[Mapping[str, Any]],
+    *,
+    projects_root: Path | str,
+    run_func: Callable[[Any], Any] | None = None,
+) -> dict[str, Any]:
+    """Run a bounded live project and persist ``verification.json``.
+
+    Verification targets are explicit inputs. The function never
+    infers a target from prose or silently treats a successful process
+    exit as a successful engineering verification.
+    """
+    from ltagent.runner import RunRequest, RunResult, run_simulation
+
+    from .project import open_live_project
+
+    paths = open_live_project(project_dir, projects_root=projects_root)
+    if not check_specs:
+        return {
+            "success": False,
+            "simulationAttempted": False,
+            "errors": [
+                {
+                    "code": "VERIFY_TARGETS_MISSING",
+                    "detail": "at least one explicit verification check is required",
+                    "data": {},
+                }
+            ],
+            "warnings": [],
+        }
+
+    checks: list[VerificationCheck] = []
+    for spec in check_specs:
+        name = spec.get("name")
+        kind = spec.get("kind", "near_target")
+        if not isinstance(name, str) or not name:
+            return {
+                "success": False,
+                "simulationAttempted": False,
+                "errors": [{"code": "VERIFY_CHECK_INVALID", "detail": "check name is required", "data": {}}],
+                "warnings": [],
+            }
+        if kind == "near_target":
+            checks.append(
+                check_near_target(
+                    None,
+                    spec.get("target"),
+                    spec.get("tolerancePercent", 0.0),
+                    name=name,
+                )
+            )
+        elif kind == "max":
+            checks.append(
+                check_max(None, cast(float | int | str, spec.get("bound")), name=name)
+            )
+        elif kind == "min":
+            checks.append(
+                check_min(None, cast(float | int | str, spec.get("bound")), name=name)
+            )
+        else:
+            return {
+                "success": False,
+                "simulationAttempted": False,
+                "errors": [{"code": "VERIFY_CHECK_INVALID", "detail": f"unknown check kind {kind!r}", "data": {"name": name}}],
+                "warnings": [],
+            }
+
+    request = RunRequest(
+        cir_path=paths.cir,
+        workdir=paths.project_dir,
+        timeout_seconds=config.runner.timeout_seconds,
+        mode=config.ltspice.mode,
+        executable=config.ltspice.executable,
+        wine_command=config.ltspice.wine_command,
+        expected_log_name="circuit.log",
+    )
+    actual_run = run_func or run_simulation
+
+    def adapter(_project: Mapping[str, Any]) -> RunPayload:
+        result = actual_run(request)
+        if not isinstance(result, RunResult):
+            raise TypeError(f"runner must return RunResult, got {type(result).__name__}")
+        first_error = result.errors[0] if result.errors else None
+        return RunPayload(
+            success=result.success,
+            log_path=result.data.get("logPath"),
+            duration_ms=result.data.get("durationMs"),
+            exit_code=result.data.get("exitCode"),
+            error=first_error,
+        )
+
+    report = run_and_verify(
+        {"projectDir": str(paths.project_dir), "cirPath": str(paths.cir)},
+        cast(RunnerAdapter, adapter),
+        checks,
+    )
+    payload = report.to_dict()
+    payload["success"] = report.result.overall_passed
+    payload["simulationAttempted"] = True
+    payload["errors"] = [] if report.result.overall_passed else [
+        {
+            "code": code,
+            "detail": "simulation or verification did not pass",
+            "data": {},
+        }
+        for code in report.reason_codes or report.result.reason_codes
+    ]
+    payload["warnings"] = []
+    tmp_path = paths.verification.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    tmp_path.replace(paths.verification)
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -715,4 +835,5 @@ __all__ = [
     "fake_runner",
     "fake_runner_raising",
     "run_and_verify",
+    "run_project_and_verify",
 ]

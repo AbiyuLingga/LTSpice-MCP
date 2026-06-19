@@ -49,9 +49,10 @@ ltagent-mcp --list-tools
 ltagent-mcp --list-resources
 ```
 
-Expected output is a structured JSON contract (SPEC.md §2). The tool
-list contains exactly **10 curated tools**; the resource list
-contains exactly **8 curated URIs**. There is **no** `run_shell`,
+Expected output is a structured JSON contract (SPEC.md §2). The
+current integrated surface contains exactly **24 curated tools** and
+**14 curated URIs** across analog, Tiny8 digital, and the Phase 13
+live-editing/Math Core prototype. There is **no** `run_shell`,
 `execute_python`, `read_file`, or `write_file` tool — and no `.raw`
 resource.
 

@@ -28,8 +28,8 @@ from pathlib import Path
 
 import pytest
 
-import ltagent.mcp_live_tools as ml
 from ltagent import mcp_live_tools
+import ltagent.mcp_live_tools as ml
 
 
 # ---------------------------------------------------------------------------

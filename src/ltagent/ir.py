@@ -58,7 +58,9 @@ SCHEMA_VERSION = "0.1"
 
 # Topology names allowed. MVP ships with the three passive-only
 # topologies; Phase 11 adds seven analog templates (op-amp, comparator,
-# diode clipper, half/bridge rectifiers, BJT switch). Extend only
+# diode clipper, half/bridge rectifiers, BJT switch). The single-agent
+# roadmap adds ``led_resistor`` as the first Milestone 1 acceptance slice.
+# Extend only
 # after layout + simulation coverage is verified per plan section 4
 # (Non-Goals) and section 6 (Evidence-Based Decisions).
 MVP_TOPOLOGIES: frozenset[str] = frozenset(
@@ -73,6 +75,7 @@ MVP_TOPOLOGIES: frozenset[str] = frozenset(
         "halfwave_rectifier",
         "bridge_rectifier",
         "transistor_switch",
+        "led_resistor",
     }
 )
 

@@ -34,7 +34,7 @@ suggested folder structure.
 | Milestone | Status | Evidence | Missing acceptance evidence |
 |---|---|---|---|
 | 0 Repo cleanup | Complete | Canonical roadmap, architecture/security/engine docs, contribution guide, CI, fresh install and full gates | None for Milestone 0 |
-| 1 Analog MVP | Partial | `ir.py`, `netlist.py`, `runner.py`, Math Core, result/log tests | 20 real simulation cases, complete `led_resistor` project path, formula-vs-real-sim artifact proof |
+| 1 Analog MVP | Partial | `ir.py`, `netlist.py`, `runner.py`, Math Core, result/log tests, deterministic `led_resistor` IR/netlist/ASC slice | 20 real simulation cases, `led_resistor` planner/project report closure, formula-vs-real-sim artifact proof |
 | 2 ASC generation | Partial | deterministic `asc.py`, layout checker, ten official analog templates | Milestone 1 topology closure, host LTspice-open evidence, explicit symbol-registry contract |
 | 3 Templates/optimization | Partial | official/candidate/rejected states, evaluator/promoter, E-series selection | deterministic parameter sweep and ranking pipeline |
 | 4 Digital HDL MVP | Incomplete | Tiny8 generator, testbench, Icarus runner | generic and/mux/adder/counter/shift/FSM/PWM specs, Verilator, VCD parser |

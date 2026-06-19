@@ -7,6 +7,8 @@
 - Unit parsing, formula calculations, E-series selection, and reports.
 - Bounded LTspice native/Wine runner with structured timeout/failure states.
 - Log and measurement parsing, layout checks, and template promotion gates.
+- Roadmap Milestone 1 `led_resistor` IR-file path with deterministic netlist
+  and ASC output. It is not yet an official template or planner prompt.
 
 ## Data Flow
 
@@ -28,6 +30,8 @@ may select topology and values but may not free-write production coordinates.
 
 - Real LTspice batch execution may time out on this host.
 - The roadmap's 20-case real-simulation matrix is not yet proven.
+- `led_resistor` still needs planner, project calculation/verification report,
+  and real-simulation evidence before Milestone 1 can close.
 - E-series selection and formulas exist, but a general bounded parameter sweep
   and ranking engine does not.
 - Power-electronics output remains simulation-oriented and not build-ready.

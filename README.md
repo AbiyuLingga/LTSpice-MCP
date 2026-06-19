@@ -57,6 +57,9 @@ to edit `.asc` files directly.
 - **Phase 13 prototype** &mdash; Circuit Graph, safe edit operations,
   snapshots/history, Graph-to-IR generation, deterministic Math Core,
   formula-versus-simulation verification, and 8 live/math MCP tools.
+- **Single-agent roadmap Milestone 1 (in progress)** &mdash; an experimental
+  `led_resistor` CircuitIR example now generates deterministic netlist and ASC
+  artifacts; planner and official-template support remain planned.
 - Structured JSON output contract for every command
 - Centralised path / URI / slug validators in `ltagent.security`,
   shared by CLI and MCP

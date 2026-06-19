@@ -346,7 +346,7 @@ def _placements(ir: CircuitIR) -> list[SymbolPlacement]:
         f"topology {ir.topology!r} has no .asc layout in MVP or Phase 11; "
         "supported: voltage_divider, rc_lowpass, rc_highpass, "
         "inverting_opamp, noninv_opamp, comparator, diode_clipper, "
-        "halfwave_rectifier, bridge_rectifier, transistor_switch",
+        "halfwave_rectifier, bridge_rectifier, transistor_switch, led_resistor",
         data={"topology": ir.topology},
     )
 
@@ -607,6 +607,92 @@ def _layout_rc(
 #   halfwave_rectifier  V, D, R (load) [, C (smoothing)]
 #   bridge_rectifier    V, D x4, R (load), C (smoothing)
 #   transistor_switch   V (input), R (base), Q (npn), R (load), V (vcc)
+
+
+def _place_led_resistor(ir: CircuitIR) -> list[SymbolPlacement]:
+    """Place a DC source, series resistor, and LED from left to right."""
+    vin = _by_kind(ir.components, ComponentKind.VOLTAGE_SOURCE)
+    resistors = [c for c in ir.components if c.kind == ComponentKind.RESISTOR]
+    diodes = [c for c in ir.components if c.kind == ComponentKind.DIODE]
+    if len(resistors) != 1 or len(diodes) != 1:
+        raise ASCError(
+            "ASC_INVALID_TOPOLOGY",
+            "led_resistor requires exactly one resistor and one diode",
+            data={"resistors": len(resistors), "diodes": len(diodes)},
+        )
+    resistor = resistors[0]
+    diode = diodes[0]
+    if resistor.nodes[0] != vin.nodes[0] or resistor.nodes[1] != diode.nodes[0]:
+        raise ASCError(
+            "ASC_INVALID_TOPOLOGY",
+            "led_resistor requires source -> resistor -> diode signal order",
+            data={
+                "sourceNodes": vin.nodes,
+                "resistorNodes": resistor.nodes,
+                "diodeNodes": diode.nodes,
+            },
+        )
+    if diode.nodes[1] != GROUND_NODE:
+        raise ASCError(
+            "ASC_INVALID_TOPOLOGY",
+            "led_resistor requires the diode cathode on ground",
+            data={"diodeNodes": diode.nodes},
+        )
+    return [
+        SymbolPlacement(
+            symbol_type="voltage",
+            anchor=Point(INPUT_X, MAIN_Y - 16),
+            rotation="R0",
+            inst_name=vin.id,
+            value=vin.value or "",
+        ),
+        SymbolPlacement(
+            symbol_type="res",
+            anchor=Point(INPUT_X + GRID_X - 16, MAIN_Y - 16),
+            rotation="R0",
+            inst_name=resistor.id,
+            value=resistor.value or "",
+        ),
+        SymbolPlacement(
+            symbol_type="diode",
+            anchor=Point(INPUT_X + 2 * GRID_X - 16, MAIN_Y - 16),
+            rotation="R0",
+            inst_name=diode.id,
+            value=diode.model or diode.value or "",
+        ),
+    ]
+
+
+def _layout_led_resistor(
+    ir: CircuitIR, placement_by_id: Mapping[str, SymbolPlacement]
+) -> tuple[list[str], dict[str, Point], list[Point]]:
+    vin = _by_kind(ir.components, ComponentKind.VOLTAGE_SOURCE)
+    resistor = next(c for c in ir.components if c.kind == ComponentKind.RESISTOR)
+    diode = next(c for c in ir.components if c.kind == ComponentKind.DIODE)
+
+    vin_plus = plus_pin(placement_by_id[vin.id])
+    vin_minus = minus_pin(placement_by_id[vin.id])
+    r_a, r_b = resistor_pins(placement_by_id[resistor.id])
+    d_a, d_k = diode_pins(placement_by_id[diode.id])
+    vin_ground = Point(vin_minus.x, GROUND_Y)
+    diode_ground = Point(d_k.x, GROUND_Y)
+
+    lines = [
+        _emit_wire(vin_plus, r_a),
+        _emit_wire(r_b, d_a),
+        _emit_wire(vin_minus, vin_ground),
+        _emit_wire(d_k, diode_ground),
+        _emit_wire(vin_ground, diode_ground),
+    ]
+    node_points = {
+        vin.nodes[0]: vin_plus,
+        vin.nodes[1]: vin_minus,
+        resistor.nodes[0]: r_a,
+        resistor.nodes[1]: r_b,
+        diode.nodes[0]: d_a,
+        diode.nodes[1]: d_k,
+    }
+    return lines, node_points, [vin_ground, diode_ground]
 
 
 def _place_inverting_opamp(ir: CircuitIR) -> list[SymbolPlacement]:
@@ -1508,6 +1594,7 @@ _PHASE11_PLACERS: dict[str, Any] = {
     "halfwave_rectifier": _place_halfwave_rectifier,
     "bridge_rectifier": _place_bridge_rectifier,
     "transistor_switch": _place_transistor_switch,
+    "led_resistor": _place_led_resistor,
 }
 
 
@@ -1519,6 +1606,7 @@ _PHASE11_LAYOUTS: dict[str, Any] = {
     "halfwave_rectifier": _layout_halfwave_rectifier,
     "bridge_rectifier": _layout_bridge_rectifier,
     "transistor_switch": _layout_transistor_switch,
+    "led_resistor": _layout_led_resistor,
 }
 
 

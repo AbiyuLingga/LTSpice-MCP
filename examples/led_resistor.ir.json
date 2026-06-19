@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "0.1",
+  "name": "led_resistor_5v_10ma",
+  "topology": "led_resistor",
+  "description": "5 V source, E24 300 ohm current-limiting resistor, and a red LED model.",
+  "nodes": ["vin", "led_anode", "0"],
+  "components": [
+    {
+      "id": "V1",
+      "kind": "voltage_source",
+      "spicePrefix": "V",
+      "nodes": ["vin", "0"],
+      "value": "DC 5",
+      "role": "input_source"
+    },
+    {
+      "id": "R1",
+      "kind": "resistor",
+      "spicePrefix": "R",
+      "nodes": ["vin", "led_anode"],
+      "value": "300",
+      "role": "current_limit"
+    },
+    {
+      "id": "D1",
+      "kind": "diode",
+      "spicePrefix": "D",
+      "nodes": ["led_anode", "0"],
+      "value": "LED_RED",
+      "role": "led"
+    }
+  ],
+  "models": [
+    {
+      "name": "LED_RED",
+      "type": "D",
+      "params": ["IS=1e-20", "N=2", "RS=10", "EG=2.0"]
+    }
+  ],
+  "analysis": [
+    {"kind": "op"}
+  ],
+  "measurements": [
+    {"name": "LED_CURRENT", "analysis": "op", "expression": "I(D1)"}
+  ],
+  "probes": ["V(led_anode)", "I(D1)"],
+  "constraints": {
+    "supplyVoltageV": 5,
+    "nominalForwardVoltageV": 2,
+    "targetCurrentA": 0.01
+  },
+  "metadata": {
+    "createdBy": "ltagent",
+    "safetyLevel": "simulation_only",
+    "source": "roadmap_milestone_1"
+  }
+}

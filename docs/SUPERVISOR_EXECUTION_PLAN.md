@@ -1,5 +1,12 @@
 # Supervisor Execution Plan
 
+> **Superseded:** This is the historical multi-agent integration plan. The
+> project now follows the one-agent operating model in
+> [`SINGLE_AGENT_EXECUTION_PLAN.md`](SINGLE_AGENT_EXECUTION_PLAN.md) and the
+> canonical roadmap in
+> [`AI_HARDWARE_AGENT_ROADMAP.md`](AI_HARDWARE_AGENT_ROADMAP.md). Do not use
+> the agent assignment table below for new work.
+
 Created: 2026-06-19
 Role: Codex Supervisor
 Repository: `ltspice-ai-agent`

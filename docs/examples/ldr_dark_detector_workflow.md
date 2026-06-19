@@ -426,7 +426,7 @@ see exactly what changed.
   §7 (editing an existing project).
 * [`../math_core.md`](../math_core.md) §4 (formula engine),
   §7 (verification gate).
-* [`../ltspice_file_based_live_editing_math_plan.md`](../ltspice_file_based_live_editing_math_plan.md)
+* [`ltspice_file_based_live_editing_math_plan.md`](../../ltspice_file_based_live_editing_math_plan.md)
   — plan §2.2 (user-experience target), §15.2 (voltage divider
   formula), §20.1 (LDR topology metadata), §22 (security model).
 * `examples/ldr_dark_detector.json` (planned; Agent 0) — the

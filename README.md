@@ -14,8 +14,11 @@ to edit `.asc` files directly.
 > (inverting_opamp, noninv_opamp, comparator, diode_clipper,
 > halfwave_rectifier, bridge_rectifier, transistor_switch) with
 > hand-crafted official templates and deterministic .asc layouts
-> (Phase 11). See [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md)
-> for the established roadmap and
+> (Phase 11). See
+> [`docs/AI_HARDWARE_AGENT_ROADMAP.md`](docs/AI_HARDWARE_AGENT_ROADMAP.md)
+> for the active single-agent roadmap,
+> [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) for the historical analog MVP,
+> and
 > [`ltspice_file_based_live_editing_math_plan.md`](ltspice_file_based_live_editing_math_plan.md)
 > for the live-editing workstream.
 

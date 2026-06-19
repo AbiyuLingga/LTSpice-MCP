@@ -294,6 +294,6 @@ the project.
 * [`../live_editing.md`](../live_editing.md) §5 (edit operations).
 * `examples/noninv_opamp.ir.json` — the canonical Circuit IR seed
   for this topology (Phase 11 handcrafted).
-* [`../ltspice_file_based_live_editing_math_plan.md`](../ltspice_file_based_live_editing_math_plan.md)
+* [`ltspice_file_based_live_editing_math_plan.md`](../../ltspice_file_based_live_editing_math_plan.md)
   — plan §15.2 (formula examples), §16 (calculation report
   format), §17 (verification).

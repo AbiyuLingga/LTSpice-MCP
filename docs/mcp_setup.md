@@ -141,7 +141,7 @@ ltagent-mcp
 …and reads JSON-RPC envelopes on stdin, writes responses on stdout.
 Logging (WARNING level by default) goes to stderr.
 
-## 4. Tools (10, MVP + Phase 9 evaluators)
+## 4. Tools (24 current integrated tools)
 
 | Tool | Purpose | Notes |
 |---|---|---|
@@ -155,12 +155,26 @@ Logging (WARNING level by default) goes to stderr.
 | `find_template` | Find an official template matching an IR or topology | Empty args returns the full catalogue. |
 | `evaluate_template_candidate` | Phase 9 evaluator on a candidate template | Returns score + gate results. |
 | `promote_template` | Promote a candidate to `official/` | `--force` overrides gates (audit-logged). |
+| `live_open_project` | Open a project for bounded live editing | Project id/path remains workspace-confined. |
+| `live_inspect_project` | Inspect graph, IR, results, and snapshots | Structured project view only. |
+| `live_apply_edit` | Apply one validated graph operation | Snapshot and history are created by the core. |
+| `live_snapshot` | Create a bounded project snapshot | No unrestricted file copying. |
+| `live_restore_snapshot` | Restore a validated snapshot | Snapshot ids and project paths are validated. |
+| `live_run_and_verify` | Run the project verification boundary | Uses the constrained runner and structured checks. |
+| `calculate_circuit` | Run deterministic Math Core calculations | MCP contains no duplicate formula engine. |
+| `explain_calculation` | Return formulas, assumptions, and values | Delegates to Math Core. |
+| `plan_digital_system` | Classify a Tiny8 prompt into validated digital intent | Unsupported larger systems return roadmap guidance. |
+| `create_digital_project` | Generate a deterministic Tiny8 project | Writes only under the configured projects root. |
+| `assemble_tiny8_program` | Assemble supported Tiny8 source | Uses the deterministic assembler, not a shell. |
+| `simulate_hdl_project` | Run the bounded HDL simulation wrapper | Reports missing Icarus/VVP structurally. |
+| `synth_check_hdl_project` | Run the bounded Yosys synthesis wrapper | Reports missing Yosys structurally. |
+| `inspect_digital_project` | Inspect digital manifests and reports | Curated artifact view only. |
 
 Every tool returns the JSON contract from `SPEC.md §2`. Failures are
 reported structurally with stable error codes (`PATH_TRAVERSAL`,
 `IR_LOAD_FAILED`, `RESOURCE_NOT_FOUND`, `TEMPLATE_NOT_FOUND`, etc.).
 
-## 5. Resources (8, plan §17.4)
+## 5. Resources (14 current integrated resources)
 
 | URI | MIME | Content |
 |---|---|---|
@@ -172,6 +186,12 @@ reported structurally with stable error codes (`PATH_TRAVERSAL`,
 | `ltagent://projects/{project_id}/log` | `text/plain` | Project `circuit.log` |
 | `ltagent://templates` | `application/json` | Collection of all known templates |
 | `ltagent://templates/{template_id}/metadata` | `application/json` | Template manifest.json |
+| `ltagent://digital/capabilities` | `application/json` | Supported digital scope and toolchain status |
+| `ltagent://digital/tiny8/spec` | `application/json` | Tiny8 ISA/system specification |
+| `ltagent://digital/templates` | `application/json` | Curated digital template catalogue |
+| `ltagent://projects/{project_id}/digital-manifest` | `application/json` | Digital project manifest |
+| `ltagent://projects/{project_id}/rtl` | `text/plain` | Generated top-level RTL |
+| `ltagent://projects/{project_id}/verification-report` | `application/json` | Digital simulation/synthesis report |
 
 Path traversal in `{project_id}` or `{template_id}` is rejected by
 `parse_resource_uri` with stable codes (`IDENTIFIER_INVALID`,

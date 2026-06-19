@@ -433,5 +433,5 @@ docs will need a follow-up patch on this branch.
   — plan of record.
 * [`../../AGENTS.md`](../../AGENTS.md) — operational guide for all
   coding agents.
-* [`tests_qa.md`](tests_qa.md) — Agent 7's report; Agent 8's docs are
+* `tests_qa.md` (historical branch-only artifact, not integrated) — Agent 7's report; Agent 8's docs are
   consumed by Agent 7's test descriptions.

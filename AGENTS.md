@@ -12,9 +12,13 @@ circuits. The Python core owns all validation, file generation, and
 simulation execution. The agent proposes intent, parameters, and topology
 only.
 
-The full plan lives in [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md). The
-current development phase is **Phase 11** (Advanced Analog Templates).
-Do not implement Phase 12+ features until Phase 11 acceptance is met.
+The active long-term plan lives in
+[`docs/AI_HARDWARE_AGENT_ROADMAP.md`](docs/AI_HARDWARE_AGENT_ROADMAP.md).
+[`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) remains the historical analog
+MVP plan. Phase 12 (Tiny8) is complete and the Phase 13 live-editing/Math
+Core surface is an integrated prototype. New work follows the serialized
+single-agent milestones in
+[`docs/SINGLE_AGENT_EXECUTION_PLAN.md`](docs/SINGLE_AGENT_EXECUTION_PLAN.md).
 
 **Phase 7 (Create Project Workflow) is complete.** `ltagent create` takes
 either an IR JSON file path or a natural-language prompt, runs the planner,
@@ -35,8 +39,9 @@ The evaluator records the score and gates from plan §15.3.
 
 **Phase 10 (MCP Server v1) is complete.** `ltagent-mcp` (after
 `pip install "ltspice-ai-agent[mcp]"`) runs an stdio MCP server that
-exposes 10 curated tools and 8 curated resources backed by the same
-Python core. No `run_shell`, no `execute_python`, no generic
+originally shipped 10 curated tools and 8 curated resources backed by the
+same Python core. The current integrated Phase 12/13 surface exposes 24
+tools and 14 resources. No `run_shell`, no `execute_python`, no generic
 `read_file`/`write_file`, no `.raw` exposure. See `MCP.md` and
 `docs/mcp_setup.md`.
 
@@ -63,7 +68,12 @@ idempotent form for callers that want the manual flow. The auto-seed
 is additive: it never overwrites user-edited manifests and never
 moves templates between status directories.
 
-## Current phase boundary
+## Current roadmap boundary
+
+The single-agent roadmap is active. Existing Phase 0-12 behavior is a
+compatibility baseline; Phase 13 live editing and Math Core remain a
+prototype until their roadmap acceptance gaps are closed. Do not start games,
+mixed-signal, or advanced power work before their prerequisite milestones pass.
 
 **Phase 11 — DONE.** `pytest` (612 pass, 1 skip: ltspice.executable not
 configured), `ruff check`, and `mypy src/ltagent/ir.py
@@ -74,7 +84,7 @@ auto-seeds on every read path; the JSON contract is hardened via
 wrap-up is committed at HEAD (`phase-12-tiny8` branch). Do not
 reopen Phase 11 work without an explicit ADR.
 
-**Phase 12 (Tiny8 CPU) — CURRENT.** Scope, gate, and hard rules live
+**Phase 12 (Tiny8 CPU) — DONE BASELINE.** Scope, gate, and hard rules live
 in [`docs/digital/plan-tiny8-agent.md`](docs/digital/plan-tiny8-agent.md)
 and [`docs/adr/0004-hybrid-hdl-spice.md`](docs/adr/0004-hybrid-hdl-spice.md).
 Read both before touching any digital code. The minimum that
@@ -194,6 +204,10 @@ MUST be true for the rest of this file to apply:
 6. **MCP tools are curated.** No `run_shell`, no `execute_python`, no
    generic `read_file` / `write_file`. Tools wrap the same Python
    core the CLI uses; no business logic lives only in MCP.
+7. **One AI editing owner.** New roadmap work is serialized through one main
+   agent. Parallelism is allowed only for deterministic jobs such as test
+   shards and bounded simulation sweeps, never for competing AI file edits or
+   template-promotion decisions.
 
 ## Critical local context (this machine)
 

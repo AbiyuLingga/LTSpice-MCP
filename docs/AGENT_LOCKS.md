@@ -1,10 +1,16 @@
 # AGENT LOCKS — File Ownership Matrix
 
+> **Historical archive:** This matrix documents the completed Phase 13
+> multi-agent integration. New work must not recreate these branches or agent
+> roles. Follow `AI_HARDWARE_AGENT_ROADMAP.md` and
+> `SINGLE_AGENT_EXECUTION_PLAN.md`, which require one serialized AI editing
+> owner.
+
 **Scope:** `ltspice-ai-agent` repository, File-Based Live Editing + Math
 Core workstream.
 
 **Source plan:**
-[`docs/ltspice_file_based_live_editing_math_plan.md`](ltspice_file_based_live_editing_math_plan.md)
+[`ltspice_file_based_live_editing_math_plan.md`](../ltspice_file_based_live_editing_math_plan.md)
 (sections 1-28). If the plan file is missing from the working tree, see
 `docs/agent_reports/integrator.md` §3 for the recovery note.
 

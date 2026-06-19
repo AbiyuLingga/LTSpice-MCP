@@ -1,7 +1,9 @@
 # SPEC — ltspice-ai-agent MVP
 
-> Version: Phase 11 (Advanced Analog Templates) complete. The full
-> MVP definition is in [`PROJECT_PLAN.md`](PROJECT_PLAN.md) section
+> Version: Phase 12 (Tiny8) complete; Phase 13 live-editing/Math Core
+> prototype integrated. The active roadmap is
+> [`AI_HARDWARE_AGENT_ROADMAP.md`](AI_HARDWARE_AGENT_ROADMAP.md). The original
+> analog MVP definition remains in [`PROJECT_PLAN.md`](PROJECT_PLAN.md) section
 > 26 ("Definition Of Done For MVP"). This document only specifies
 > what each phase must deliver and what the agent-facing contract
 > looks like.
@@ -22,19 +24,19 @@
 | 9 | Template evaluator + manual promoter | Failed sims and low-score layouts cannot be promoted |
 | 10 | MCP server v1 (stdio, curated tools) | `ltagent-mcp` lists tools; tools match CLI output |
 | 11 | Advanced analog templates (op-amp, rectifier, BJT switch, …) | Hand-made official templates in IR + deterministic .asc layout |
-| 12 | E-series optimization loop | Reports ideal, selected, actual, error % |
-| 13 | Optional minimal web UI | UI reads projects dir, no auth, no cloud |
+| 12 | Tiny8 CPU digital pipeline | Deterministic plan/create/assemble plus bounded simulation and synthesis reports |
+| 13 | Live editing + Math Core prototype | Graph edits, snapshots/history, deterministic formulas, and curated MCP tools |
 
-**Phase 11 is the current shipping phase.** Earlier phases (0-10)
-are frozen; the contract they shipped is still in force. Phase 12
-and beyond are explicitly out of scope until Phase 11 acceptance is
-met on the host (see [`docs/runner_troubleshooting.md`](runner_troubleshooting.md)
-for the Wine/LTspice host caveats that gate Phase 11 acceptance).
+**Phase 12 is the current completed baseline.** Earlier phase contracts remain
+in force. Phase 13 is present as a prototype and future work is governed by the
+single-agent roadmap. Host-dependent LTspice and digital toolchain acceptance
+must still be reported honestly; see
+[`runner_troubleshooting.md`](runner_troubleshooting.md).
 
 Phases 1+ require Phase 0 to be green. Do not start a phase until the
 previous one is merged and CI is green.
 
-## 2. Phase 11 acceptance (current phase)
+## 2. Phase 11 acceptance (historical frozen gate)
 
 - `ltagent ir validate examples/inverting_opamp.ir.json --json`
   (and the other 6 new examples) accepts the IR and emits a

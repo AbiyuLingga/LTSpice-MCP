@@ -55,13 +55,18 @@ agents and engineers using AI agents. The threats are:
 - `.gitignore` excludes generated `.raw`, `.log`, `.tmp`, and
   `.snapshots/` artifacts so they do not get committed accidentally.
 
-### MCP surface (Phase 10)
+### MCP surface (current integrated server)
 
 - Tools are curated. There is **no** `run_shell`, `execute_python`,
   or generic `read_file` / `write_file` tool. All file access goes
   through project-scoped helpers.
 - Resources are exposed under the `ltagent://` URI scheme and reject
   any path that traverses outside the project or template trees.
+
+The current runtime surface contains 24 curated tools and 14 curated
+resources across analog, Tiny8 digital, and live-editing/Math Core. Counts are
+asserted in tests and can be inspected with `ltagent-mcp --list-tools` and
+`ltagent-mcp --list-resources`.
 
 ### Promotion and review
 

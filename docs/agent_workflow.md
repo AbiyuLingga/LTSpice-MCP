@@ -1,5 +1,9 @@
 # Multi-Agent Workflow
 
+> **Historical archive:** This workflow was used for the completed Phase 13
+> integration. It is superseded by the single-agent rules in
+> `AI_HARDWARE_AGENT_ROADMAP.md`. Do not run parallel AI file-editing agents.
+
 > **Scope:** how the AI agents that build the File-Based Live
 > Editing + Math Core workstream collaborate, branch, merge, and
 > resolve conflicts. The source of authority for file ownership is

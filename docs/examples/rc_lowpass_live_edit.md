@@ -364,7 +364,7 @@ user asked for; the rest of the project files (`circuit.cir`,
   described as a numbered list.
 * [`../math_core.md`](../math_core.md) §4, §5, §8 — the formula,
   the standard-value lookup, and the confidence ladder.
-* [`../ltspice_file_based_live_editing_math_plan.md`](../ltspice_file_based_live_editing_math_plan.md)
+* [`ltspice_file_based_live_editing_math_plan.md`](../../ltspice_file_based_live_editing_math_plan.md)
   — plan §0 example, §6 project layout, §15 formulas, §17
   verification.
 * `examples/rc_lowpass.ir.json` — the canonical Circuit IR for this

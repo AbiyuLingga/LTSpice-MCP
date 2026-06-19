@@ -56,6 +56,8 @@ def test_version_exits_zero_and_reports_version() -> None:
 def test_help_exits_zero_and_lists_subcommands() -> None:
     proc = _python_module_invoke(["--help"])
     assert proc.returncode == 0
+    assert "Local CLI and MCP adapter" in proc.stdout
+    assert "(later)" not in proc.stdout
     for cmd in ("doctor", "init", "config", "ir", "netlist"):
         assert cmd in proc.stdout
 

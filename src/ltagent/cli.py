@@ -3190,7 +3190,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ltagent",
         description=(
-            "Local CLI and (later) MCP adapter for safely generating and "
+            "Local CLI and MCP adapter for safely generating and "
             "simulating LTspice circuits. See docs/SPEC.md for the current phase."
         ),
     )

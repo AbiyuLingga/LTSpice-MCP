@@ -99,8 +99,11 @@ ERR_INVALID_OPERATION: Final[str] = "INVALID_OPERATION"
 ERR_INVALID_TOPOLOGY: Final[str] = "INVALID_TOPOLOGY"
 ERR_INVALID_SNAPSHOT_ID: Final[str] = "INVALID_SNAPSHOT_ID"
 
-# Path safety — code aligned with ltagent.security
-ERR_PATH_TRAVERSAL: Final[str] = ERR_PATH_TRAVERSAL
+# Path safety — codes aligned with ltagent.security. We import the
+# traversal code under a local alias so the ``Final`` re-export below
+# doesn't try to rebind the import.
+_PATH_TRAVERSAL_CODE: Final[str] = ERR_PATH_TRAVERSAL
+ERR_PATH_TRAVERSAL_CODE: Final[str] = _PATH_TRAVERSAL_CODE
 ERR_PATH_NOT_FOUND: Final[str] = "PATH_NOT_FOUND"
 ERR_PROJECT_NOT_FOUND: Final[str] = "PROJECT_NOT_FOUND"
 ERR_SNAPSHOT_NOT_FOUND: Final[str] = "SNAPSHOT_NOT_FOUND"
@@ -134,14 +137,14 @@ ERR_CONFIG_INVALID: Final[str] = "CONFIG_INVALID"
 _LIVE_MODULE: Any = None
 _LIVE_IMPORT_ERROR: BaseException | None = None
 try:
-    from . import live as _LIVE_MODULE  # type: ignore[import-not-found]
+    from . import live as _LIVE_MODULE
 except Exception as _exc:  # pragma: no cover - exercised when the live module lands
     _LIVE_IMPORT_ERROR = _exc
 
 _MATH_CORE_MODULE: Any = None
 _MATH_CORE_IMPORT_ERROR: BaseException | None = None
 try:
-    from . import math_core as _MATH_CORE_MODULE  # type: ignore[import-not-found]
+    from . import math_core as _MATH_CORE_MODULE
 except Exception as _exc:  # pragma: no cover - exercised when the math core lands
     _MATH_CORE_IMPORT_ERROR = _exc
 
@@ -353,24 +356,24 @@ def _make_rc_solver(*, kind: str) -> Callable[[Mapping[str, Any]], dict[str, Any
         ideal: dict[str, Any] = {}
         if known_fc and known_r and known_c:
             # Verify the trio is consistent (within 1 %).
-            fc, _ = _parse_unit_value(params["fc"], name="fc")
-            r, _ = _parse_unit_value(params["R"], name="R")
-            c, _ = _parse_unit_value(params["C"], name="C")
+            fc_v, _ = _parse_unit_value(params["fc"], name="fc")
+            r_v, _ = _parse_unit_value(params["R"], name="R")
+            c_v, _ = _parse_unit_value(params["C"], name="C")
             ideal = {
-                "fc": {"value": fc, "unit": "Hz", "display": params["fc"]},
-                "R": {"value": r, "unit": "ohm", "display": params["R"]},
-                "C": {"value": c, "unit": "F", "display": params["C"]},
+                "fc": {"value": fc_v, "unit": "Hz", "display": params["fc"]},
+                "R": {"value": r_v, "unit": "ohm", "display": params["R"]},
+                "C": {"value": c_v, "unit": "F", "display": params["C"]},
             }
-            predicted_fc = 1.0 / (_TWO_PI * r * c)
+            predicted_fc = 1.0 / (_TWO_PI * r_v * c_v)
             ideal["fcPredicted"] = {
                 "value": predicted_fc,
                 "unit": "Hz",
-                "errorPercent": (predicted_fc - fc) / fc * 100.0 if fc else None,
+                "errorPercent": (predicted_fc - fc_v) / fc_v * 100.0 if fc_v else None,
             }
         else:
-            fc = None
-            r = None
-            c = None
+            fc: float | None = None
+            r: float | None = None
+            c: float | None = None
             if known_fc:
                 fc, _ = _parse_unit_value(params["fc"], name="fc")
             if known_r:
@@ -378,18 +381,15 @@ def _make_rc_solver(*, kind: str) -> Callable[[Mapping[str, Any]], dict[str, Any
             if known_c:
                 c, _ = _parse_unit_value(params["C"], name="C")
             if not known_fc:
-                if not (known_r and known_c):
-                    raise ValueError("cannot solve fc without R and C")
+                assert known_r and known_c and r is not None and c is not None
                 fc_val = 1.0 / (_TWO_PI * r * c)
                 ideal["fc"] = {"value": fc_val, "unit": "Hz", "display": f"{fc_val:.6g}"}
             if not known_r:
-                if not (known_fc and known_c):
-                    raise ValueError("cannot solve R without fc and C")
+                assert known_fc and known_c and fc is not None and c is not None
                 r_val = 1.0 / (_TWO_PI * fc * c)
                 ideal["R"] = {"value": r_val, "unit": "ohm", "display": f"{r_val:.6g}"}
             if not known_c:
-                if not (known_fc and known_r):
-                    raise ValueError("cannot solve C without fc and R")
+                assert known_fc and known_r and fc is not None and r is not None
                 c_val = 1.0 / (_TWO_PI * fc * r)
                 ideal["C"] = {"value": c_val, "unit": "F", "display": f"{c_val:.6g}"}
         return ideal
@@ -876,8 +876,10 @@ def tool_live_inspect_project(
         except (OSError, json.JSONDecodeError):
             return None
         if isinstance(loaded, dict):
-            return _to_jsonable(loaded)
-        return _to_jsonable({"value": loaded})
+            result: Any = _to_jsonable(loaded)
+            return result if isinstance(result, dict) else None
+        wrapped: Any = _to_jsonable({"value": loaded})
+        return wrapped if isinstance(wrapped, dict) else None
 
     graph = _safe_read_json(graph_path)
     ir = _safe_read_json(ir_path)

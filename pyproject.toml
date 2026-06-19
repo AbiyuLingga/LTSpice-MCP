@@ -50,6 +50,7 @@ mcp = [
 [project.scripts]
 ltagent = "ltagent.cli:main"
 ltagent-mcp = "ltagent.mcp_server:main"
+ltagent-engine = "ltagent.engine_server:main"
 
 [project.urls]
 Homepage = "https://github.com/abiyulinx/ltspice-ai-agent"

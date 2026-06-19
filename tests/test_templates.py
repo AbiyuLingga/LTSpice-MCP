@@ -48,6 +48,9 @@ from ltagent.templates import (
     write_index,
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+RC_LOWPASS_EXAMPLE = REPO_ROOT / "examples" / "rc_lowpass.ir.json"
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -372,7 +375,7 @@ def test_find_by_topology_returns_none_when_absent(seeded_templates: Path) -> No
 
 
 def test_match_returns_official_for_same_topology(seeded_templates: Path) -> None:
-    ir = load_ir("/home/abiyulinx/ltspice-ai-agent/examples/rc_lowpass.ir.json")
+    ir = load_ir(RC_LOWPASS_EXAMPLE)
     result = match_template(seeded_templates, ir, bump=False)
     assert isinstance(result, MatchResult)
     assert result.matched is True
@@ -460,7 +463,7 @@ def test_match_no_template_for_unknown_topology(seeded_templates: Path) -> None:
 
 
 def test_match_bumps_use_count(seeded_templates: Path) -> None:
-    ir = load_ir("/home/abiyulinx/ltspice-ai-agent/examples/rc_lowpass.ir.json")
+    ir = load_ir(RC_LOWPASS_EXAMPLE)
     r1 = match_template(seeded_templates, ir, bump=True)
     assert r1.useCount == 1
     assert r1.useCountBumped is True
@@ -470,7 +473,7 @@ def test_match_bumps_use_count(seeded_templates: Path) -> None:
 
 
 def test_match_no_bump_keeps_count(seeded_templates: Path) -> None:
-    ir = load_ir("/home/abiyulinx/ltspice-ai-agent/examples/rc_lowpass.ir.json")
+    ir = load_ir(RC_LOWPASS_EXAMPLE)
     r1 = match_template(seeded_templates, ir, bump=False)
     assert r1.useCount == 0
     assert r1.useCountBumped is False

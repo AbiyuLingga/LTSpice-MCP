@@ -56,7 +56,7 @@ button:disabled { cursor: not-allowed; opacity: .44; }
 .project-tree ul { color: var(--muted); list-style: none; margin: 0; padding-left: 17px; }
 .component-list { display: grid; gap: 4px; }
 .component-list button { align-items: center; background: transparent; border: 0; color: #d7d7ce; display: flex; font-size: 12px; gap: 8px; padding: 5px 4px; text-align: left; }
-.component-list button:hover { background: #343830; }
+.component-list button:hover, .component-list button[aria-pressed="true"] { background: #343830; }.component-list button[aria-pressed="true"] { color: #fff; outline: 1px solid var(--accent); }
 .component-glyph { align-items: center; background: #3a4037; border: 1px solid #566150; border-radius: 3px; color: var(--accent); display: inline-flex; font-size: 10px; height: 19px; justify-content: center; width: 19px; }
 
 .workspace { display: grid; grid-template-rows: 38px minmax(0, 1fr); min-width: 0; }
@@ -69,8 +69,9 @@ button:disabled { cursor: not-allowed; opacity: .44; }
 .surface-header span { margin-left: auto; }
 .surface-run { background: transparent; border: 1px solid #62695b; border-radius: 4px; color: #e7e5dc; font-size: 11px; padding: 4px 7px; }.surface-run:hover { background: #343830; }
 .schematic-surface, .code-surface, .waveform-surface, .led-surface { display: grid; grid-template-rows: 40px minmax(0, 1fr); min-height: 0; }
-.schematic-grid { background-color: #191b17; background-image: radial-gradient(#4c5348 1px, transparent 1px); background-size: 16px 16px; display: grid; min-height: 0; place-items: center; }
+.schematic-grid { background-color: #191b17; background-image: radial-gradient(#4c5348 1px, transparent 1px); background-size: 16px 16px; display: grid; min-height: 0; place-items: center; position: relative; }.schematic-grid.placement-mode { cursor: crosshair; }
 .schematic-empty { background: #242720; border: 1px solid #575d52; border-radius: 5px; color: #c5c9bf; font-size: 12px; max-width: 300px; padding: 11px 14px; text-align: center; }
+.schematic-node { align-items: center; background: #354237; border: 1px solid #8bb48c; border-radius: 4px; color: #f4f1e8; display: inline-flex; font-size: 10px; gap: 6px; min-height: 30px; padding: 4px 6px; position: absolute; transform: translate(-50%, -50%); }.schematic-node b { align-items: center; background: #172117; border-radius: 2px; color: var(--accent); display: inline-flex; height: 18px; justify-content: center; width: 18px; }.schematic-node small { font-size: 10px; }
 .code-surface pre { color: #d9ddd3; font: 13px/1.75 "SFMono-Regular", Consolas, monospace; margin: 0; overflow: auto; padding: 18px; }
 .code-surface code { display: block; }
 .code-surface code span { color: #747a70; display: inline-block; margin-right: 15px; text-align: right; width: 24px; }

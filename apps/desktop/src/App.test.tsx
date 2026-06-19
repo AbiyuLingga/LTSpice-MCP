@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -38,6 +38,9 @@ function fakeBridge(): EngineBridge {
         },
         status: "halted",
       };
+    }
+    if (method === "design.applyChanges") {
+      return { changedDocuments: ["schematic"], revision: 1 };
     }
     return {};
   });
@@ -83,5 +86,23 @@ describe("App", () => {
 
     expect(await screen.findByText("1 frame rendered")).toBeVisible();
     expect(bridge.request).toHaveBeenCalledWith("digital.emulate", expect.any(Object));
+  });
+
+  it("places a selected component through a revision-guarded change set", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.type(screen.getByLabelText("Project name"), "Analog Lab");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    await user.click(screen.getByRole("button", { name: "Place Resistor" }));
+    fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 96, clientY: 144 });
+
+    expect(await screen.findByText("1 components")).toBeVisible();
+    expect(bridge.request).toHaveBeenCalledWith(
+      "design.applyChanges",
+      expect.objectContaining({ projectDir: "/projects/analog_lab" }),
+    );
   });
 });

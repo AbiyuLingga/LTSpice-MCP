@@ -16,14 +16,24 @@ import {
 } from "lucide-react";
 
 import { ProjectDialog } from "./components/ProjectDialog";
-import { type Surface, WorkspaceSurface } from "./components/WorkspaceSurface";
+import { type SchematicNode, type Surface, WorkspaceSurface } from "./components/WorkspaceSurface";
 import { desktopBridge, type EngineBridge, type EngineProject } from "./engine";
 
 type AppProps = { bridge?: EngineBridge };
 type BottomTab = "problems" | "jobs" | "console";
 type LedEmulation = { led?: { frames: Array<{ pixels: boolean[] }> }; status: string };
+type SchematicDocument = { gridSize: number; nodes: SchematicNode[]; schemaVersion: "1.0"; wires: unknown[] };
 
 const LED_DEMO_ROM = [0x1002, 0xC0F0, 0x1003, 0xC0F1, 0x1001, 0xC0F2, 0xC0F4, 0xF000];
+const INITIAL_SCHEMATIC: SchematicDocument = { gridSize: 16, nodes: [], schemaVersion: "1.0", wires: [] };
+const COMPONENTS = [
+  { kind: "resistor", label: "Resistor" },
+  { kind: "capacitor", label: "Capacitor" },
+  { kind: "diode", label: "Diode" },
+  { kind: "opamp", label: "Op amp" },
+  { kind: "counter", label: "Counter" },
+  { kind: "led_matrix", label: "LED matrix" },
+];
 
 const surfaces: Array<{ id: Surface; icon: typeof CircuitBoard; label: string }> = [
   { id: "schematic", icon: CircuitBoard, label: "Schematic" },
@@ -41,7 +51,8 @@ export function App({ bridge = desktopBridge }: AppProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobMessage, setJobMessage] = useState("No jobs running");
-  const [schematicNodes, setSchematicNodes] = useState(0);
+  const [schematic, setSchematic] = useState<SchematicDocument>(INITIAL_SCHEMATIC);
+  const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
   const [ledPixels, setLedPixels] = useState<boolean[] | null>(null);
   const [ledFrameCount, setLedFrameCount] = useState(0);
 
@@ -54,12 +65,12 @@ export function App({ bridge = desktopBridge }: AppProps) {
     setError(null);
     try {
       const created = await bridge.request<EngineProject>("project.create", input);
-      const schematic = await bridge.request<{ document: { nodes: unknown[] } }>("design.get", {
+      const loadedSchematic = await bridge.request<{ document: SchematicDocument }>("design.get", {
         document: "schematic",
         projectDir: created.projectDir,
       });
       setProject(created);
-      setSchematicNodes(schematic.document.nodes.length);
+      setSchematic(loadedSchematic.document);
       setShowDialog(false);
       setBottomTab("jobs");
       setJobMessage("Project created and schematic loaded");
@@ -102,6 +113,34 @@ export function App({ bridge = desktopBridge }: AppProps) {
     }
   }
 
+  async function placeComponent(x: number, y: number) {
+    if (!project || !selectedComponent) return;
+    const nextNode: SchematicNode = {
+      id: `${selectedComponent}_${schematic.nodes.length + 1}`,
+      kind: selectedComponent,
+      rotation: 0,
+      x,
+      y,
+    };
+    const nextSchematic: SchematicDocument = { ...schematic, nodes: [...schematic.nodes, nextNode] };
+    setJobMessage(`Placing ${selectedComponent}…`);
+    try {
+      const result = await bridge.request<{ revision: number }>("design.applyChanges", {
+        changeSet: {
+          baseRevision: project.revision,
+          operations: [{ document: "schematic", type: "replace_document", value: nextSchematic }],
+          schemaVersion: "1.0",
+        },
+        projectDir: project.projectDir,
+      });
+      setSchematic(nextSchematic);
+      setProject({ ...project, revision: result.revision });
+      setJobMessage(`${nextNode.id} placed`);
+    } catch (caught) {
+      setJobMessage(caught instanceof Error ? caught.message : "Unable to place component");
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="app-bar">
@@ -131,8 +170,8 @@ export function App({ bridge = desktopBridge }: AppProps) {
         <section>
           <header className="panel-heading"><CircuitBoard size={15} /><h2>Components</h2></header>
           <div className="component-list">
-            {["Resistor", "Capacitor", "Diode", "Op amp", "Counter", "LED matrix"].map((name) => (
-              <button key={name} title={`Place ${name}`} type="button"><span className="component-glyph">{name.slice(0, 1)}</span>{name}</button>
+            {COMPONENTS.map(({ kind, label }) => (
+              <button aria-label={`Place ${label}`} aria-pressed={selectedComponent === kind} disabled={!project} key={kind} onClick={() => setSelectedComponent(kind)} title={`Place ${label}`} type="button"><span className="component-glyph">{label.slice(0, 1)}</span>{label}</button>
             ))}
           </div>
         </section>
@@ -146,7 +185,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
             </button>
           ))}
         </div>
-        <WorkspaceSurface activeSurface={surface} ledFrameCount={ledFrameCount} ledPixels={ledPixels} onRunLedDemo={runLedDemo} schematicNodes={schematicNodes} />
+        <WorkspaceSurface activeSurface={surface} ledFrameCount={ledFrameCount} ledPixels={ledPixels} onPlaceComponent={placeComponent} onRunLedDemo={runLedDemo} schematicNodes={schematic.nodes} selectedComponent={selectedComponent} />
       </section>
 
       <aside className="right-panel panel" aria-label="Inspector and AI">

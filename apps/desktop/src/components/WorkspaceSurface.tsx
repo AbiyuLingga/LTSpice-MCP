@@ -1,13 +1,22 @@
 import { Activity, Braces, CircuitBoard, Grid2X2 } from "lucide-react";
 
 export type Surface = "schematic" | "hdl" | "waveform" | "led";
+export type SchematicNode = {
+  id: string;
+  kind: string;
+  rotation: number;
+  x: number;
+  y: number;
+};
 
 type WorkspaceSurfaceProps = {
   activeSurface: Surface;
   ledFrameCount: number;
   ledPixels: boolean[] | null;
   onRunLedDemo(): void;
-  schematicNodes: number;
+  onPlaceComponent(x: number, y: number): void;
+  schematicNodes: SchematicNode[];
+  selectedComponent: string | null;
 };
 
 const hdlLines = [
@@ -19,7 +28,7 @@ const hdlLines = [
   "endmodule",
 ];
 
-export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onRunLedDemo, schematicNodes }: WorkspaceSurfaceProps) {
+export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onPlaceComponent, onRunLedDemo, schematicNodes, selectedComponent }: WorkspaceSurfaceProps) {
   if (activeSurface === "hdl") {
     return (
       <section className="code-surface" aria-label="HDL editor">
@@ -54,9 +63,24 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onRu
   }
   return (
     <section className="schematic-surface" aria-label="Schematic editor work area">
-      <header className="surface-header"><CircuitBoard size={16} /><h1>Schematic</h1><span>{schematicNodes} components</span></header>
-      <div className="schematic-grid">
-        <div className="schematic-empty">Select a component from the library to place it on the schematic.</div>
+      <header className="surface-header"><CircuitBoard size={16} /><h1>Schematic</h1><span>{schematicNodes.length} components</span></header>
+      <div
+        aria-label="Schematic grid"
+        className={selectedComponent ? "schematic-grid placement-mode" : "schematic-grid"}
+        onClick={(event) => {
+          if (!selectedComponent) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const x = Math.max(0, Math.floor((event.clientX - rect.left) / 16) * 16);
+          const y = Math.max(0, Math.floor((event.clientY - rect.top) / 16) * 16);
+          onPlaceComponent(x, y);
+        }}
+      >
+        {schematicNodes.map((node) => (
+          <span className="schematic-node" key={node.id} style={{ left: node.x, top: node.y }}>
+            <b>{node.kind.slice(0, 1).toUpperCase()}</b><small>{node.id}</small>
+          </span>
+        ))}
+        {!schematicNodes.length ? <div className="schematic-empty">{selectedComponent ? `Click to place ${selectedComponent}` : "Select a component from the library to place it on the schematic."}</div> : null}
       </div>
     </section>
   );

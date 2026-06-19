@@ -29,8 +29,11 @@ from pathlib import Path
 import pytest
 
 from ltagent import mcp_live_tools
-import ltagent.mcp_live_tools as ml
 
+# Short alias used in the test bodies below. Defined as a module-
+# level binding (rather than `import ... as ml`) so ruff's isort
+# passes; the alias is just a convenience.
+ml = mcp_live_tools
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -449,9 +452,8 @@ def test_apply_edit_reports_live_module_unavailable_when_backend_missing(
 ) -> None:
     # Force the module-unavailable path even if another agent's live
     # package has landed.
-    import ltagent.mcp_live_tools as srv
-    saved = srv._LIVE_MODULE
-    srv._LIVE_MODULE = None
+    saved = mcp_live_tools._LIVE_MODULE
+    mcp_live_tools._LIVE_MODULE = None
     try:
         (workspace / "projects" / "rc1k").mkdir()
         result = ml.tool_live_apply_edit(
@@ -460,7 +462,7 @@ def test_apply_edit_reports_live_module_unavailable_when_backend_missing(
         _err_payload(result, code="LIVE_MODULE_UNAVAILABLE")
         _assert_jsonable(result)
     finally:
-        srv._LIVE_MODULE = saved
+        mcp_live_tools._LIVE_MODULE = saved
 
 
 def test_apply_edit_reports_live_method_missing_when_entrypoint_absent(

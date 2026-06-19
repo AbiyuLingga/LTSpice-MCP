@@ -168,3 +168,40 @@ def test_open_workbench_project_rejects_a_future_manifest_version(tmp_path: Path
         open_workbench_project(project.project_dir)
 
     assert excinfo.value.code == ERR_PROJECT_VERSION_UNSUPPORTED
+
+
+def test_open_workbench_project_recovers_an_interrupted_change_set(tmp_path: Path) -> None:
+    project = create_workbench_project(_projects_root(tmp_path), "analog_lab")
+    original_manifest = project.manifest.read_text(encoding="utf-8")
+    original_requirements = project.requirements.read_text(encoding="utf-8")
+    project.paths.transaction.write_text(
+        json.dumps(
+            {
+                "before": {"requirements": original_requirements},
+                "manifest": original_manifest,
+                "schemaVersion": "1.0",
+            }
+        ),
+        encoding="utf-8",
+    )
+    project.requirements.write_text(
+        json.dumps({"goals": ["partial"], "schemaVersion": "1.0"}),
+        encoding="utf-8",
+    )
+    project.manifest.write_text(
+        json.dumps(
+            {
+                "displayName": "analog_lab",
+                "projectId": "analog_lab",
+                "revision": 1,
+                "schemaVersion": "1.0",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    recovered = open_workbench_project(project.project_dir)
+
+    assert recovered.revision == 0
+    assert project.requirements.read_text(encoding="utf-8") == original_requirements
+    assert not project.paths.transaction.exists()

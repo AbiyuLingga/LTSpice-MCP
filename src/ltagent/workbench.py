@@ -572,7 +572,11 @@ def _parse_change_set(change_set: Mapping[str, object]) -> dict[str, object]:
                 data={"document": document},
             )
         if document not in DOCUMENT_PATHS:
-            _document_path(get_workbench_project_paths(Path(".")), document)
+            raise WorkbenchError(
+                ERR_DOCUMENT_INVALID,
+                f"document {document!r} is not supported",
+                data={"document": document, "allowed": sorted(DOCUMENT_PATHS)},
+            )
         if not isinstance(value, Mapping):
             raise WorkbenchError(
                 ERR_CHANGESET_OPERATION_INVALID,

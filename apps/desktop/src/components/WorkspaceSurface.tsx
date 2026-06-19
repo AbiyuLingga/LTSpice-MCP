@@ -4,6 +4,9 @@ export type Surface = "schematic" | "hdl" | "waveform" | "led";
 
 type WorkspaceSurfaceProps = {
   activeSurface: Surface;
+  ledFrameCount: number;
+  ledPixels: boolean[] | null;
+  onRunLedDemo(): void;
   schematicNodes: number;
 };
 
@@ -16,7 +19,7 @@ const hdlLines = [
   "endmodule",
 ];
 
-export function WorkspaceSurface({ activeSurface, schematicNodes }: WorkspaceSurfaceProps) {
+export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onRunLedDemo, schematicNodes }: WorkspaceSurfaceProps) {
   if (activeSurface === "hdl") {
     return (
       <section className="code-surface" aria-label="HDL editor">
@@ -40,10 +43,10 @@ export function WorkspaceSurface({ activeSurface, schematicNodes }: WorkspaceSur
   if (activeSurface === "led") {
     return (
       <section className="led-surface" aria-label="LED matrix simulator">
-        <header className="surface-header"><Grid2X2 size={16} /><h1>LED matrix</h1><span>8 × 16 framebuffer preview</span></header>
+        <header className="surface-header"><Grid2X2 size={16} /><h1>LED matrix</h1><span>{ledFrameCount ? `${ledFrameCount} frame rendered` : "8 × 16 framebuffer preview"}</span><button className="surface-run" onClick={onRunLedDemo}>Run LED demo</button></header>
         <div aria-label="8 by 16 LED matrix" className="led-matrix" role="img">
           {Array.from({ length: 128 }, (_, index) => (
-            <span className={(index + Math.floor(index / 8)) % 11 === 0 ? "led-on" : "led-off"} key={index} />
+            <span className={ledPixels?.[index] ?? ((index + Math.floor(index / 8)) % 11 === 0) ? "led-on" : "led-off"} key={index} />
           ))}
         </div>
       </section>

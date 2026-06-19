@@ -9,9 +9,10 @@ the established CLI or MCP contracts.
   analog, schematic, digital, and system documents.
 - Revision-guarded `replace_document` change sets with transaction recovery.
 - `ltagent-engine`, a JSON-RPC/NDJSON sidecar exposing allowlisted project and
-  document methods only.
+  document methods plus bounded Tiny8 emulation.
 - A Tauri/React workbench shell with local project creation, Basic/Advanced
-  mode, design surfaces, inspector, job panel, and 8x16 LED preview.
+  mode, design surfaces, inspector, job panel, and 8x16 LED preview driven by
+  a verified Tiny8 demo ROM.
 
 ## Local Development
 

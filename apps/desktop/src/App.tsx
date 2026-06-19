@@ -21,6 +21,9 @@ import { desktopBridge, type EngineBridge, type EngineProject } from "./engine";
 
 type AppProps = { bridge?: EngineBridge };
 type BottomTab = "problems" | "jobs" | "console";
+type LedEmulation = { led?: { frames: Array<{ pixels: boolean[] }> }; status: string };
+
+const LED_DEMO_ROM = [0x1002, 0xC0F0, 0x1003, 0xC0F1, 0x1001, 0xC0F2, 0xC0F4, 0xF000];
 
 const surfaces: Array<{ id: Surface; icon: typeof CircuitBoard; label: string }> = [
   { id: "schematic", icon: CircuitBoard, label: "Schematic" },
@@ -39,6 +42,8 @@ export function App({ bridge = desktopBridge }: AppProps) {
   const [error, setError] = useState<string | null>(null);
   const [jobMessage, setJobMessage] = useState("No jobs running");
   const [schematicNodes, setSchematicNodes] = useState(0);
+  const [ledPixels, setLedPixels] = useState<boolean[] | null>(null);
+  const [ledFrameCount, setLedFrameCount] = useState(0);
 
   const projectLabel = project?.displayName ?? "No project open";
   const inspectorTitle = advanced ? "Properties & constraints" : "Properties";
@@ -76,6 +81,24 @@ export function App({ bridge = desktopBridge }: AppProps) {
       setJobMessage(result.status === "pass" ? "Project validation passed" : "Project validation finished");
     } catch (caught) {
       setJobMessage(caught instanceof Error ? caught.message : "Project validation failed");
+    }
+  }
+
+  async function runLedDemo() {
+    setBottomTab("jobs");
+    setJobMessage("Running Tiny8 LED demo…");
+    try {
+      const result = await bridge.request<LedEmulation>("digital.emulate", {
+        maxCycles: 16,
+        renderLed: true,
+        rom: LED_DEMO_ROM,
+      });
+      const frames = result.led?.frames ?? [];
+      setLedFrameCount(frames.length);
+      setLedPixels(frames.at(-1)?.pixels ?? null);
+      setJobMessage(result.status === "halted" ? "Tiny8 LED demo halted cleanly" : `Tiny8 demo ${result.status}`);
+    } catch (caught) {
+      setJobMessage(caught instanceof Error ? caught.message : "Tiny8 LED demo failed");
     }
   }
 
@@ -123,7 +146,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
             </button>
           ))}
         </div>
-        <WorkspaceSurface activeSurface={surface} schematicNodes={schematicNodes} />
+        <WorkspaceSurface activeSurface={surface} ledFrameCount={ledFrameCount} ledPixels={ledPixels} onRunLedDemo={runLedDemo} schematicNodes={schematicNodes} />
       </section>
 
       <aside className="right-panel panel" aria-label="Inspector and AI">

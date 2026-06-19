@@ -21,8 +21,9 @@ must not grant its WebView arbitrary filesystem or shell access.
 - `hardware.project.json` is the versioned project manifest. Design documents
   are separate JSON files, and `ChangeSet` writes use a journal plus revision
   check to recover from interrupted multi-file updates.
-- The first engine capability set is project/document management. Simulation,
-  AI, waveform streaming, and bundled sidecar binaries are additive phases.
+- The first engine capability set is project/document management plus bounded
+  pure-Python Tiny8 emulation. External simulation, AI, waveform streaming,
+  and bundled sidecar binaries are additive phases.
 
 ## Consequences
 

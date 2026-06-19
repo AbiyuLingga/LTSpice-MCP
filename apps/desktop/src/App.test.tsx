@@ -28,6 +28,17 @@ function fakeBridge(): EngineBridge {
         },
       };
     }
+    if (method === "digital.emulate") {
+      return {
+        led: {
+          diagnostics: [],
+          frames: [{ cycle: 7, height: 16, pixels: Array.from({ length: 128 }, (_, index) => index === 26), width: 8 }],
+          height: 16,
+          width: 8,
+        },
+        status: "halted",
+      };
+    }
     return {};
   });
   return {
@@ -60,5 +71,17 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "LED matrix" })).toBeVisible();
     expect(screen.getByRole("tab", { name: "Schematic" })).toBeVisible();
+  });
+
+  it("renders a verified Tiny8 frame in the LED surface", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+
+    await user.click(screen.getByRole("tab", { name: "LED" }));
+    await user.click(screen.getByRole("button", { name: "Run LED demo" }));
+
+    expect(await screen.findByText("1 frame rendered")).toBeVisible();
+    expect(bridge.request).toHaveBeenCalledWith("digital.emulate", expect.any(Object));
   });
 });

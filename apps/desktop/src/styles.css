@@ -67,6 +67,7 @@ button:disabled { cursor: not-allowed; opacity: .44; }
 .surface-header svg { color: var(--accent); }
 .surface-header h1 { color: #f4f1e7; font-size: 12px; margin: 0; }
 .surface-header span { margin-left: auto; }
+.surface-run { background: transparent; border: 1px solid #62695b; border-radius: 4px; color: #e7e5dc; font-size: 11px; padding: 4px 7px; }.surface-run:hover { background: #343830; }
 .schematic-surface, .code-surface, .waveform-surface, .led-surface { display: grid; grid-template-rows: 40px minmax(0, 1fr); min-height: 0; }
 .schematic-grid { background-color: #191b17; background-image: radial-gradient(#4c5348 1px, transparent 1px); background-size: 16px 16px; display: grid; min-height: 0; place-items: center; }
 .schematic-empty { background: #242720; border: 1px solid #575d52; border-radius: 5px; color: #c5c9bf; font-size: 12px; max-width: 300px; padding: 11px 14px; text-align: center; }

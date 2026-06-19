@@ -15,6 +15,8 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Final, TextIO, cast
 
+from .digital_emulator import RunResult, run_program
+from .led_matrix import render_tiny8_led_frames
 from .workbench import (
     ChangeSetResult,
     WorkbenchError,
@@ -38,6 +40,7 @@ ERR_INTERNAL: Final[str] = "ENGINE_INTERNAL_ERROR"
 METHODS: Final[tuple[str, ...]] = (
     "design.applyChanges",
     "design.get",
+    "digital.emulate",
     "engine.handshake",
     "project.create",
     "project.migrate",
@@ -78,6 +81,7 @@ class EngineService:
         self._handlers: dict[str, Callable[[Mapping[str, object]], dict[str, object]]] = {
             "design.applyChanges": self._design_apply_changes,
             "design.get": self._design_get,
+            "digital.emulate": self._digital_emulate,
             "engine.handshake": self._engine_handshake,
             "project.create": self._project_create,
             "project.migrate": self._project_migrate,
@@ -204,6 +208,45 @@ class EngineService:
             "revision": result.revision,
         }
 
+    def _digital_emulate(self, params: Mapping[str, object]) -> dict[str, object]:
+        rom = _required_unsigned_array(params, "rom", maximum=0xFFFF, limit=256)
+        max_cycles = _optional_unsigned_int(
+            params, "maxCycles", default=10_000, minimum=1, maximum=1_000_000
+        )
+        render_led = params.get("renderLed", False)
+        if not isinstance(render_led, bool):
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                "renderLed must be a boolean",
+                data={"field": "renderLed"},
+            )
+        result = run_program(
+            rom,
+            max_cycles=max_cycles,
+            inputs=_optional_byte_mapping(params, "inputs"),
+        )
+        payload = _run_result_payload(result)
+        if render_led:
+            rendered = render_tiny8_led_frames(result.output_events)
+            payload["led"] = {
+                "diagnostics": [
+                    {"code": item.code, "cycle": item.cycle, "x": item.x, "y": item.y}
+                    for item in rendered.diagnostics
+                ],
+                "frames": [
+                    {
+                        "cycle": frame.cycle,
+                        "height": frame.height,
+                        "pixels": list(frame.pixels),
+                        "width": frame.width,
+                    }
+                    for frame in rendered.frames
+                ],
+                "height": rendered.height,
+                "width": rendered.width,
+            }
+        return payload
+
     def _open_scoped_project(self, params: Mapping[str, object]) -> WorkbenchProject:
         project_dir = _required_string(params, "projectDir")
         return open_workbench_project(project_dir, projects_root=self.projects_root)
@@ -274,6 +317,74 @@ def _optional_string(params: Mapping[str, object], field: str) -> str | None:
     return value
 
 
+def _required_unsigned_array(
+    params: Mapping[str, object], field: str, *, maximum: int, limit: int
+) -> list[int]:
+    value = params.get(field)
+    if not isinstance(value, list) or not value or len(value) > limit:
+        raise EngineRequestError(
+            ERR_PARAMS_INVALID,
+            f"{field} must be a non-empty array containing at most {limit} items",
+            data={"field": field},
+        )
+    parsed: list[int] = []
+    for index, item in enumerate(value):
+        if isinstance(item, bool) or not isinstance(item, int) or not 0 <= item <= maximum:
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                f"{field} values must be unsigned integers no larger than {maximum}",
+                data={"field": field, "index": index},
+            )
+        parsed.append(item)
+    return parsed
+
+
+def _optional_unsigned_int(
+    params: Mapping[str, object],
+    field: str,
+    *,
+    default: int,
+    minimum: int,
+    maximum: int,
+) -> int:
+    value = params.get(field, default)
+    if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+        raise EngineRequestError(
+            ERR_PARAMS_INVALID,
+            f"{field} must be an integer in [{minimum}, {maximum}]",
+            data={"field": field},
+        )
+    return value
+
+
+def _optional_byte_mapping(params: Mapping[str, object], field: str) -> dict[int, int]:
+    value = params.get(field, {})
+    if not isinstance(value, Mapping):
+        raise EngineRequestError(
+            ERR_PARAMS_INVALID,
+            f"{field} must be an object",
+            data={"field": field},
+        )
+    parsed: dict[int, int] = {}
+    for raw_port, raw_value in value.items():
+        try:
+            port = int(str(raw_port), 0)
+        except ValueError as exc:
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                f"{field} keys must be byte values",
+                data={"field": field, "port": str(raw_port)},
+            ) from exc
+        if not 0 <= port <= 0xFF or isinstance(raw_value, bool) or not isinstance(raw_value, int) or not 0 <= raw_value <= 0xFF:
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                f"{field} ports and values must be unsigned bytes",
+                data={"field": field, "port": str(raw_port)},
+            )
+        parsed[port] = raw_value
+    return parsed
+
+
 def _project_payload(project: WorkbenchProject) -> dict[str, object]:
     return {
         "displayName": project.display_name,
@@ -281,6 +392,37 @@ def _project_payload(project: WorkbenchProject) -> dict[str, object]:
         "projectId": project.project_id,
         "revision": project.revision,
         "schemaVersion": ENGINE_PROTOCOL_VERSION,
+    }
+
+
+def _run_result_payload(result: RunResult) -> dict[str, object]:
+    if result.fault is not None:
+        status = "fault"
+    elif result.timed_out:
+        status = "timeout"
+    elif result.halted:
+        status = "halted"
+    else:
+        status = "completed"
+    return {
+        "fault": (
+            {"code": result.fault.code, "pc": result.fault.pc, "word": result.fault.word}
+            if result.fault is not None
+            else None
+        ),
+        "outputEvents": [
+            {"cycle": event.cycle, "data": event.data, "port": event.port}
+            for event in result.output_events
+        ],
+        "state": {
+            "acc": result.state.acc,
+            "cycles": result.state.cycles,
+            "halted": result.state.halted,
+            "pc": result.state.pc,
+            "zeroFlag": result.state.zero_flag,
+        },
+        "status": status,
+        "timedOut": result.timed_out,
     }
 
 

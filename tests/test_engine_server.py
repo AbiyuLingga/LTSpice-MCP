@@ -32,6 +32,7 @@ def test_handshake_advertises_versioned_local_capabilities(tmp_path: Path) -> No
                 "methods": [
                     "design.applyChanges",
                     "design.get",
+                    "digital.emulate",
                     "engine.handshake",
                     "project.create",
                     "project.migrate",
@@ -112,3 +113,20 @@ def test_serve_processes_ndjson_without_writing_protocol_noise(tmp_path: Path) -
 
     response = json.loads(outgoing.getvalue())
     assert response["result"]["engineVersion"] == "0.1"
+
+
+def test_engine_emulates_a_tiny8_led_program_without_external_toolchains(tmp_path: Path) -> None:
+    response = _service(tmp_path).handle(
+        _request(
+            8,
+            "digital.emulate",
+            {
+                "maxCycles": 16,
+                "renderLed": True,
+                "rom": [0x1002, 0xC0F0, 0x1003, 0xC0F1, 0x1001, 0xC0F2, 0xC0F4, 0xF000],
+            },
+        )
+    )
+
+    assert response["result"]["status"] == "halted"  # type: ignore[index]
+    assert response["result"]["led"]["frames"][0]["pixels"][26] is True  # type: ignore[index]

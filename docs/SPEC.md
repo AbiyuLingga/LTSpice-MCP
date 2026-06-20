@@ -439,3 +439,57 @@ and `mypy src/ltagent/planner.py` are clean.
   above. Agents must not infer success from prose.
 - **`safe_mode = true` by default.** Unrecognized SPICE directives are
   rejected. MCP resource paths that traverse are rejected.
+
+## 4. Workbench v1 product direction (ADR 0006, 2026-06-20)
+
+The release line is the **local-first AI Hardware Design Workbench**.
+The product is not a full replacement for LTspice, KiCad, FPGA suites,
+or professional EDA; the supported v1 surface is the union of the
+capabilities listed in `docs/REPO_AUDIT.md` "Capability Matrix"
+rows marked **Supported** plus the workbench-only items that Phase 1
+through Phase 11 add explicitly. The master execution plan in
+`docs/SINGLE_AGENT_EXECUTION_PLAN.md` (2026-06-20 revision) is the
+sequencing source of truth; the Phases 0-13 tables in this document
+are retained as the historical baseline contract.
+
+### v1 capability contract (summary)
+
+- Create, open, validate, migrate, and recover a versioned project
+  (`hardware.project.json` v2, 1.0 -> 2.0 staged migration).
+- Manual place, move, rotate, wire, select, undo, redo.
+- Run bounded analog and digital simulations; inspect waveform chunks
+  and assertions; read structured `RunManifest` + `ResultBundle`.
+- AI context preview, typed `AIProposal`, textual and visual diff,
+  accept/reject, bounded repair with explicit approval per attempt.
+- Codex MCP workbench v2 tools, sharing the same project, revision,
+  and history; conflict UX when external edits are detected.
+
+### v1 hard invariants (carry-overs from §3 plus new)
+
+1. The AI never writes `.asc`, generated Verilog, arbitrary files,
+   or shell commands directly. It produces a typed
+   `RequirementSpec` and a typed `ChangeSet`.
+2. All paths resolve under the canonical projects root and pass
+   `Path.resolve()` validation.
+3. Every subprocess is launched through a registered tool ID with an
+   argv list. `shell=True` is forbidden.
+4. The frontend receives no filesystem or shell capability. The
+   Tauri Rust shim is the only bridge; the Python engine keeps its
+   `projects_root` and stdio JSON-RPC contract.
+5. API keys never appear in project files, logs, artefacts, Git, or
+   frontend state. Providers are stored in the OS keyring.
+6. MCP never exposes `run_shell`, `execute_python`, generic
+   read/write, raw-path access, or unrestricted network.
+7. The application distinguishes `success`, `failed`, `skipped`,
+   `unsupported`, and `timed-out` in every structured result.
+8. Project migration is snapshot-first, atomic, rollbackable, and
+   never overwrites the source files of an old project.
+
+### v1 production acceptance gate
+
+A fresh Ubuntu VM, without source repository, npm, uv, or developer
+PATH present, must run the installed application (`.deb` or AppImage)
+and complete the full create / open / migrate / recover / AI preview
+/ propose / diff / accept / manual edit / simulate / waveform /
+Codex path. Phase 11 of the master execution plan is the gate;
+nothing is shipped before it is green.

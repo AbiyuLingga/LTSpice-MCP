@@ -281,15 +281,23 @@ def serve(
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the engine as a local stdio sidecar."""
+    from .projects_root import get_default_projects_root
+
     parser = argparse.ArgumentParser(description="Local Hardware Design Workbench engine")
     parser.add_argument(
         "--projects-root",
         type=Path,
-        default=Path.cwd() / "projects",
-        help="directory used to contain workbench projects",
+        default=None,
+        help=(
+            "directory used to contain workbench projects "
+            f"(falls back to LTAGENT_PROJECTS_ROOT or {get_default_projects_root()})"
+        ),
     )
     args = parser.parse_args(argv)
-    serve(sys.stdin, sys.stdout, projects_root=args.projects_root)
+    root = args.projects_root
+    if root is None:
+        root = get_default_projects_root()
+    serve(sys.stdin, sys.stdout, projects_root=root)
     return 0
 
 

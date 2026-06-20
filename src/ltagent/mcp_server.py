@@ -69,6 +69,12 @@ from .mcp_live_tools import (
     tool_live_run_and_verify,
     tool_live_snapshot,
 )
+from .mcp_workbench_tools import (
+    tool_wb_v2_apply_change_set,
+    tool_wb_v2_inspect_project,
+    tool_wb_v2_propose_ai_design,
+    workbench_v2_capabilities_resource,
+)
 from .security import (
     ALLOWED_PROJECT_RESOURCE_NAMES,
     PathSafetyError,
@@ -90,7 +96,7 @@ try:
         FastMCP as _FastMCP,  # type: ignore[unused-ignore,import-not-found]
     )
 except Exception as exc:  # pragma: no cover - exercised by the fallback
-    _FastMCP = None  # type: ignore[assignment,misc]
+    _FastMCP = None
     _IMPORT_ERROR: Exception | None = exc
 else:
     _IMPORT_ERROR = None
@@ -1366,6 +1372,36 @@ def _build_server() -> Any:
         ),
     )(tool_inspect_digital_project)
 
+    # --- Phase 9: Workbench v2 (Codex MCP) -------------------------------
+    mcp.tool(
+        name="wb_v2_inspect_project",
+        description=(
+            "Inspect a workbench v2 project: return its manifest and the "
+            "five documents (analog, schematic, digital, system, "
+            "requirements) without mutating anything."
+        ),
+    )(tool_wb_v2_inspect_project)
+    mcp.tool(
+        name="wb_v2_apply_change_set",
+        description=(
+            "Apply a typed workbench v2 ChangeSet to a project. The "
+            "ChangeSet is validated against the v2 Pydantic contract "
+            "and routed through DesignService. Returns the new revision "
+            "and the documents the service wrote."
+        ),
+    )(tool_wb_v2_apply_change_set)
+    mcp.tool(
+        name="wb_v2_propose_ai_design",
+        description=(
+            "Run the AI workflow against a prompt and the project's "
+            "current documents. Returns the capability classification, "
+            "the proposal, the validation verdict, and the decision "
+            "state. The proposal is never auto-applied; the caller "
+            "must confirm with the user before invoking "
+            "wb_v2_apply_change_set."
+        ),
+    )(tool_wb_v2_propose_ai_design)
+
     @mcp.resource(
         "ltagent://projects",
         name="projects",
@@ -1718,6 +1754,56 @@ def _build_server() -> Any:
             )
         return result_path.read_text(encoding="utf-8")
 
+    # --- Phase 9: Workbench v2 (Codex MCP) resources ----------------------
+    @mcp.resource(
+        "ltagent://workbench/v2/capabilities",
+        name="workbench-v2-capabilities",
+        description=(
+            "Static description of the workbench v2 surface: curated "
+            "tools, resources, document set, and the install/doctor/"
+            "uninstall commands for Codex."
+        ),
+        mime_type="application/json",
+    )
+    def _res_workbench_v2_caps() -> str:
+        return workbench_v2_capabilities_resource()
+
+    @mcp.resource(
+        "ltagent://workbench/v2/projects/{project_id}/manifest",
+        name="workbench-v2-project-manifest",
+        description=(
+            "The workbench v2 manifest.json for a project. Companion to "
+            "wb_v2_inspect_project."
+        ),
+        mime_type="application/json",
+    )
+    def _res_workbench_v2_manifest(project_id: str) -> str:
+        if (
+            not project_id
+            or "/" in project_id
+            or project_id.startswith(".")
+        ):
+            return json.dumps(
+                {"error": "WB_PROJECT_ID_INVALID", "projectId": project_id},
+                sort_keys=False,
+            )
+        from .projects_root import resolve_projects_root
+        from .workbench_v2 import FILE_MANIFEST
+
+        root = resolve_projects_root(None)
+        project_dir = (root / project_id).resolve(strict=False)
+        manifest_path = project_dir / FILE_MANIFEST
+        if not manifest_path.is_file():
+            return json.dumps(
+                {
+                    "error": "WB_PROJECT_NOT_FOUND",
+                    "projectId": project_id,
+                    "projectsRoot": str(root),
+                },
+                sort_keys=False,
+            )
+        return manifest_path.read_text(encoding="utf-8")
+
     return mcp
 
 
@@ -1785,6 +1871,9 @@ _TOOL_NAMES: tuple[str, ...] = (
     "simulate_hdl_project",
     "synth_check_hdl_project",
     "inspect_digital_project",
+    "wb_v2_inspect_project",
+    "wb_v2_apply_change_set",
+    "wb_v2_propose_ai_design",
 )
 _RESOURCE_URIS: tuple[str, ...] = (
     "ltagent://projects",
@@ -1801,6 +1890,8 @@ _RESOURCE_URIS: tuple[str, ...] = (
     "ltagent://projects/{project_id}/digital-manifest",
     "ltagent://projects/{project_id}/rtl",
     "ltagent://projects/{project_id}/verification-report",
+    "ltagent://workbench/v2/capabilities",
+    "ltagent://workbench/v2/projects/{project_id}/manifest",
 )
 
 

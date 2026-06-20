@@ -1245,6 +1245,68 @@ def cmd_template_promotability(args: argparse.Namespace) -> dict[str, Any]:
     return payload
 
 
+# ---- Phase 9 subcommands (Codex MCP install / uninstall / doctor) --------
+
+
+def cmd_codex_install(args: argparse.Namespace) -> dict[str, Any]:
+    """Install or refresh the ltagent-mcp entry in the local Codex config."""
+    from .codex_install import CodexInstallResult, codex_install
+
+    result: CodexInstallResult = codex_install(
+        config_path=Path(args.config).expanduser() if args.config else None,
+        command=args.server_command,
+        dry_run=args.dry_run,
+    )
+    message = (
+        "Codex config updated (dry-run)" if result.dryRun else "Codex config updated"
+    )
+    return _ok(
+        "codex.install",
+        message,
+        {
+            "path": str(result.path),
+            "created": result.created,
+            "dryRun": result.dryRun,
+            "server": result.server,
+        },
+    )
+
+
+def cmd_codex_uninstall(args: argparse.Namespace) -> dict[str, Any]:
+    """Remove the ltagent-mcp entry from the local Codex config."""
+    from .codex_install import codex_uninstall
+
+    info = codex_uninstall(
+        config_path=Path(args.config).expanduser() if args.config else None,
+        dry_run=args.dry_run,
+    )
+    message = (
+        "Codex config cleaned (dry-run)" if info["dryRun"] else "Codex config cleaned"
+    )
+    return _ok("codex.uninstall", message, info)
+
+
+def cmd_codex_doctor(args: argparse.Namespace) -> dict[str, Any]:
+    """Inspect the local Codex config and report on ltagent-mcp."""
+    from .codex_install import codex_doctor
+
+    report = codex_doctor(
+        config_path=Path(args.config).expanduser() if args.config else None,
+    )
+    issues = list(report["issues"])
+    success = not issues and bool(report.get("server"))
+    message = (
+        "ltagent is registered with Codex"
+        if success
+        else ("ltagent is not registered with Codex" if not report.get("server") else "ltagent entry has issues")
+    )
+    payload = _ok("codex.doctor", message, report)
+    if not success:
+        payload["success"] = False
+        payload.setdefault("errors", []).extend(issues)
+    return payload
+
+
 # ---- Phase 4 subcommands (log parser + result builder) ------------------
 
 
@@ -3822,6 +3884,61 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    p_codex = subparsers.add_parser(
+        "codex",
+        help=(
+            "install, inspect, or remove the ltagent-mcp entry in the "
+            "local Codex config (Phase 9)"
+        ),
+    )
+    _add_output_flags(p_codex)
+    codex_sub = p_codex.add_subparsers(
+        dest="codex_command", required=True, metavar="SUBCOMMAND"
+    )
+    p_codex_install = codex_sub.add_parser(
+        "install",
+        help="add ltagent-mcp to the local Codex config (idempotent)",
+    )
+    p_codex_install.add_argument(
+        "--config",
+        metavar="PATH",
+        help="explicit path to the Codex config (default: platform default)",
+    )
+    p_codex_install.add_argument(
+        "--server-command",
+        dest="server_command",
+        default="ltagent-mcp",
+        help="command name to register (default: ltagent-mcp)",
+    )
+    p_codex_install.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="report what would change without writing the file",
+    )
+    p_codex_uninstall = codex_sub.add_parser(
+        "uninstall",
+        help="remove ltagent-mcp from the local Codex config",
+    )
+    p_codex_uninstall.add_argument(
+        "--config",
+        metavar="PATH",
+        help="explicit path to the Codex config (default: platform default)",
+    )
+    p_codex_uninstall.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="report what would change without writing the file",
+    )
+    p_codex_doctor = codex_sub.add_parser(
+        "doctor",
+        help="inspect the local Codex config and report on ltagent-mcp",
+    )
+    p_codex_doctor.add_argument(
+        "--config",
+        metavar="PATH",
+        help="explicit path to the Codex config (default: platform default)",
+    )
+
     return parser
 
 
@@ -3834,11 +3951,12 @@ def _resolve_output_mode(args: argparse.Namespace) -> bool:
     return bool(
         args.command in (
             "init", "doctor", "config", "run", "create", "template", "ir",
-            "netlist", "asc", "parse-log", "result", "plan",
+            "netlist", "asc", "parse-log", "result", "plan", "codex",
         )
         or getattr(args, "config_command", None)
         or getattr(args, "template_command", None)
         or getattr(args, "ir_command", None)
+        or getattr(args, "codex_command", None)
     )
 
 
@@ -3909,6 +4027,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             and args.template_command == "audit-promotability"
         ):
             payload = cmd_template_promotability(args)
+        elif args.command == "codex" and args.codex_command == "install":
+            payload = cmd_codex_install(args)
+        elif args.command == "codex" and args.codex_command == "uninstall":
+            payload = cmd_codex_uninstall(args)
+        elif args.command == "codex" and args.codex_command == "doctor":
+            payload = cmd_codex_doctor(args)
         else:
             parser.print_help(sys.stderr)
             return 2

@@ -25,6 +25,14 @@
   },
   "bundle": {
     "active": false,
-    "targets": "all"
+    "targets": "all",
+    "externalBin": [
+      "../sidecar/ltagent-engine",
+      "../sidecar/ltagent-mcp"
+    ],
+    "resources": [],
+    "category": "DeveloperTool",
+    "shortDescription": "Local-first hardware design workbench",
+    "longDescription": "Generate, simulate, and inspect analog and digital circuits through a curated Python core, with a Tauri desktop shell and a Codex MCP server."
   }
 }

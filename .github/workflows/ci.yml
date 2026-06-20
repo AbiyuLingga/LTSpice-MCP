@@ -39,3 +39,9 @@ jobs:
 
       - name: Build sdist + wheel
         run: python -m build
+
+      - name: Codex smoke
+        if: matrix.python-version == '3.12'
+        run: |
+          python scripts/smoke_codex.py
+          python scripts/smoke_workbench_v2.py

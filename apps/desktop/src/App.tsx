@@ -141,6 +141,33 @@ export function App({ bridge = desktopBridge }: AppProps) {
     }
   }
 
+  async function moveComponent(componentId: string, x: number, y: number) {
+    if (!project) return;
+    const previousSchematic = schematic;
+    const nextSchematic: SchematicDocument = {
+      ...schematic,
+      nodes: schematic.nodes.map((node) => node.id === componentId ? { ...node, x, y } : node),
+    };
+    if (nextSchematic.nodes.every((node, index) => node === schematic.nodes[index])) return;
+    setSchematic(nextSchematic);
+    setJobMessage(`Moving ${componentId}…`);
+    try {
+      const result = await bridge.request<{ revision: number }>("design.applyChanges", {
+        changeSet: {
+          baseRevision: project.revision,
+          operations: [{ document: "schematic", type: "replace_document", value: nextSchematic }],
+          schemaVersion: "1.0",
+        },
+        projectDir: project.projectDir,
+      });
+      setProject({ ...project, revision: result.revision });
+      setJobMessage(`${componentId} moved`);
+    } catch (caught) {
+      setSchematic(previousSchematic);
+      setJobMessage(caught instanceof Error ? caught.message : "Unable to move component");
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="app-bar">
@@ -185,7 +212,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
             </button>
           ))}
         </div>
-        <WorkspaceSurface activeSurface={surface} ledFrameCount={ledFrameCount} ledPixels={ledPixels} onPlaceComponent={placeComponent} onRunLedDemo={runLedDemo} schematicNodes={schematic.nodes} selectedComponent={selectedComponent} />
+        <WorkspaceSurface activeSurface={surface} ledFrameCount={ledFrameCount} ledPixels={ledPixels} onMoveComponent={moveComponent} onPlaceComponent={placeComponent} onRunLedDemo={runLedDemo} schematicNodes={schematic.nodes} selectedComponent={selectedComponent} />
       </section>
 
       <aside className="right-panel panel" aria-label="Inspector and AI">

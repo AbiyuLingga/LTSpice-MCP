@@ -1,4 +1,7 @@
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Activity, Braces, CircuitBoard, Grid2X2 } from "lucide-react";
+
+import { SchematicSymbol, symbolLabel } from "./SchematicSymbol";
 
 export type Surface = "schematic" | "hdl" | "waveform" | "led";
 export type SchematicNode = {
@@ -15,9 +18,21 @@ type WorkspaceSurfaceProps = {
   ledPixels: boolean[] | null;
   onRunLedDemo(): void;
   onPlaceComponent(x: number, y: number): void;
+  onMoveComponent(id: string, x: number, y: number): void;
   schematicNodes: SchematicNode[];
   selectedComponent: string | null;
 };
+
+type DragState = {
+  id: string;
+  offsetX: number;
+  offsetY: number;
+  pointerId: number;
+  x: number;
+  y: number;
+};
+
+const GRID_SIZE = 16;
 
 const hdlLines = [
   "module counter(input clk, input rst, output reg [7:0] led);",
@@ -28,7 +43,77 @@ const hdlLines = [
   "endmodule",
 ];
 
-export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onPlaceComponent, onRunLedDemo, schematicNodes, selectedComponent }: WorkspaceSurfaceProps) {
+export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onMoveComponent, onPlaceComponent, onRunLedDemo, schematicNodes, selectedComponent }: WorkspaceSurfaceProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const [dragging, setDragging] = useState<DragState | null>(null);
+
+  function setDragState(next: DragState | null) {
+    dragRef.current = next;
+    setDragging(next);
+  }
+
+  function snapCoordinate(value: number, maximum: number): number {
+    return Math.max(0, Math.min(maximum, Math.floor(value / GRID_SIZE) * GRID_SIZE));
+  }
+
+  function pointerPosition(clientX: number, clientY: number, offsetX = 0, offsetY = 0) {
+    const rect = gridRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: snapCoordinate(clientX - rect.left - offsetX, Math.floor(rect.width / GRID_SIZE) * GRID_SIZE),
+      y: snapCoordinate(clientY - rect.top - offsetY, Math.floor(rect.height / GRID_SIZE) * GRID_SIZE),
+    };
+  }
+
+  function beginDrag(event: PointerEvent<HTMLButtonElement>, node: SchematicNode) {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = gridRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setDragState({
+      id: node.id,
+      offsetX: event.clientX - rect.left - node.x,
+      offsetY: event.clientY - rect.top - node.y,
+      pointerId: event.pointerId,
+      x: node.x,
+      y: node.y,
+    });
+  }
+
+  function continueDrag(event: PointerEvent<HTMLButtonElement>) {
+    const current = dragRef.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    const position = pointerPosition(event.clientX, event.clientY, current.offsetX, current.offsetY);
+    setDragState({ ...current, ...position });
+  }
+
+  function finishDrag(event: PointerEvent<HTMLButtonElement>) {
+    const current = dragRef.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setDragState(null);
+    const node = schematicNodes.find((candidate) => candidate.id === current.id);
+    if (node && (node.x !== current.x || node.y !== current.y)) {
+      onMoveComponent(current.id, current.x, current.y);
+    }
+  }
+
+  function moveWithKeyboard(event: KeyboardEvent<HTMLButtonElement>, node: SchematicNode) {
+    const deltaByKey: Record<string, { x: number; y: number }> = {
+      ArrowDown: { x: 0, y: GRID_SIZE },
+      ArrowLeft: { x: -GRID_SIZE, y: 0 },
+      ArrowRight: { x: GRID_SIZE, y: 0 },
+      ArrowUp: { x: 0, y: -GRID_SIZE },
+    };
+    const delta = deltaByKey[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    onMoveComponent(node.id, Math.max(0, node.x + delta.x), Math.max(0, node.y + delta.y));
+  }
   if (activeSurface === "hdl") {
     return (
       <section className="code-surface" aria-label="HDL editor">
@@ -67,19 +152,35 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onPl
       <div
         aria-label="Schematic grid"
         className={selectedComponent ? "schematic-grid placement-mode" : "schematic-grid"}
+        ref={gridRef}
         onClick={(event) => {
-          if (!selectedComponent) return;
-          const rect = event.currentTarget.getBoundingClientRect();
-          const x = Math.max(0, Math.floor((event.clientX - rect.left) / 16) * 16);
-          const y = Math.max(0, Math.floor((event.clientY - rect.top) / 16) * 16);
-          onPlaceComponent(x, y);
+          if (!selectedComponent || event.target !== event.currentTarget) return;
+          const position = pointerPosition(event.clientX, event.clientY);
+          onPlaceComponent(position.x, position.y);
         }}
       >
-        {schematicNodes.map((node) => (
-          <span className="schematic-node" key={node.id} style={{ left: node.x, top: node.y }}>
-            <b>{node.kind.slice(0, 1).toUpperCase()}</b><small>{node.id}</small>
-          </span>
-        ))}
+        {schematicNodes.map((node) => {
+          const preview = dragging?.id === node.id ? dragging : node;
+          const label = symbolLabel(node.kind);
+          return (
+            <button
+              aria-label={`${label} ${node.id}`}
+              className={dragging?.id === node.id ? "schematic-node is-dragging" : "schematic-node"}
+              key={node.id}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => moveWithKeyboard(event, node)}
+              onPointerDown={(event) => beginDrag(event, node)}
+              onPointerMove={continueDrag}
+              onPointerUp={finishDrag}
+              style={{ left: preview.x, top: preview.y }}
+              title={`Drag ${label}; use arrow keys to move by one grid unit`}
+              type="button"
+            >
+              <SchematicSymbol kind={node.kind} />
+              <small>{node.id}</small>
+            </button>
+          );
+        })}
         {!schematicNodes.length ? <div className="schematic-empty">{selectedComponent ? `Click to place ${selectedComponent}` : "Select a component from the library to place it on the schematic."}</div> : null}
       </div>
     </section>

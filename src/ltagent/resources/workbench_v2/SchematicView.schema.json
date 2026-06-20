@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "SchematicNetLabel": {
+      "additionalProperties": false,
+      "description": "A text label that ties a screen position to a net name.",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "x": {
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "title": "Y",
+          "type": "integer"
+        },
+        "net": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Net",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "x",
+        "y",
+        "net"
+      ],
+      "title": "SchematicNetLabel",
+      "type": "object"
+    },
+    "SchematicSymbol": {
+      "additionalProperties": false,
+      "description": "One placed symbol on the schematic view.\n\nThe grid coordinates are in the schematic's ``gridSize`` units; the\neditor multiplies by ``gridSize`` for screen pixels. ``rotation`` is\na multiple of 90 degrees; ``mirror`` flips horizontally. ``properties``\ncarries editor-only metadata (e.g. ``value``, ``model``) that the\ngenerator projects into the netlist/IR on demand.",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "x": {
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "title": "Y",
+          "type": "integer"
+        },
+        "rotation": {
+          "default": 0,
+          "title": "Rotation",
+          "type": "integer"
+        },
+        "mirror": {
+          "default": false,
+          "title": "Mirror",
+          "type": "boolean"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": true,
+          "title": "Properties"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "x",
+        "y"
+      ],
+      "title": "SchematicSymbol",
+      "type": "object"
+    },
+    "SchematicWire": {
+      "additionalProperties": false,
+      "description": "One orthogonal wire between two or more grid points.",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "points": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "array"
+          },
+          "minItems": 2,
+          "title": "Points",
+          "type": "array"
+        },
+        "net": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Net"
+        }
+      },
+      "required": [
+        "id",
+        "points"
+      ],
+      "title": "SchematicWire",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Workbench v2 contract for SchematicView. Generated from the Pydantic model in src/ltagent/workbench_v2.py. The Python validators remain the source of truth; this JSON Schema is a first-pass machine-readable contract.",
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0",
+      "default": "2.0",
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "gridSize": {
+      "default": 16,
+      "maximum": 512,
+      "minimum": 1,
+      "title": "Gridsize",
+      "type": "integer"
+    },
+    "viewport": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Viewport"
+    },
+    "symbols": {
+      "items": {
+        "$ref": "#/$defs/SchematicSymbol"
+      },
+      "title": "Symbols",
+      "type": "array"
+    },
+    "wires": {
+      "items": {
+        "$ref": "#/$defs/SchematicWire"
+      },
+      "title": "Wires",
+      "type": "array"
+    },
+    "netLabels": {
+      "items": {
+        "$ref": "#/$defs/SchematicNetLabel"
+      },
+      "title": "Netlabels",
+      "type": "array"
+    }
+  },
+  "title": "SchematicView",
+  "type": "object",
+  "$id": "https://ltspice-ai-agent.local/schemas/workbench_v2/SchematicView.schema.json"
+}

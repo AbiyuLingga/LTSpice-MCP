@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "description": "Workbench v2 contract for Requirements. Generated from the Pydantic model in src/ltagent/workbench_v2.py. The Python validators remain the source of truth; this JSON Schema is a first-pass machine-readable contract.",
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0",
+      "default": "2.0",
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "text": {
+      "default": "",
+      "title": "Text",
+      "type": "string"
+    },
+    "constraints": {
+      "additionalProperties": true,
+      "title": "Constraints",
+      "type": "object"
+    },
+    "goals": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Goals",
+      "type": "array"
+    },
+    "safetyClass": {
+      "anyOf": [
+        {
+          "enum": [
+            "simulation_only",
+            "prototype_safe",
+            "mains_dangerous"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Safetyclass"
+    }
+  },
+  "title": "Requirements",
+  "type": "object",
+  "$id": "https://ltspice-ai-agent.local/schemas/workbench_v2/Requirements.schema.json"
+}

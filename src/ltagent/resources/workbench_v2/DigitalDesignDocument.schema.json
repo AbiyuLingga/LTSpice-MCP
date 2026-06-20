@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "description": "Workbench v2 contract for DigitalDesignDocument. Generated from the Pydantic model in src/ltagent/workbench_v2.py. The Python validators remain the source of truth; this JSON Schema is a first-pass machine-readable contract.",
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0",
+      "default": "2.0",
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "design": {
+      "additionalProperties": true,
+      "title": "Design",
+      "type": "object"
+    },
+    "notes": {
+      "default": "",
+      "title": "Notes",
+      "type": "string"
+    }
+  },
+  "title": "DigitalDesignDocument",
+  "type": "object",
+  "$id": "https://ltspice-ai-agent.local/schemas/workbench_v2/DigitalDesignDocument.schema.json"
+}

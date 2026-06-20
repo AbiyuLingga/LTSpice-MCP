@@ -1,0 +1,496 @@
+{
+  "$defs": {
+    "Analysis": {
+      "additionalProperties": false,
+      "description": "Structured simulation analysis.\n\nLighter than :class:`ltagent.ir.Analysis`: the graph only needs\nenough to let the converter emit a SPICE directive. Field names\nmatch the IR's so the converter is a 1:1 mapping.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/AnalysisKind"
+        },
+        "startTime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Starttime"
+        },
+        "stopTime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stoptime"
+        },
+        "stepTime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Steptime"
+        },
+        "startFreq": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startfreq"
+        },
+        "stopFreq": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stopfreq"
+        },
+        "pointsPerDecade": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pointsperdecade"
+        },
+        "sweepVariable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweepvariable"
+        },
+        "sweepStart": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweepstart"
+        },
+        "sweepStop": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweepstop"
+        },
+        "sweepStep": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweepstep"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Analysis",
+      "type": "object"
+    },
+    "AnalysisKind": {
+      "description": "Simulation analysis kind supported by the graph layer.",
+      "enum": [
+        "op",
+        "dc",
+        "tran",
+        "ac"
+      ],
+      "title": "AnalysisKind",
+      "type": "string"
+    },
+    "Component": {
+      "additionalProperties": false,
+      "description": "One circuit element.\n\nThe graph component is decoupled from :class:`ltagent.ir.Component`:\nit has no ``spicePrefix`` (the converter derives it from ``kind``)\nand no ``nodes`` list (the pin map is the canonical connectivity\nview). This keeps the model friendly to incremental editing\nwhere the AI may add pins or change pin ordering without\nconfusing the layout generator.",
+      "properties": {
+        "id": {
+          "description": "Unique component id, e.g. R1, C1, Vin",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ComponentKind"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SPICE value string. Required for sources; for resistor / capacitor / inductor it is the value (e.g. '1k'). For diode / npn / pnp / nmos / pmos it is the SPICE model name (e.g. '1N4148', 'BC547'). For opamp it is the subcircuit name (e.g. 'UniversalOpamp').",
+          "title": "Value"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SPICE model name. When set on semiconductor kinds it takes precedence over ``value``.",
+          "title": "Model"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Semantic role used by the layout and topology layers, e.g. ``series_resistor``, ``shunt_capacitor``.",
+          "title": "Role"
+        },
+        "pins": {
+          "$ref": "#/$defs/PinMap",
+          "description": "Mapping from pin name to net name."
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "title": "Component",
+      "type": "object"
+    },
+    "ComponentKind": {
+      "description": "Semantic kind of a circuit element.\n\nMirrors :class:`ltagent.ir.ComponentKind` so the graph -> IR\nconverter is a 1:1 mapping. New kinds must be added in both\nplaces at the same time.",
+      "enum": [
+        "voltage_source",
+        "current_source",
+        "resistor",
+        "capacitor",
+        "inductor",
+        "diode",
+        "npn",
+        "pnp",
+        "nmos",
+        "pmos",
+        "opamp"
+      ],
+      "title": "ComponentKind",
+      "type": "string"
+    },
+    "Constraints": {
+      "additionalProperties": true,
+      "description": "Optional design targets (targetCutoffHz, targetGain, ...).\n\nValues must be flat scalars (str / int / float / bool) so the\nJSON shape is reviewable and the Math Core can read it without\nits own schema. This mirrors :class:`ltagent.ir.Constraints`.",
+      "properties": {},
+      "title": "Constraints",
+      "type": "object"
+    },
+    "Directive": {
+      "additionalProperties": false,
+      "description": "A curated raw SPICE directive.\n\nThe graph model stores the directive as a structured object\n(rather than a bare list of strings) so the converter can\ndistinguish between the directive token and its arguments\nwithout re-parsing. The token is allowlist-validated.",
+      "properties": {
+        "name": {
+          "description": "The directive token including the leading dot, e.g. '.tran', '.op'. Must be in DIRECTIVE_ALLOWLIST.",
+          "title": "Name",
+          "type": "string"
+        },
+        "args": {
+          "default": "",
+          "description": "Free-form argument string after the directive token. Empty by default; the converter passes the string through unchanged.",
+          "title": "Args",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Directive",
+      "type": "object"
+    },
+    "LayoutHint": {
+      "additionalProperties": false,
+      "description": "Optional hints for schematic generation.\n\nHints are non-binding: the deterministic layout in\n:mod:`ltagent.asc` may override them. The graph just records\nwhat the AI / planner thinks the flow should look like.",
+      "properties": {
+        "flow": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Preferred schematic flow, e.g. ``left_to_right``, ``top_to_bottom``. Recognised values are ``left_to_right`` and ``top_to_bottom``; any other value is treated as ``left_to_right`` by the layout.",
+          "title": "Flow"
+        },
+        "inputNode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Net name expected to be at the schematic's input side.",
+          "title": "Inputnode"
+        },
+        "outputNode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Net name expected to be at the schematic's output side.",
+          "title": "Outputnode"
+        },
+        "anchors": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Optional per-component placement hints. Keys are component ids; values are free-form anchor names used by the deterministic layout. Unknown values are ignored.",
+          "title": "Anchors",
+          "type": "object"
+        }
+      },
+      "title": "LayoutHint",
+      "type": "object"
+    },
+    "Measurement": {
+      "additionalProperties": false,
+      "description": "A ``.meas`` expression to extract after simulation.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "analysis": {
+          "$ref": "#/$defs/AnalysisKind"
+        },
+        "expression": {
+          "minLength": 1,
+          "title": "Expression",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "analysis",
+        "expression"
+      ],
+      "title": "Measurement",
+      "type": "object"
+    },
+    "Net": {
+      "additionalProperties": false,
+      "description": "A named electrical net.\n\nThe graph only stores the name and role; connectivity is encoded\nin each :class:`Component`'s :class:`PinMap`. The graph model\nalso tolerates a net being declared but not (yet) connected --\nthat is reported as a warning by :func:`validate_graph`, not as\na hard error.",
+      "properties": {
+        "name": {
+          "description": "Net name, must match the safe SPICE pattern",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/NetType",
+          "default": "signal"
+        },
+        "aliases": {
+          "description": "Optional human-friendly aliases used by the schematic renderer. Each alias must match the safe SPICE pattern.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Net",
+      "type": "object"
+    },
+    "NetType": {
+      "description": "Electrical role of a net.\n\n* ``signal``  -- regular signal net (input, output, internal).\n* ``ground``  -- the reference net. At most one such net per\n  graph; its name must equal :data:`GROUND_NODE` (i.e. ``\"0\"``).\n* ``power``   -- supply rail (e.g. ``vcc``, ``vee``). Reserved\n  for Phase 11/12 work; accepted here so layout hints can refer\n  to supply rails before the graph -> IR converter is taught to\n  emit them.",
+      "enum": [
+        "signal",
+        "ground",
+        "power"
+      ],
+      "title": "NetType",
+      "type": "string"
+    },
+    "PinMap": {
+      "additionalProperties": false,
+      "description": "Mapping from a component's pin names to net names.\n\nThe graph does not store pin position, length, or any other\nlayout data: layout lives in the ``asc`` writer. Pin names are\nSPICE-identifier style (``+``/``-`` for sources, ``1``/``2`` for\ntwo-terminal passives, ``in+``/``in-``/``out`` for op-amp\nsubcircuits). Net names follow :data:`NODE_NAME_PATTERN`.",
+      "properties": {
+        "pins": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Map of pin name to net name. Pin names follow the permissive ^[A-Za-z0-9_+\\-][A-Za-z0-9_+\\-]*$ so SPICE pin shapes such as ``1``/``2`` (passives), ``+``/``-`` (sources), and ``in+``/``out`` (op-amp subcircuits) are all accepted. Net names must match ^[A-Za-z_][A-Za-z0-9_.]*$|^0$. The map may be empty for subcircuit placeholders but most concrete kinds need at least one entry.",
+          "title": "Pins",
+          "type": "object"
+        }
+      },
+      "title": "PinMap",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Workbench v2 contract for AnalogGraph. Generated from the Pydantic model in src/ltagent/workbench_v2.py. The Python validators remain the source of truth; this JSON Schema is a first-pass machine-readable contract.",
+  "properties": {
+    "schemaVersion": {
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "projectId": {
+      "title": "Projectid",
+      "type": "string"
+    },
+    "domain": {
+      "default": "analog",
+      "description": "Domain hint. Only ``analog`` is recognised in Phase 1. Other domains (e.g. ``sensor``) are reserved for later phases and will be added in lockstep with the topology library.",
+      "title": "Domain",
+      "type": "string"
+    },
+    "topology": {
+      "default": "",
+      "description": "Optional topology name (e.g. ``rc_lowpass``). Empty string is allowed while the topology is being assembled.",
+      "title": "Topology",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "components": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Component"
+      },
+      "description": "Map of component id to component. Keys are the same as each component's ``id`` field; both are kept for fast lookup and to keep the JSON shape stable for the AI.",
+      "title": "Components",
+      "type": "object"
+    },
+    "nets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Net"
+      },
+      "description": "Map of net name to net. The ground net, when present, must be named ``0`` and have ``type == ground``.",
+      "title": "Nets",
+      "type": "object"
+    },
+    "analyses": {
+      "items": {
+        "$ref": "#/$defs/Analysis"
+      },
+      "title": "Analyses",
+      "type": "array"
+    },
+    "measurements": {
+      "items": {
+        "$ref": "#/$defs/Measurement"
+      },
+      "title": "Measurements",
+      "type": "array"
+    },
+    "directives": {
+      "items": {
+        "$ref": "#/$defs/Directive"
+      },
+      "title": "Directives",
+      "type": "array"
+    },
+    "constraints": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Constraints"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "layoutHints": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LayoutHint"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "projectId"
+  ],
+  "title": "AnalogGraph",
+  "type": "object",
+  "$id": "https://ltspice-ai-agent.local/schemas/workbench_v2/AnalogGraph.schema.json"
+}

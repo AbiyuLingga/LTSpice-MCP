@@ -1,0 +1,57 @@
+{
+  "additionalProperties": false,
+  "description": "Workbench v2 contract for HardwareProject. Generated from the Pydantic model in src/ltagent/workbench_v2.py. The Python validators remain the source of truth; this JSON Schema is a first-pass machine-readable contract.",
+  "properties": {
+    "schemaVersion": {
+      "const": "2.0",
+      "default": "2.0",
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "projectId": {
+      "title": "Projectid",
+      "type": "string"
+    },
+    "displayName": {
+      "title": "Displayname",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "createdAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Createdat"
+    },
+    "updatedAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updatedat"
+    }
+  },
+  "required": [
+    "projectId",
+    "displayName",
+    "revision"
+  ],
+  "title": "HardwareProject",
+  "type": "object",
+  "$id": "https://ltspice-ai-agent.local/schemas/workbench_v2/HardwareProject.schema.json"
+}

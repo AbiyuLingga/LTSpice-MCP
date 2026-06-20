@@ -61,6 +61,7 @@ from .graph import (
 )
 from .graph_to_ir import graph_to_ir
 from .history import append_history, make_history_event, next_step, read_history
+from .ir_to_graph import ir_to_graph
 from .project import (
     LiveProjectError,
     ProjectPaths,
@@ -104,6 +105,7 @@ __all__ = [
     "graph_from_dict_safe",
     "graph_to_dict",
     "graph_to_ir",
+    "ir_to_graph",
     "list_components",
     "list_nets",
     "list_snapshots",

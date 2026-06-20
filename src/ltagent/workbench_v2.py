@@ -363,6 +363,85 @@ class SystemSpec(BaseModel):
     clockHz: int | None = Field(default=None, ge=1)
 
 
+# ---------------------------------------------------------------------------
+# Cross-document consistency
+# ---------------------------------------------------------------------------
+
+
+class V2DocumentInconsistency(ValueError):
+    """Raised when a v2 project's documents disagree on a shared id.
+
+    The error carries a stable ``code`` and a ``data`` mapping so the
+    workbench surface (CLI, engine, MCP) can render a structured JSON
+    response without re-parsing the message text.
+    """
+
+    def __init__(
+        self, code: str, message: str, *, data: dict[str, Any] | None = None
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.data: dict[str, Any] = dict(data) if data else {}
+
+
+ERR_SCHEMATIC_ORPHAN_SYMBOL: Final[str] = "WORKBENCH_V2_SCHEMATIC_ORPHAN_SYMBOL"
+ERR_SCHEMATIC_DUPLICATE_WIRE_POINT: Final[str] = "WORKBENCH_V2_SCHEMATIC_DUPLICATE_WIRE_POINT"
+
+
+def validate_schematic_view_against_graph(
+    view: SchematicView,
+    graph: CircuitGraph,
+) -> list[str]:
+    """Return the list of inconsistencies between a schematic and its graph.
+
+    The check is read-only: it never mutates either input. The schematic
+    is the layout document; the graph is the electrical source of truth.
+    Today the rule is narrow:
+
+    * Every schematic symbol id must reference a known component id in
+      the graph. The graph does not require every component to be laid
+      out (a partially built graph can be saved while the user is still
+      placing parts), but the schematic must not invent ids that the
+      graph does not know about.
+
+    Returns an empty list when the documents are consistent.
+    """
+    issues: list[str] = []
+    known_components = set(graph.components.keys())
+    for symbol in view.symbols:
+        if symbol.id not in known_components:
+            issues.append(
+                f"schematic symbol {symbol.id!r} does not match any component "
+                f"in the analog graph (known: {sorted(known_components)})"
+            )
+    return issues
+
+
+def raise_on_schematic_inconsistency(
+    view: SchematicView,
+    graph: CircuitGraph,
+) -> None:
+    """Raise :class:`V2DocumentInconsistency` on the first orphan symbol.
+
+    The structured error carries the orphan symbol id and the list of
+    known component ids so the workbench surface can produce a
+    machine-readable report. The non-raising counterpart
+    :func:`validate_schematic_view_against_graph` is preferred when
+    callers want a full list of issues.
+    """
+    for symbol in view.symbols:
+        if symbol.id not in graph.components:
+            raise V2DocumentInconsistency(
+                ERR_SCHEMATIC_ORPHAN_SYMBOL,
+                f"schematic symbol {symbol.id!r} is not present in the analog graph",
+                data={
+                    "symbolId": symbol.id,
+                    "knownComponentIds": sorted(graph.components.keys()),
+                },
+            )
+
+
 __all__ = [
     "ANALOG_GRAPH_SCHEMA_VERSION",
     "DIR_FIRMWARE",
@@ -373,6 +452,8 @@ __all__ = [
     "DIR_RUNS",
     "DIR_VERIFICATION",
     "DOCUMENT_PATHS",
+    "ERR_SCHEMATIC_DUPLICATE_WIRE_POINT",
+    "ERR_SCHEMATIC_ORPHAN_SYMBOL",
     "FILE_ANALOG_GRAPH",
     "FILE_DIGITAL",
     "FILE_MANIFEST",
@@ -386,7 +467,6 @@ __all__ = [
     "SAFETY_CLASSES",
     "SCHEMATIC_ROTATION_VALUES",
     "SCHEMATIC_SYMBOL_KINDS",
-    "AnalogGraph",
     "DigitalDesignDocument",
     "HardwareProject",
     "Requirements",
@@ -396,4 +476,7 @@ __all__ = [
     "SchematicView",
     "SchematicWire",
     "SystemSpec",
+    "V2DocumentInconsistency",
+    "raise_on_schematic_inconsistency",
+    "validate_schematic_view_against_graph",
 ]

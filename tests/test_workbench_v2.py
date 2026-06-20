@@ -23,6 +23,7 @@ from ltagent.live.graph_schema import CircuitGraph
 from ltagent.workbench_v2 import (
     ANALOG_GRAPH_SCHEMA_VERSION,
     DOCUMENT_PATHS,
+    ERR_SCHEMATIC_ORPHAN_SYMBOL,
     FILE_MANIFEST,
     LEGACY_PROJECT_SCHEMA_VERSION,
     PROJECT_SCHEMA_VERSION,
@@ -35,6 +36,9 @@ from ltagent.workbench_v2 import (
     SchematicView,
     SchematicWire,
     SystemSpec,
+    V2DocumentInconsistency,
+    raise_on_schematic_inconsistency,
+    validate_schematic_view_against_graph,
 )
 
 # ---------------------------------------------------------------------------
@@ -283,3 +287,66 @@ def test_generated_schemas_present_and_identical(tmp_path: Path) -> None:
         schema = json.loads(repo_text)
         assert schema["title"] == name
         assert schema["$id"].endswith(f"/{name}.schema.json")
+
+
+# ---------------------------------------------------------------------------
+# Cross-document consistency
+# ---------------------------------------------------------------------------
+
+
+def _graph_with_component(component_id: str) -> CircuitGraph:
+    from ltagent.live.graph_schema import Component, ComponentKind
+
+    return CircuitGraph(
+        schemaVersion=ANALOG_GRAPH_SCHEMA_VERSION,
+        projectId="analog_lab",
+        components={component_id: Component(id=component_id, kind=ComponentKind.RESISTOR)},
+    )
+
+
+def test_validate_schematic_view_against_graph_returns_empty_when_consistent() -> None:
+    graph = _graph_with_component("r1")
+    view = SchematicView(
+        symbols=[SchematicSymbol(id="r1", kind="resistor", x=0, y=0)],
+    )
+    assert validate_schematic_view_against_graph(view, graph) == []
+
+
+def test_validate_schematic_view_against_graph_reports_orphan_symbols() -> None:
+    graph = _graph_with_component("r1")
+    view = SchematicView(
+        symbols=[
+            SchematicSymbol(id="r1", kind="resistor", x=0, y=0),
+            SchematicSymbol(id="ghost", kind="resistor", x=16, y=16),
+        ],
+    )
+    issues = validate_schematic_view_against_graph(view, graph)
+    assert len(issues) == 1
+    assert "ghost" in issues[0]
+
+
+def test_validate_schematic_view_allows_partial_graph() -> None:
+    """A schematic with no symbols is always valid even if the graph has components."""
+    graph = _graph_with_component("r1")
+    view = SchematicView()
+    assert validate_schematic_view_against_graph(view, graph) == []
+
+
+def test_raise_on_schematic_inconsistency_raises_with_stable_code() -> None:
+    graph = _graph_with_component("r1")
+    view = SchematicView(
+        symbols=[SchematicSymbol(id="ghost", kind="resistor", x=0, y=0)],
+    )
+    with pytest.raises(V2DocumentInconsistency) as captured:
+        raise_on_schematic_inconsistency(view, graph)
+    assert captured.value.code == ERR_SCHEMATIC_ORPHAN_SYMBOL
+    assert captured.value.data["symbolId"] == "ghost"
+    assert "r1" in captured.value.data["knownComponentIds"]
+
+
+def test_raise_on_schematic_inconsistency_passes_when_consistent() -> None:
+    graph = _graph_with_component("r1")
+    view = SchematicView(
+        symbols=[SchematicSymbol(id="r1", kind="resistor", x=0, y=0)],
+    )
+    raise_on_schematic_inconsistency(view, graph)  # must not raise

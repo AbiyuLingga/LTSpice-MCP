@@ -27,6 +27,7 @@ docs/PROJECT_PLAN.md.bak
 # Local build artifacts
 build/
 dist/
+dist-baseline/
 *.egg-info/
 
 # Desktop workbench build artifacts

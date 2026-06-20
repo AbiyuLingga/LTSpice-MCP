@@ -33,3 +33,5 @@ dist/
 apps/desktop/node_modules/
 apps/desktop/dist/
 apps/desktop/src-tauri/target/
+# Tauri regenerates this directory from apps/desktop/src-tauri/capabilities/.
+apps/desktop/src-tauri/gen/

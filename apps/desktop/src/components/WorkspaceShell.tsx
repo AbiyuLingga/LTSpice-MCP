@@ -1,0 +1,90 @@
+import { type ReactNode } from "react";
+
+import { type BottomTab, type Surface, WorkspaceSurface } from "./WorkspaceSurface";
+import { type SchematicNode, type SchematicNodeKind } from "./componentRegistry";
+import { ComponentLibrary } from "./ComponentLibrary";
+import { Explorer } from "./Explorer";
+import { Inspector } from "./Inspector";
+import { AIPanel } from "./AIPanel";
+import { BottomPanel } from "./BottomPanel";
+import { AppHeader } from "./AppHeader";
+import { EngineProject } from "../engine";
+
+export interface WorkspaceShellProps {
+  project: EngineProject | null;
+  surface: Surface;
+  bottomTab: BottomTab;
+  advanced: boolean;
+  busy: boolean;
+  error: string | null;
+  jobMessage: string;
+  schematicNodes: SchematicNode[];
+  selectedComponent: SchematicNodeKind | null;
+  ledPixels: boolean[] | null;
+  ledFrameCount: number;
+  onAdvancedToggle: (next: boolean) => void;
+  onCreateClick: () => void;
+  onValidate: () => void;
+  onSurfaceChange: (next: Surface) => void;
+  onBottomTabChange: (next: BottomTab) => void;
+  onSelectComponent: (next: SchematicNodeKind | null) => void;
+  onPlaceComponent: (x: number, y: number) => void;
+  onMoveComponent: (id: string, x: number, y: number) => void;
+  onRunLedDemo: () => void;
+}
+
+export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
+  return (
+    <main className="app-shell">
+      <AppHeader
+        advanced={props.advanced}
+        busy={props.busy}
+        project={props.project}
+        onAdvancedToggle={props.onAdvancedToggle}
+        onCreateClick={props.onCreateClick}
+        onValidate={props.onValidate}
+      />
+      <Explorer
+        project={props.project}
+        selectedComponent={props.selectedComponent}
+        onSelectComponent={props.onSelectComponent}
+      />
+      <section className="workspace" aria-label="Design workspace">
+        <SurfaceTabs surface={props.surface} onSurfaceChange={props.onSurfaceChange} />
+        <WorkspaceSurface
+          activeSurface={props.surface}
+          ledFrameCount={props.ledFrameCount}
+          ledPixels={props.ledPixels}
+          onMoveComponent={props.onMoveComponent}
+          onPlaceComponent={props.onPlaceComponent}
+          onRunLedDemo={props.onRunLedDemo}
+          schematicNodes={props.schematicNodes}
+          selectedComponent={props.selectedComponent}
+        />
+      </section>
+      <Inspector advanced={props.advanced} selectedComponent={props.selectedComponent} />
+      <BottomPanel bottomTab={props.bottomTab} jobMessage={props.jobMessage} onBottomTabChange={props.onBottomTabChange} />
+    </main>
+  );
+}
+
+function SurfaceTabs({ surface, onSurfaceChange }: { surface: Surface; onSurfaceChange: (next: Surface) => void }) {
+  const surfaces: Array<{ id: Surface; label: string }> = [
+    { id: "schematic", label: "Schematic" },
+    { id: "hdl", label: "HDL" },
+    { id: "waveform", label: "Waveform" },
+    { id: "led", label: "LED" },
+  ];
+  return (
+    <div aria-label="Design views" className="surface-tabs" role="tablist">
+      {surfaces.map(({ id, label }) => (
+        <button aria-selected={surface === id} key={id} onClick={() => onSurfaceChange(id)} role="tab" type="button">
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export { ComponentLibrary, Explorer, Inspector, AIPanel, BottomPanel, AppHeader };
+export type { BottomTab, Surface, SchematicNode, SchematicNodeKind, EngineProject };

@@ -2,15 +2,11 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Activity, Braces, CircuitBoard, Grid2X2 } from "lucide-react";
 
 import { SchematicSymbol, symbolLabel } from "./SchematicSymbol";
+import { type SchematicNode, type SchematicNodeKind } from "./componentRegistry";
 
 export type Surface = "schematic" | "hdl" | "waveform" | "led";
-export type SchematicNode = {
-  id: string;
-  kind: string;
-  rotation: number;
-  x: number;
-  y: number;
-};
+export type BottomTab = "problems" | "jobs" | "console";
+export type { SchematicNode, SchematicNodeKind };
 
 type WorkspaceSurfaceProps = {
   activeSurface: Surface;
@@ -20,7 +16,7 @@ type WorkspaceSurfaceProps = {
   onPlaceComponent(x: number, y: number): void;
   onMoveComponent(id: string, x: number, y: number): void;
   schematicNodes: SchematicNode[];
-  selectedComponent: string | null;
+  selectedComponent: SchematicNodeKind | null;
 };
 
 type DragState = {

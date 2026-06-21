@@ -44,6 +44,7 @@ from .live.graph_to_ir import graph_to_ir
 from .netlist import NetlistError, render_netlist
 from .security import PathSafetyError, safe_resolve_under
 from .tool_process import run_tool_process
+from .waveform import write_ngspice_bundle
 from .workbench_v2 import DIR_RUNS
 
 # ---------------------------------------------------------------------------
@@ -430,6 +431,9 @@ def run_analog_simulation(
         log_text = log_path.read_text(encoding="utf-8", errors="replace")[-2000:]
     measurements = _parse_measurements(log_text)
     if completed.returncode == 0:
+        artifacts = {"netlist": "circuit.cir", "log": "run.log"}
+        if raw_path.is_file():
+            artifacts["waveformIndex"] = write_ngspice_bundle(raw_path, run_dir)
         manifest_started = _update_manifest(
             initial_manifest,
             state=JobState.COMPLETED,
@@ -443,7 +447,7 @@ def run_analog_simulation(
                 runId=manifest_started.runId or "",
                 jobId=manifest_started.jobId,
                 toolVersion=tool.version,
-                artifacts={"netlist": "circuit.cir", "log": "run.log"},
+                artifacts=artifacts,
                 measurements=measurements,
                 warnings=[],
                 stdoutTail=completed.stdout[-2000:] if completed.stdout else "",

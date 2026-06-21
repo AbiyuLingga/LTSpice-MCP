@@ -343,6 +343,8 @@ class DigitalDesignDocument(BaseModel):
 
     schemaVersion: Literal["2.0"] = "2.0"
     design: dict[str, Any] = Field(default_factory=dict)
+    legacyDesign: dict[str, Any] | None = None
+    userHdl: str = ""
     notes: str = ""
 
     @field_validator("design")

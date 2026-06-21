@@ -360,14 +360,22 @@ def _convert_schematic(v1: Mapping[str, object]) -> SchematicView:
 
 
 def _convert_digital(v1: Mapping[str, object]) -> DigitalDesignDocument:
-    # The v1 digital document wraps the Tiny8 DesignIR; carry the
-    # whole payload forward as the v2 design field. Any top-level
-    # ``notes`` string is preserved.
+    # Preserve old content outside the AI-editable v2 IR.
     raw_notes = v1.get("notes")
     notes = str(raw_notes) if isinstance(raw_notes, str) else ""
     payload: dict[str, object] = {
         "schemaVersion": V2_PROJECT_SCHEMA_VERSION,
-        "design": dict(v1),
+        "design": {
+            "schemaVersion": "2.0",
+            "topModule": "top",
+            "ports": [],
+            "signals": [],
+            "instances": [],
+            "connections": [],
+            "testGoals": [],
+        },
+        "legacyDesign": dict(v1),
+        "userHdl": "",
         "notes": notes,
     }
     return DigitalDesignDocument.model_validate(payload)

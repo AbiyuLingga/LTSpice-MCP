@@ -10,14 +10,18 @@ export type { SchematicNode, SchematicNodeKind };
 
 type WorkspaceSurfaceProps = {
   activeSurface: Surface;
+  digitalSource: string;
   ledFrameCount: number;
   ledPixels: boolean[] | null;
+  waveformSignals: Array<{ name: string; points: Array<[number, number]> }>;
+  measurements: Array<{ name: string; value: number }>;
   onRunLedDemo(): void;
   onRunSimulation(domain: "analog" | "digital"): void;
   onRunSynthesis(): void;
   onAddWire(points: Array<[number, number]>, connections: SchematicPinConnection[]): void;
   onDeleteSelection(ids: string[]): void;
   onDeleteWire(id: string): void;
+  onDigitalTemplate(kind: "counter" | "fsm" | "pwm"): void;
   onExitPlacement(): void;
   onPlaceComponent(x: number, y: number): void;
   onMoveComponent(id: string, x: number, y: number): void;
@@ -42,7 +46,7 @@ type WireEndpoint = SchematicPinConnection & { x: number; y: number };
 
 const GRID_SIZE = 16;
 
-export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAddWire, onDeleteSelection, onDeleteWire, onExitPlacement, onMoveComponent, onPlaceComponent, onRotateSelection, onRunLedDemo, onRunSimulation, onRunSynthesis, onSelectionChange, schematicNodes, schematicWires, selectedComponent, selectedIds }: WorkspaceSurfaceProps) {
+export function WorkspaceSurface({ activeSurface, digitalSource, ledFrameCount, ledPixels, measurements, onAddWire, onDeleteSelection, onDeleteWire, onDigitalTemplate, onExitPlacement, onMoveComponent, onPlaceComponent, onRotateSelection, onRunLedDemo, onRunSimulation, onRunSynthesis, onSelectionChange, schematicNodes, schematicWires, selectedComponent, selectedIds, waveformSignals }: WorkspaceSurfaceProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
@@ -143,16 +147,23 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAd
   if (activeSurface === "hdl") {
     return (
       <section className="code-surface" aria-label="HDL editor">
-        <header className="surface-header"><Braces size={16} /><h1>HDL</h1><span>No module loaded</span><button className="surface-run" onClick={() => onRunSimulation("digital")}>Simulate</button><button className="surface-run" onClick={onRunSynthesis}>Synthesize</button></header>
-        <div className="surface-empty">HDL editing is not connected to the desktop engine yet.</div>
+        <header className="surface-header"><Braces size={16} /><h1>HDL</h1><span>{digitalSource ? "Generated from Digital IR 2.0" : "Choose a safe template"}</span><button className="surface-run" onClick={() => onDigitalTemplate("counter")}>Counter</button><button className="surface-run" onClick={() => onDigitalTemplate("fsm")}>FSM</button><button className="surface-run" onClick={() => onDigitalTemplate("pwm")}>PWM</button><button className="surface-run" onClick={() => onRunSimulation("digital")}>Simulate</button><button className="surface-run" onClick={onRunSynthesis}>Synthesize</button></header>
+        {digitalSource ? <pre className="hdl-source">{digitalSource}</pre> : <div className="surface-empty">No digital design is loaded.</div>}
       </section>
     );
   }
   if (activeSurface === "waveform") {
     return (
       <section className="waveform-surface" aria-label="Waveform viewer">
-        <header className="surface-header"><Activity size={16} /><h1>Waveform</h1><span>Run a simulation to populate signals</span><button className="surface-run" onClick={() => onRunSimulation("analog")}>Run analog simulation</button></header>
-        <div className="surface-empty">No waveform data is available.</div>
+        <header className="surface-header"><Activity size={16} /><h1>Waveform</h1><span>{waveformSignals.length ? `${waveformSignals.length} signals` : "Run a simulation to populate signals"}</span><button className="surface-run" onClick={() => onRunSimulation("analog")}>Run analog simulation</button></header>
+        {waveformSignals.length ? (
+          <div className="waveform-content">
+            <div className="waveform-traces">
+              {waveformSignals.map((signal) => <WaveformTrace key={signal.name} signal={signal} />)}
+            </div>
+            {measurements.length ? <table className="measurement-table"><thead><tr><th>Measurement</th><th>Value</th></tr></thead><tbody>{measurements.map((item) => <tr key={item.name}><td>{item.name}</td><td>{item.value}</td></tr>)}</tbody></table> : null}
+          </div>
+        ) : <div className="surface-empty">No waveform data is available.</div>}
       </section>
     );
   }
@@ -275,5 +286,27 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAd
         {!schematicNodes.length ? <div className="schematic-empty">{selectedComponent ? `Click to place ${selectedComponent}` : "Select a component from the library to place it on the schematic."}</div> : null}
       </div>
     </section>
+  );
+}
+
+function WaveformTrace({ signal }: { signal: { name: string; points: Array<[number, number]> } }) {
+  if (!signal.points.length) return null;
+  const times = signal.points.map((point) => point[0]);
+  const values = signal.points.map((point) => point[1]);
+  const minTime = Math.min(...times);
+  const maxTime = Math.max(...times);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const xRange = maxTime - minTime || 1;
+  const yRange = maxValue - minValue || 1;
+  const points = signal.points.map(([time, value]) => `${((time - minTime) / xRange) * 760 + 20},${90 - ((value - minValue) / yRange) * 70}`).join(" ");
+  return (
+    <figure className="waveform-trace">
+      <figcaption>{signal.name}</figcaption>
+      <svg aria-label={`Waveform ${signal.name}`} preserveAspectRatio="none" role="img" viewBox="0 0 800 100">
+        <path d="M20 90H780M20 10V90" />
+        <polyline points={points} />
+      </svg>
+    </figure>
   );
 }

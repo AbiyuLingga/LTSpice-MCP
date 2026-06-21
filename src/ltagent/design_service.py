@@ -29,6 +29,7 @@ from typing import Any, Final
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from .digital_ir_v2 import DigitalDesignIRV2
 from .live.graph_schema import (
     SCHEMA_VERSION as _GRAPH_SCHEMA_VERSION,
 )
@@ -272,6 +273,11 @@ class SetGridSizeOp(_BaseOp):
     gridSize: int = Field(ge=1, le=512)
 
 
+class SetDigitalDesignOp(_BaseOp):
+    type: str = "set_digital_design"
+    design: dict[str, Any]
+
+
 class ReplaceDocumentOp(_BaseOp):
     type: str = "replace_document"
     value: dict[str, Any]
@@ -296,6 +302,7 @@ OP_TYPES: Final[tuple[type[_BaseOp], ...]] = (
     RemoveWireOp,
     SetNetLabelOp,
     SetGridSizeOp,
+    SetDigitalDesignOp,
     ReplaceDocumentOp,
 )
 
@@ -835,6 +842,21 @@ def _op_set_grid_size(state: dict[str, Any], op: SetGridSizeOp) -> None:
     )
 
 
+def _op_set_digital_design(state: dict[str, Any], op: SetDigitalDesignOp) -> None:
+    document = _validate_digital(state["digital"])
+    try:
+        design = DigitalDesignIRV2.model_validate(op.design)
+    except ValidationError as exc:
+        raise WorkbenchV2Error(
+            ERR_CHANGESET_OPERATION_INVALID,
+            f"digital design failed v2 validation: {exc}",
+            data={"errors": exc.errors()},
+        ) from exc
+    state["digital"] = document.model_copy(
+        update={"design": design.model_dump(mode="json")}
+    ).model_dump(mode="json", exclude_none=True)
+
+
 def _op_replace_document(state: dict[str, Any], op: ReplaceDocumentOp) -> None:
     if op.document == "analog":
         _validate_analog(op.value)
@@ -868,6 +890,7 @@ OP_REDUCERS = {
     "remove_wire": _op_remove_wire,
     "set_net_label": _op_set_net_label,
     "set_grid_size": _op_set_grid_size,
+    "set_digital_design": _op_set_digital_design,
     "replace_document": _op_replace_document,
 }
 
@@ -1003,7 +1026,17 @@ class DesignService:
             },
             "digital": {
                 "schemaVersion": PROJECT_SCHEMA_VERSION,
-                "design": {},
+                "design": {
+                    "schemaVersion": "2.0",
+                    "topModule": "top",
+                    "ports": [],
+                    "signals": [],
+                    "instances": [],
+                    "connections": [],
+                    "testGoals": [],
+                },
+                "legacyDesign": None,
+                "userHdl": "",
                 "notes": "",
             },
             "system": {
@@ -1304,6 +1337,7 @@ __all__ = [
     "ReplaceDocumentOp",
     "RotateNodeOp",
     "SetComponentValueOp",
+    "SetDigitalDesignOp",
     "SetGridSizeOp",
     "SetNetLabelOp",
     "SetNodePropertiesOp",

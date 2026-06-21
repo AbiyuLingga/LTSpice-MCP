@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import time
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from ltagent.analog_workbench import run_analog_simulation
+from ltagent.digital_ir_v2 import DigitalDesignIRV2
 from ltagent.digital_workbench import (
     VERILATOR_TOOL_ID,
     ClockSpec,
@@ -127,6 +129,30 @@ def _moving_pixel() -> DigitalDesignIR:
                 ),
             )
         ],
+    )
+
+
+def _counter_v2() -> DigitalDesignIRV2:
+    return DigitalDesignIRV2.model_validate(
+        {
+            "schemaVersion": "2.0",
+            "topModule": "counter_top",
+            "ports": [
+                {"name": "clk", "direction": "input", "width": 1},
+                {"name": "rst_n", "direction": "input", "width": 1},
+                {"name": "q", "direction": "output", "width": 8},
+            ],
+            "signals": [],
+            "instances": [{"id": "counter0", "kind": "counter", "parameters": {"width": 8}}],
+            "connections": [
+                {"instanceId": "counter0", "pin": "clk", "signal": "clk"},
+                {"instanceId": "counter0", "pin": "reset", "signal": "rst_n"},
+                {"instanceId": "counter0", "pin": "q", "signal": "q"},
+            ],
+            "clock": {"signal": "clk", "periodNs": 10},
+            "reset": {"signal": "rst_n", "active": "low"},
+            "testGoals": [],
+        }
     )
 
 
@@ -264,6 +290,13 @@ def test_editor_changeset_builds_and_runs_generic_rc_project(tmp_path: Path) -> 
         raise AssertionError("editor RC simulation did not finish")
     assert status["state"] == "completed", status
     assert status["result"]["status"] == "success"
+    index_path = status["result"]["run"]["artifacts"]["waveformIndex"]
+    index_slice = request(
+        5,
+        "artifact.readSlice",
+        {"artifact": index_path, "jobId": job_id, "limit": 256 * 1024, "offset": 0},
+    )["result"]
+    assert json.loads(index_slice["text"])["signals"]
     service.close()
 
 
@@ -278,9 +311,22 @@ def test_real_iverilog_counter_produces_vcd(tmp_path: Path) -> None:
     result = run_simulation("counter", project, _counter())
 
     assert result.bundle.status == "success", result.bundle.errors
-    artifact = result.bundle.run.artifacts.get("waveform")
+    artifact = result.bundle.run.artifacts.get("waveformIndex")
     assert artifact is not None
     assert (project / artifact).is_file()
+
+
+@pytest.mark.skipif(
+    shutil.which("iverilog") is None or shutil.which("vvp") is None,
+    reason="Icarus toolchain not installed",
+)
+def test_real_iverilog_v2_counter_has_no_raw_body(tmp_path: Path) -> None:
+    project = tmp_path / "counter_v2"
+    project.mkdir()
+
+    result = run_simulation("counter_v2", project, _counter_v2())
+
+    assert result.bundle.status == "success", result.bundle.errors
 
 
 @pytest.mark.skipif(
@@ -295,7 +341,7 @@ def test_real_iverilog_additional_digital_golden(tmp_path: Path, design: Digital
     result = run_simulation(design.topModule, project, design)
 
     assert result.bundle.status == "success", result.bundle.errors
-    assert "waveform" in result.bundle.run.artifacts
+    assert "waveformIndex" in result.bundle.run.artifacts
 
 
 @pytest.mark.skipif(shutil.which("verilator") is None, reason="Verilator not installed")

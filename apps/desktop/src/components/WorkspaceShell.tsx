@@ -17,6 +17,7 @@ export interface WorkspaceShellProps {
   advanced: boolean;
   busy: boolean;
   error: string | null;
+  digitalSource: string;
   jobMessage: string;
   activeJobId: string | null;
   schematicNodes: SchematicNode[];
@@ -25,6 +26,8 @@ export interface WorkspaceShellProps {
   selectedComponent: SchematicNodeKind | null;
   ledPixels: boolean[] | null;
   ledFrameCount: number;
+  waveformSignals: Array<{ name: string; points: Array<[number, number]> }>;
+  measurements: Array<{ name: string; value: number }>;
   onAdvancedToggle: (next: boolean) => void;
   onCreateClick: () => void;
   onOpenClick: () => void;
@@ -40,6 +43,7 @@ export interface WorkspaceShellProps {
   onAddWire: (points: Array<[number, number]>, connections: SchematicPinConnection[]) => void;
   onDeleteSelection: (ids: string[]) => void;
   onDeleteWire: (id: string) => void;
+  onDigitalTemplate: (kind: "counter" | "fsm" | "pwm") => void;
   onExitPlacement: () => void;
   onRotateSelection: (ids: string[]) => void;
   onSelectionChange: (ids: string[]) => void;
@@ -74,11 +78,14 @@ export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
         <SurfaceTabs surface={props.surface} onSurfaceChange={props.onSurfaceChange} />
         <WorkspaceSurface
           activeSurface={props.surface}
+          digitalSource={props.digitalSource}
           ledFrameCount={props.ledFrameCount}
           ledPixels={props.ledPixels}
+          measurements={props.measurements}
           onAddWire={props.onAddWire}
           onDeleteSelection={props.onDeleteSelection}
           onDeleteWire={props.onDeleteWire}
+          onDigitalTemplate={props.onDigitalTemplate}
           onExitPlacement={props.onExitPlacement}
           onMoveComponent={props.onMoveComponent}
           onPlaceComponent={props.onPlaceComponent}
@@ -90,6 +97,7 @@ export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
           schematicWires={props.schematicWires}
           selectedComponent={props.selectedComponent}
           selectedIds={props.selectedIds}
+          waveformSignals={props.waveformSignals}
           onSelectionChange={props.onSelectionChange}
         />
       </section>

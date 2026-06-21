@@ -312,6 +312,53 @@ def test_set_wire_route_persists(tmp_path: Path) -> None:
     assert [item.symbolId for item in view.wires[0].connections] == ["R1", "C1"]
 
 
+def test_set_digital_design_rejects_raw_body_and_accepts_instances(tmp_path: Path) -> None:
+    _seed_v2_project(tmp_path)
+    service = DesignService(projects_root=str(_projects_root(tmp_path)))
+    design = {
+        "schemaVersion": "2.0",
+        "topModule": "logic_top",
+        "ports": [
+            {"name": "a", "direction": "input", "width": 1},
+            {"name": "b", "direction": "input", "width": 1},
+            {"name": "y", "direction": "output", "width": 1},
+        ],
+        "signals": [],
+        "instances": [{"id": "gate0", "kind": "and_gate", "parameters": {}}],
+        "connections": [
+            {"instanceId": "gate0", "pin": "a", "signal": "a"},
+            {"instanceId": "gate0", "pin": "b", "signal": "b"},
+            {"instanceId": "gate0", "pin": "y", "signal": "y"},
+        ],
+        "testGoals": [],
+    }
+    result = service.apply_change_set(
+        "rc_lab",
+        {
+            "schemaVersion": "2.0",
+            "baseRevision": 0,
+            "operations": [{"document": "digital", "type": "set_digital_design", "design": design}],
+        },
+    )
+    assert result.changed_documents == ("digital",)
+
+    with pytest.raises(WorkbenchV2Error):
+        service.apply_change_set(
+            "rc_lab",
+            {
+                "schemaVersion": "2.0",
+                "baseRevision": 1,
+                "operations": [
+                    {
+                        "document": "digital",
+                        "type": "set_digital_design",
+                        "design": {**design, "body": "raw verilog"},
+                    }
+                ],
+            },
+        )
+
+
 def test_update_and_delete_schematic_items(tmp_path: Path) -> None:
     _seed_v2_project(tmp_path)
     service = DesignService(projects_root=str(_projects_root(tmp_path)))

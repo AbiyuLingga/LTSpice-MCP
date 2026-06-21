@@ -24,9 +24,18 @@ type LedEmulation = { led?: { frames: Array<{ pixels: boolean[] }> }; status: st
 type EngineJob = {
   errorMessage?: string | null;
   jobId: string;
-  result?: { status?: string };
+  result?: {
+    measurements?: Array<{ name: string; value: number }>;
+    run?: { artifacts?: Record<string, string> };
+    status?: string;
+  };
   state: string;
 };
+type WaveformSignal = { name: string; points: Array<[number, number]> };
+type WaveformIndex = {
+  signals: Array<{ name: string; preview: string; sampleCount: number }>;
+};
+type DigitalTemplate = "counter" | "fsm" | "pwm";
 type SchematicDocument = {
   gridSize: number;
   netLabels: unknown[];
@@ -43,6 +52,46 @@ const INITIAL_SCHEMATIC: SchematicDocument = {
   symbols: [],
   wires: [],
 };
+
+function digitalTemplate(kind: DigitalTemplate): Record<string, unknown> {
+  const common = {
+    schemaVersion: "2.0",
+    clock: { signal: "clk", periodNs: 10 },
+    reset: { signal: "rst_n", active: "low" },
+    signals: [],
+    testGoals: [],
+  };
+  if (kind === "fsm") return {
+    ...common,
+    topModule: "fsm_top",
+    ports: [
+      { name: "clk", direction: "input", width: 1 }, { name: "rst_n", direction: "input", width: 1 },
+      { name: "toggle", direction: "input", width: 1 }, { name: "state", direction: "output", width: 1 },
+    ],
+    instances: [{ id: "fsm0", kind: "fsm", parameters: {} }],
+    connections: ["clk", "reset", "toggle", "state"].map((pin, index) => ({ instanceId: "fsm0", pin, signal: ["clk", "rst_n", "toggle", "state"][index] })),
+  };
+  if (kind === "pwm") return {
+    ...common,
+    topModule: "pwm_top",
+    ports: [
+      { name: "clk", direction: "input", width: 1 }, { name: "rst_n", direction: "input", width: 1 },
+      { name: "duty", direction: "input", width: 8 }, { name: "pwm_out", direction: "output", width: 1 },
+    ],
+    instances: [{ id: "pwm0", kind: "pwm", parameters: { width: 8 } }],
+    connections: ["clk", "reset", "duty", "out"].map((pin, index) => ({ instanceId: "pwm0", pin, signal: ["clk", "rst_n", "duty", "pwm_out"][index] })),
+  };
+  return {
+    ...common,
+    topModule: "counter_top",
+    ports: [
+      { name: "clk", direction: "input", width: 1 }, { name: "rst_n", direction: "input", width: 1 },
+      { name: "q", direction: "output", width: 8 },
+    ],
+    instances: [{ id: "counter0", kind: "counter", parameters: { width: 8 } }],
+    connections: ["clk", "reset", "q"].map((pin, index) => ({ instanceId: "counter0", pin, signal: ["clk", "rst_n", "q"][index] })),
+  };
+}
 
 function routeWire(wire: SchematicWire, symbols: SchematicNode[]): Array<[number, number]> {
   if (wire.connections?.length !== 2) return wire.points;
@@ -69,14 +118,31 @@ export function App({ bridge = desktopBridge }: AppProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [ledPixels, setLedPixels] = useState<boolean[] | null>(null);
   const [ledFrameCount, setLedFrameCount] = useState(0);
+  const [waveformSignals, setWaveformSignals] = useState<WaveformSignal[]>([]);
+  const [measurements, setMeasurements] = useState<Array<{ name: string; value: number }>>([]);
+  const [digitalSource, setDigitalSource] = useState("");
 
   async function loadProject(nextProject: EngineProject) {
-    const loaded = await bridge.request<{ document: SchematicDocument }>("design.get", {
-      document: "schematic",
-      projectId: nextProject.projectId,
-    });
+    const [loaded, digital] = await Promise.all([
+      bridge.request<{ document: SchematicDocument }>("design.get", {
+        document: "schematic",
+        projectId: nextProject.projectId,
+      }),
+      bridge.request<{ document: { design?: { instances?: unknown[] } } }>("design.get", {
+        document: "digital",
+        projectId: nextProject.projectId,
+      }),
+    ]);
     setProject(nextProject);
     setSchematic(loaded.document);
+    if (digital.document.design?.instances?.length) {
+      const rendered = await bridge.request<{ source: string }>("digital.render", {
+        projectId: nextProject.projectId,
+      });
+      setDigitalSource(rendered.source);
+    } else {
+      setDigitalSource("");
+    }
   }
 
   useEffect(() => {
@@ -202,12 +268,35 @@ export function App({ bridge = desktopBridge }: AppProps) {
         setJobMessage(`${status.state}: ${status.jobId}`);
       }
       const outcome = status.result?.status ?? status.state;
+      const indexPath = status.result?.run?.artifacts?.waveformIndex;
+      if (indexPath) {
+        const index = await readJsonArtifact<WaveformIndex>(started.jobId, indexPath);
+        const previews = await Promise.all(
+          index.signals.slice(0, 8).map(async (signal) => {
+            const preview = await readJsonArtifact<{ points: Array<[number, number]> }>(started.jobId, signal.preview);
+            return { name: signal.name, points: preview.points };
+          }),
+        );
+        setWaveformSignals(previews);
+        setMeasurements(status.result?.measurements ?? []);
+        setSurface("waveform");
+      }
       setJobMessage(status.errorMessage || `${method === "synthesis.start" ? "Synthesis" : "Simulation"} ${outcome}`);
     } catch (caught) {
       setJobMessage(caught instanceof Error ? caught.message : "Job failed");
     } finally {
       setActiveJobId(null);
     }
+  }
+
+  async function readJsonArtifact<T>(jobId: string, artifact: string): Promise<T> {
+    const slice = await bridge.request<{ text: string }>("artifact.readSlice", {
+      artifact,
+      jobId,
+      limit: 256 * 1024,
+      offset: 0,
+    });
+    return JSON.parse(slice.text) as T;
   }
 
   async function cancelJob() {
@@ -217,6 +306,28 @@ export function App({ bridge = desktopBridge }: AppProps) {
       setJobMessage("Job cancelled");
     } catch (caught) {
       setJobMessage(caught instanceof Error ? caught.message : "Unable to cancel job");
+    }
+  }
+
+  async function applyDigitalTemplate(kind: DigitalTemplate) {
+    if (!project) return;
+    setJobMessage(`Creating ${kind} design…`);
+    try {
+      const result = await bridge.request<{ revision: number }>("design.applyChanges", {
+        changeSet: {
+          baseRevision: project.revision,
+          operations: [{ design: digitalTemplate(kind), document: "digital", type: "set_digital_design" }],
+          schemaVersion: "2.0",
+        },
+        projectId: project.projectId,
+      });
+      const rendered = await bridge.request<{ source: string }>("digital.render", { projectId: project.projectId });
+      setProject({ ...project, revision: result.revision });
+      setDigitalSource(rendered.source);
+      setSurface("hdl");
+      setJobMessage(`${kind} design ready`);
+    } catch (caught) {
+      setJobMessage(caught instanceof Error ? caught.message : "Unable to create digital design");
     }
   }
 
@@ -461,15 +572,18 @@ export function App({ bridge = desktopBridge }: AppProps) {
         bottomTab={bottomTab}
         busy={busy}
         error={error}
+        digitalSource={digitalSource}
         jobMessage={jobMessage}
         ledFrameCount={ledFrameCount}
         ledPixels={ledPixels}
+        measurements={measurements}
         schematicWires={schematic.wires}
         project={project}
         schematicNodes={schematic.symbols}
         selectedComponent={selectedComponent}
         selectedIds={selectedIds}
         surface={surface}
+        waveformSignals={waveformSignals}
         onAdvancedToggle={setAdvanced}
         onBottomTabChange={setBottomTab}
         onCancelJob={cancelJob}
@@ -477,6 +591,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
         onCreateClick={() => setDialogMode("create")}
         onDeleteSelection={deleteSelection}
         onDeleteWire={deleteWire}
+        onDigitalTemplate={applyDigitalTemplate}
         onExitPlacement={() => setSelectedComponent(null)}
         onMoveComponent={moveComponent}
         onOpenClick={() => setDialogMode("open")}

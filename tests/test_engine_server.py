@@ -81,6 +81,7 @@ def test_handshake_advertises_versioned_local_capabilities(tmp_path: Path) -> No
                     "design.redo",
                     "design.undo",
                     "digital.emulate",
+                    "digital.render",
                     "engine.handshake",
                     "job.cancel",
                     "job.status",
@@ -267,7 +268,7 @@ def test_engine_reads_artifact_from_its_job_directory(
     project_dir = Path(created["result"]["projectDir"])  # type: ignore[index]
     _write_rc_graph(project_dir)
     fake_tool = tmp_path / "ngspice"
-    fake_tool.write_text("#!/bin/sh\necho 'gain = 1' > \"$3\"\n", encoding="utf-8")
+    fake_tool.write_text("#!/bin/sh\necho 'gain = 1' > \"$5\"\n", encoding="utf-8")
     fake_tool.chmod(0o755)
     monkeypatch.setattr(
         "ltagent.analog_workbench.discover_analog_tool",
@@ -322,3 +323,14 @@ def test_tool_doctor_reports_allowlisted_backends(tmp_path: Path) -> None:
         "yosys",
     }
     assert all(item["installHint"].startswith("sudo apt install") for item in tools)
+
+
+def test_engine_renders_only_validated_digital_v2(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    service.handle(_request(1, "project.create", {"projectId": "digital_lab"}))
+
+    response = service.handle(_request(2, "digital.render", {"projectId": "digital_lab"}))
+
+    assert response["result"]["schemaVersion"] == "2.0"  # type: ignore[index]
+    assert "module top(" in response["result"]["source"]  # type: ignore[index]
+    service.close()

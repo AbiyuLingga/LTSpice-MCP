@@ -27,6 +27,7 @@ from typing import Any, ClassVar, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .digital_ir_v2 import DigitalDesignIRV2, render_verilog_v2
 from .jobs import (
     JobKind,
     JobManifest,
@@ -37,6 +38,7 @@ from .jobs import (
 )
 from .security import PathSafetyError, safe_resolve_under
 from .tool_process import run_tool_process
+from .waveform import write_vcd_bundle
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -252,6 +254,15 @@ def design_to_verilog(design: DigitalDesignIR, *, include_testbench: bool = True
     return source + ("\n" + _render_testbench(design) if include_testbench else "")
 
 
+DigitalDesign = DigitalDesignIR | DigitalDesignIRV2
+
+
+def _render_design(design: DigitalDesign, *, include_testbench: bool) -> str:
+    if isinstance(design, DigitalDesignIRV2):
+        return render_verilog_v2(design, include_testbench=include_testbench)
+    return design_to_verilog(design, include_testbench=include_testbench)
+
+
 def _render_testbench(design: DigitalDesignIR) -> str:
     """Render a self-checking testbench for the design.
 
@@ -388,7 +399,7 @@ class DigitalRunResult:
 def run_simulation(
     project_id: str,
     project_dir: Path,
-    design: DigitalDesignIR,
+    design: DigitalDesign,
     *,
     tool_id: str = IVERILOG_TOOL_ID,
     timeout_seconds: float = 30.0,
@@ -428,10 +439,12 @@ def run_simulation(
             skipped_reason=f"{tool_id} binary not found",
         )
 
+    broker_managed = run_dir is not None
     run_dir = _resolve_run_dir(project_dir, manifest.jobId, run_dir)
+    artifact_base = run_dir if broker_managed else project_dir
     verilog_path = run_dir / f"{design.topModule}.v"
     verilog_path.write_text(
-        design_to_verilog(design, include_testbench=tool_id == IVERILOG_TOOL_ID),
+        _render_design(design, include_testbench=tool_id == IVERILOG_TOOL_ID),
         encoding="utf-8",
     )
     sim_path = run_dir / f"tb_{design.topModule}.out"
@@ -540,7 +553,7 @@ def run_simulation(
                     runId=f"run_{manifest.jobId}",
                     jobId=manifest.jobId,
                     toolVersion=tool.version,
-                    artifacts={"verilog": str(verilog_path.relative_to(project_dir))},
+                    artifacts={"verilog": str(verilog_path.relative_to(artifact_base))},
                     stderrTail=completed.stderr[-2000:] if completed.stderr else "",
                     createdAt=started,
                 ),
@@ -557,6 +570,15 @@ def run_simulation(
             project_id=project_id,
             tool=tool,
         )
+    artifacts = {
+        "verilog": str(verilog_path.relative_to(artifact_base)),
+        "binary": str(sim_path.relative_to(artifact_base)),
+    }
+    vcd_path = run_dir / "waveform.vcd"
+    if vcd_path.is_file():
+        artifacts["waveformVcd"] = str(vcd_path.relative_to(artifact_base))
+        index = run_dir / write_vcd_bundle(vcd_path, run_dir)
+        artifacts["waveformIndex"] = str(index.relative_to(artifact_base))
     return DigitalRunResult(
         bundle=ResultBundle(
             status="success",
@@ -565,15 +587,7 @@ def run_simulation(
                 runId=f"run_{manifest.jobId}",
                 jobId=manifest.jobId,
                 toolVersion=tool.version,
-                artifacts={
-                    "verilog": str(verilog_path.relative_to(project_dir)),
-                    "binary": str(sim_path.relative_to(project_dir)),
-                    **(
-                        {"waveform": str((run_dir / "waveform.vcd").relative_to(project_dir))}
-                        if (run_dir / "waveform.vcd").is_file()
-                        else {}
-                    ),
-                },
+                artifacts=artifacts,
                 warnings=[],
                 stdoutTail=completed.stdout[-2000:] if completed.stdout else "",
                 createdAt=started,
@@ -590,7 +604,7 @@ def run_simulation(
 def run_synthesis(
     project_id: str,
     project_dir: Path,
-    design: DigitalDesignIR,
+    design: DigitalDesign,
     *,
     timeout_seconds: float = 60.0,
     cancel_event: Event | None = None,
@@ -624,7 +638,7 @@ def run_synthesis(
         )
     run_dir = _resolve_run_dir(project_dir, manifest.jobId, run_dir)
     verilog_path = run_dir / f"{design.topModule}.v"
-    verilog_path.write_text(design_to_verilog(design, include_testbench=False), encoding="utf-8")
+    verilog_path.write_text(_render_design(design, include_testbench=False), encoding="utf-8")
     log_path = run_dir / "synth.log"
     script = f"read_verilog {verilog_path}; synth -top {design.topModule}; stat"
     argv = [str(tool.executable), "-p", script, "-l", str(log_path)]
@@ -744,7 +758,7 @@ def _resolve_run_dir(project_dir: Path, job_id: str, requested: Path | None) -> 
 
 def _make_manifest(
     project_id: str,
-    design: DigitalDesignIR,
+    design: DigitalDesign,
     created_at: str,
     state: JobState,
     tool_id: str,

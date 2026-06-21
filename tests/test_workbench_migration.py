@@ -251,5 +251,6 @@ def test_migration_persists_digital_and_system_documents(tmp_path: Path) -> None
     system = json.loads((project_dir / "design/system.json").read_text(encoding="utf-8"))
     assert digital["schemaVersion"] == V2_PROJECT_SCHEMA_VERSION
     assert system["schemaVersion"] == V2_PROJECT_SCHEMA_VERSION
-    assert digital["design"]["modules"] == [{"name": "m1"}]
+    assert digital["design"]["schemaVersion"] == "2.0"
+    assert digital["legacyDesign"]["modules"] == [{"name": "m1"}]
     assert system["clockHz"] == 1000

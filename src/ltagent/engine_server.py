@@ -23,12 +23,12 @@ from .design_service import (
     WorkbenchV2Error,
 )
 from .digital_emulator import RunResult, run_program
+from .digital_ir_v2 import DigitalDesignIRV2, render_verilog_v2
 from .digital_workbench import (
     IVERILOG_TOOL_ID,
     VERILATOR_TOOL_ID,
     VVP_TOOL_ID,
     YOSYS_TOOL_ID,
-    DigitalDesignIR,
     discover_tool,
     run_simulation,
     run_synthesis,
@@ -58,6 +58,7 @@ METHODS: Final[tuple[str, ...]] = (
     "design.redo",
     "design.undo",
     "digital.emulate",
+    "digital.render",
     "engine.handshake",
     "job.cancel",
     "job.status",
@@ -110,6 +111,7 @@ class EngineService:
             "design.redo": self._design_redo,
             "design.undo": self._design_undo,
             "digital.emulate": self._digital_emulate,
+            "digital.render": self._digital_render,
             "engine.handshake": self._engine_handshake,
             "job.cancel": self._job_cancel,
             "job.status": self._job_status,
@@ -480,7 +482,7 @@ class EngineService:
             "tools": tools,
         }
 
-    def _digital_design(self, project_id: str) -> DigitalDesignIR:
+    def _digital_design(self, project_id: str) -> DigitalDesignIRV2:
         document = self.design.read_document(project_id, "digital")
         design = document.get("design")
         if not isinstance(design, Mapping):
@@ -490,7 +492,7 @@ class EngineService:
                 data={"document": "digital"},
             )
         try:
-            return DigitalDesignIR.model_validate(design)
+            return DigitalDesignIRV2.model_validate(design)
         except ValueError as exc:
             raise EngineRequestError(
                 ERR_PARAMS_INVALID,
@@ -539,6 +541,14 @@ class EngineService:
                 "width": rendered.width,
             }
         return payload
+
+    def _digital_render(self, params: Mapping[str, object]) -> dict[str, object]:
+        design = self._digital_design(self._project_id(params))
+        return {
+            "schemaVersion": design.schemaVersion,
+            "source": render_verilog_v2(design),
+            "topModule": design.topModule,
+        }
 
     def _project_id(self, params: Mapping[str, object]) -> str:
         project_id = params.get("projectId")

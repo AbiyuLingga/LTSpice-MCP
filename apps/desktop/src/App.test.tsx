@@ -5,7 +5,7 @@ import { vi } from "vitest";
 import { App } from "./App";
 import type { EngineBridge } from "./engine";
 
-function fakeBridge(): EngineBridge {
+function fakeBridge(options: { waveform?: boolean } = {}): EngineBridge {
   let revision = 0;
   const request = vi.fn(async (method: string) => {
     if (method === "project.create" || method === "project.open") {
@@ -44,13 +44,30 @@ function fakeBridge(): EngineBridge {
       return { jobId: "job_1", state: "pending" };
     }
     if (method === "job.status") {
+      if (options.waveform) {
+        return {
+          jobId: "job_1",
+          result: { run: { artifacts: { waveformIndex: "waveform/index.json" } }, status: "success" },
+          state: "completed",
+        };
+      }
       return { jobId: "job_1", result: { status: "skipped" }, state: "skipped" };
+    }
+    if (method === "artifact.readSlice") {
+      return {
+        text: JSON.stringify(options.waveform
+          ? { name: "v(out)", points: [[0, 0], [1, 1], [2, 0]] }
+          : {}),
+      };
     }
     if (method === "tool.doctor") {
       return {
         status: "pass",
         tools: ["ngspice", "iverilog", "vvp", "verilator", "yosys"].map((toolId) => ({ available: true, toolId })),
       };
+    }
+    if (method === "digital.render") {
+      return { source: "module counter_top();\nendmodule\n" };
     }
     if (method === "design.applyChanges") {
       revision += 1;
@@ -173,6 +190,50 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Tool doctor" }));
 
     expect(await screen.findByText("Tool doctor pass: 5/5 available")).toBeVisible();
+  });
+
+  it("loads a downsampled waveform preview from job artifacts", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge({ waveform: true });
+    const request = vi.mocked(bridge.request);
+    request.mockImplementation(async (method: string, params: Record<string, unknown>) => {
+      if (method === "project.create") return {
+        displayName: "Analog Lab", projectDir: "/projects/analog_lab", projectId: "analog_lab", revision: 0, schemaVersion: "2.0",
+      };
+      if (method === "design.get") return { document: { gridSize: 16, netLabels: [], schemaVersion: "2.0", symbols: [], wires: [] } };
+      if (method === "simulation.start") return { jobId: "job_1", state: "pending" };
+      if (method === "job.status") return { jobId: "job_1", result: { run: { artifacts: { waveformIndex: "waveform/index.json" } }, status: "success" }, state: "completed" };
+      if (method === "artifact.readSlice" && params.artifact === "waveform/index.json") return { text: JSON.stringify({ signals: [{ name: "v(out)", preview: "waveform/signal_0.preview.json", sampleCount: 3 }] }) };
+      if (method === "artifact.readSlice") return { text: JSON.stringify({ name: "v(out)", points: [[0, 0], [1, 1], [2, 0]] }) };
+      return {};
+    });
+    render(<App bridge={bridge} />);
+    await createProject(user);
+    await user.click(screen.getByRole("tab", { name: "Waveform" }));
+
+    await user.click(screen.getByRole("button", { name: "Run analog simulation" }));
+
+    expect(await screen.findByLabelText("Waveform v(out)", {}, { timeout: 1000 })).toBeVisible();
+  });
+
+  it("creates a digital template through typed IR and renders engine HDL", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+    await createProject(user);
+    await user.click(screen.getByRole("tab", { name: "HDL" }));
+
+    await user.click(screen.getByRole("button", { name: "Counter" }));
+
+    expect(await screen.findByText(/module counter_top/)).toBeVisible();
+    expect(bridge.request).toHaveBeenCalledWith(
+      "design.applyChanges",
+      expect.objectContaining({
+        changeSet: expect.objectContaining({
+          operations: [expect.objectContaining({ type: "set_digital_design" })],
+        }),
+      }),
+    );
   });
 
   it("places a selected component through a revision-guarded change set", async () => {

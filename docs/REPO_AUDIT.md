@@ -86,20 +86,25 @@ Captured in `docs/agent_reports/phase0-baseline.md`. The head-line:
 
 ### Workbench v1 Master Plan (2026-06-20 brief)
 
+> Independent audit correction, 2026-06-21: a phase is complete only when its
+> user-facing desktop/engine path and exit gate work end to end. Standalone
+> models, smoke scripts, or release documents are evidence of progress, not a
+> production release.
+
 | Phase | Status | Evidence | Missing acceptance evidence |
 |---|---|---|---|
 | 0 Stabilise baseline | **Complete** (this report) | dirty tree organised into 5 reviewable commits; toolchain evidence saved; capability matrix below | None for Phase 0 |
-| 1 Project schema v2 | Not started | `workbench.py` 1.0 baseline only | Pydantic 2.x contracts, JSON Schema, `CircuitGraph` canonicality, staged 1.0 -> 2.0 migrator |
-| 2 ChangeSet + shared service | Not started | existing `replace_document` only | typed ops, idempotency, revision conflict, layout ops, contract parity tests |
-| 3 Schematic editor | Not started | prototype place + drag in `App.tsx`/`WorkspaceSurface.tsx` only | shell decomposition, symbol/pin registry, PixiJS scene, autosave/recovery, project open |
-| 4 Jobs + waveform | Done | `ltagent.jobs` (`JobManifest`, `RunManifest`, `ResultBundle`, `WaveformBundle`, `WaveformTrace`, `WaveformChunk`) | phase 4 exit gate |
-| 5 Analog workbench | Done | `ltagent.analog_workbench` (CircuitGraph → netlist → ngspice runner, LTspice `.asc` parser, structured skip/fail/timeout) | phase 5 exit gate |
-| 6 Generic digital workbench | Done | `ltagent.digital_workbench` (DigitalDesignIR, Verilog-2001 generator, Icarus/Verilator/Yosys runner) | phase 6 exit gate |
-| 7 AI provider infrastructure | Done | `ltagent.ai_provider` (ProviderProfile/Adapter/Registry, system keyring with in-memory fallback, AIContextManifest, secret/injection detection) | phase 7 exit gate |
-| 8 AI design workflow | Done | `ltagent.ai_workflow` (RequirementSpec, CapabilityClassifier EN+ID, AIWorkflow, validate_proposal, repair loop, accept as ChangeSet) | phase 8 exit gate |
-| 9 Codex MCP | Done | 27 tools, 16 resources, workbench v2 surface, `ltagent codex install|doctor|uninstall` | phase 9 exit gate |
-| 10 Production hardening | Done | smoke scripts (`scripts/smoke_codex.py`, `scripts/smoke_workbench_v2.py`), build script (`scripts/build_sidecar.py`), CI smoke step, Tauri `bundle.externalBin` | phase 10 exit gate |
-| 11 Production release | Done | `CHANGELOG.md`, `docs/RELEASE_NOTES.md` (alpha/beta/stable + signing keys), `docs/ALPHA_PLAYBOOK.md`, release end-to-end test | phase 11 exit gate |
+| 1 Project schema v2 | Backend complete; integration pending | v2 models/schemas, IR converter, staged migrator, migration tests | desktop engine still creates and reads schema 1.0 projects |
+| 2 ChangeSet + shared service | Backend complete; integration pending | typed operations and `DesignService` tests | desktop still calls legacy `replace_document`; engine has no v2 methods |
+| 3 Schematic editor | Partial | shell split, symbol registry, place and drag-to-move | no wire, rotate, delete, selection, undo/redo, project open, PixiJS, or electrical graph editing |
+| 4 Jobs + waveform | Partial | manifest/chunk data contracts and helpers | no queue, persisted job broker, progress/cancel events, engine methods, or real waveform UI |
+| 5 Analog workbench | Backend experimental | graph-to-netlist runner and structured results | not exposed through desktop engine/UI; no real ngspice evidence on this host |
+| 6 Generic digital workbench | Backend experimental | DigitalDesignIR, generator, and tool wrappers | not exposed through desktop engine/UI; no real tool evidence; module body can contain raw HDL |
+| 7 AI provider infrastructure | Partial | profiles, keyring adapter, request/response validation tests | no desktop/engine API; request is JSON text rather than strict function call; selected document bodies are not sent |
+| 8 AI design workflow | Backend partial | requirement classifier, proposal validation, bounded repair code | AI button disabled; no context preview/diff/apply/repair desktop workflow |
+| 9 Codex MCP | Partial | three v2 MCP tools and install/doctor/uninstall commands | installer rewrites TOML and lacks absolute command/approval policy; desktop does not observe external revisions |
+| 10 Production hardening | Incomplete | smoke scripts and sidecar staging prototype | no frozen sidecar, active Tauri bundle, `.deb`, AppImage, Tauri CI, SBOM, or fresh-VM test |
+| 11 Production release | Not started | changelog/playbook drafts only | Phase 10 gate and full fresh-machine production acceptance have not run |
 
 ## Capability Matrix (Phase 0 P0.5)
 
@@ -121,18 +126,18 @@ installed.
 | Live editing graph (add/remove/connect/...) | Supported | `live/project.py` + `tests/test_live_*.py` | Phase 1 promotes to canonical |
 | Versioned `hardware.project.json` v2.0 | Supported | `tests/test_workbench_v2.py`; staged 1.0 → 2.0 migrator | Phase 1 exit gate |
 | Typed `ChangeSet` + `DesignService` (v2) | Supported | `tests/test_design_service.py` (10 tests) | Phase 2 exit gate |
-| Tauri/React desktop shell | Supported | `cargo check` green; vitest 7/7; `tauri dev` runs against `ltagent-engine` on PATH | Phase 3 splits into shell + canvas + inspector + jobs + console |
+| Tauri/React desktop shell | Experimental | frontend tests/build pass; development still requires `ltagent-engine` on PATH | connect engine v2 and complete native runtime/E2E evidence |
 | Place / move / rotate / wire in UI | Experimental | place + drag-to-move UX live in `App.tsx`; wire/rotate still mock | Phase 3 finish |
 | ngspice runner (workspace-confined) | Experimental | `ltagent.analog_workbench`; ngspice binary not on this PATH | Phase 5 brokers through Jobs; host needs `apt install ngspice` for real-tool evidence |
 | LTspice via Wine | Experimental | runner present; host reports `LTSPICE_TIMEOUT` today | Doctor truth (see `runner_troubleshooting.md`) |
-| Waveform parse + downsample | Supported | `ltagent.jobs` (WaveformBundle / Trace / Chunk); `ltagent.waveforms` (VCD) | Phase 4 streams to UI in chunks |
+| Waveform parse + downsample | Experimental | parser and chunk helpers have unit tests | no engine artifact API or real waveform UI |
 | Icarus / Verilator / Yosys digital | Experimental | `ltagent.digital_workbench`; binaries not on host | Phase 6 host evidence pending |
-| AI provider adapters (keyring-backed) | Supported | `tests/test_ai_provider.py` (14 tests); system keyring with in-memory fallback | Phase 7 exit gate |
-| AI workflow (EN+ID capability classifier, repair loop, accept) | Supported | `tests/test_ai_workflow.py` (13 tests) | Phase 8 exit gate |
-| Codex MCP workbench v2 tools | Supported | `wb_v2_inspect_project`, `wb_v2_apply_change_set`, `wb_v2_propose_ai_design`; `ltagent codex install|doctor|uninstall`; 24 tests | Phase 9 exit gate |
-| Production installer (`.deb` / AppImage) | Experimental | `scripts/build_sidecar.py`; `bundle.externalBin` declared; PyInstaller not yet wired | Phase 10 needs PyInstaller + signing key |
-| Tauri bundled sidecar | Experimental | Tauri config points at `apps/desktop/sidecar/` stubs; release engineer must replace with PyInstaller-frozen binaries | Phase 10 |
-| Production release pipeline | Supported | `CHANGELOG.md`, `docs/RELEASE_NOTES.md`, `docs/ALPHA_PLAYBOOK.md`; release end-to-end test | Phase 11 exit gate; signing keys not yet generated |
+| AI provider adapters (keyring-backed) | Experimental | provider unit tests pass | strict function call, selected context transfer, engine API, and desktop configuration are missing |
+| AI workflow (EN+ID capability classifier, repair loop, accept) | Experimental | workflow unit tests pass | no user-facing context preview/diff/approval path |
+| Codex MCP workbench v2 tools | Experimental | v2 inspect/apply/propose tools and CLI tests | config safety, approval defaults, desktop revision refresh, and real Codex session evidence remain |
+| Production installer (`.deb` / AppImage) | Not started | `scripts/build_sidecar.py` stages development stubs only | freeze sidecars, enable bundle, build installers, then test on a fresh VM |
+| Tauri bundled sidecar | Not started | development stubs document intended entry points | add target-triple standalone binaries only when the packaging pipeline can produce them |
+| Production release pipeline | Planned | changelog and release playbook drafts exist | installer, signed artifacts, release CI, and fresh-VM acceptance are missing |
 | Docs site, onboarding, AI privacy guide | Not started | none | Phase 11 |
 
 ## Confirmed Documentation Drift

@@ -21,7 +21,7 @@ import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -140,6 +140,7 @@ class ResetSpec(BaseModel):
 
 
 class TestGoal(BaseModel):
+    __test__: ClassVar[bool] = False
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=64)

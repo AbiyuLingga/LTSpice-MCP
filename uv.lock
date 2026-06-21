@@ -626,6 +626,7 @@ dependencies = [
 dev = [
     { name = "build" },
     { name = "jsonschema" },
+    { name = "mcp", extra = ["cli"] },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -641,6 +642,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4" },
     { name = "keyring", specifier = ">=24" },
+    { name = "mcp", extras = ["cli"], marker = "extra == 'dev'", specifier = ">=1.0,<2.0" },
     { name = "mcp", extras = ["cli"], marker = "extra == 'mcp'", specifier = ">=1.0,<2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
     { name = "pydantic", specifier = ">=2,<3" },

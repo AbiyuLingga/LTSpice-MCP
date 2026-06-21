@@ -1,5 +1,10 @@
 # Single-Agent Roadmap Execution Plan
 
+> Workbench audit note, 2026-06-21: this document remains the long-term engine
+> roadmap. It is not evidence that Workbench v1 Phases 0-11 are complete. The
+> current implementation status and missing end-to-end gates are recorded in
+> `docs/REPO_AUDIT.md`.
+
 Date: 2026-06-19
 Canonical roadmap: `docs/AI_HARDWARE_AGENT_ROADMAP.md`
 Execution owner: one main AI agent

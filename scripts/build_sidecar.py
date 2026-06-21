@@ -5,11 +5,10 @@ Tauri bundle config.
 The script is intentionally a thin wrapper:
 
 1. Build the ltagent sdist + wheel via ``python -m build``.
-2. Stage the entry-point scripts as the sidecar binaries the
-   Tauri shell expects (without actually cross-compiling
-   here; the real bundling step is driven by ``tauri build``).
-3. Print the Tauri bundle config so a release engineer can
-   verify ``externalBin`` paths.
+2. Stage development entry-point scripts that document the intended
+   sidecar commands. These are not standalone bundle inputs.
+3. Print the Tauri bundle config. ``externalBin`` remains absent until
+   the packaging pipeline can produce target-triple binaries.
 
 It is meant to be run from CI; the Tauri build itself is run
 separately because it needs the GTK / WebKit / librsvg stack
@@ -32,12 +31,9 @@ TAURI_CONFIG = REPO_ROOT / "apps" / "desktop" / "src-tauri" / "tauri.conf.json"
 def _stage_sidecar() -> list[Path]:
     """Document the ltagent entry-point scripts in the sidecar dir.
 
-    The Tauri shell uses ``tauri.conf.json`` ``bundle.externalBin``
-    to find the binaries. We do not know the host triple at
-    runtime; the actual binary file is produced by
-    ``pyinstaller`` (or equivalent) before ``tauri build`` runs.
-    This stage writes a tiny stub script so a release engineer
-    can see the intended entry points.
+    This stage writes small scripts so a release engineer can inspect and run
+    the intended entry points from an installed Python environment. They must
+    not be added to Tauri ``externalBin`` or shipped as standalone binaries.
     """
     import importlib.metadata
 

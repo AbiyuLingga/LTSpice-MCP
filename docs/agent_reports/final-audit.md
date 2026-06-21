@@ -1,5 +1,10 @@
 # Final Audit — Post-Phase 11 Cleanup
 
+> **Superseded by independent audit on 2026-06-21.** The production gate is
+> not green. The recorded test run had three failures, the desktop engine still
+> exposes the legacy v1 surface, and the committed sidecars are Python stubs.
+> See `docs/REPO_AUDIT.md` for the corrected phase status.
+
 Date: 2026-06-20
 Branch: `main`
 
@@ -47,7 +52,7 @@ decorator warnings fixed).
 
 ## Invariants
 
-- All Phases 1-11 invariants still hold:
+- The following backend invariants were reported at the time:
   - API key handling: keyring-backed, never on disk, never
     logged, never sent to the client.
   - Workbench v2 is the only canonical writer of v2 documents.
@@ -58,7 +63,8 @@ decorator warnings fixed).
 
 ## Hand-off
 
-The repository is at a clean baseline:
+The repository was reported as a clean baseline, but this conclusion was not
+valid for a production cut:
 
 * `uv run --no-sync python -m pytest -q` is green
   (modulo the documented MCP-SDK env gap).
@@ -73,7 +79,5 @@ The release engineer can now:
 3. PyInstaller-freeze the sidecar binaries; replace the
    stubs in `apps/desktop/sidecar/`.
 4. Run `tauri build` to produce the .deb / AppImage.
-5. Cut the first tag and publish to test PyPI.
-
-The acceptance is `OK` end-to-end on the host; no code
-changes are required for the cut.
+5. Run the complete desktop and fresh-machine production acceptance before
+   cutting any release tag.

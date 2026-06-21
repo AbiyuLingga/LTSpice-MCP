@@ -1,5 +1,9 @@
 # Comprehensive Review Exit Gate
 
+> **Superseded by independent audit on 2026-06-21.** Unit-level backend
+> additions were incorrectly promoted to completed product phases. The
+> corrected status is maintained in `docs/REPO_AUDIT.md`.
+
 Date: 2026-06-20
 Branch: `main`
 

@@ -72,16 +72,7 @@ button:disabled { cursor: not-allowed; opacity: .44; }
 .schematic-grid { background-color: #191b17; background-image: radial-gradient(#4c5348 1px, transparent 1px); background-size: 16px 16px; display: grid; min-height: 0; place-items: center; position: relative; }.schematic-grid.placement-mode { cursor: crosshair; }
 .schematic-empty { background: #242720; border: 1px solid #575d52; border-radius: 5px; color: #c5c9bf; font-size: 12px; max-width: 300px; padding: 11px 14px; text-align: center; }
 .schematic-node { align-items: center; background: transparent; border: 0; color: #eff5ed; display: grid; font-size: 10px; gap: 1px; justify-items: center; padding: 0; position: absolute; transform: translate(-50%, -50%); width: 120px; z-index: 1; }.schematic-node:hover, .schematic-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }.schematic-node.is-dragging { cursor: grabbing; z-index: 2; }.schematic-node small { background: #1e221d; border: 1px solid #50584c; color: #e9e8e0; font: 10px "SFMono-Regular", Consolas, monospace; padding: 1px 4px; pointer-events: none; }.schematic-symbol { fill: none; height: 72px; overflow: visible; pointer-events: none; stroke: #a8ddc5; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; width: 120px; }.schematic-symbol polygon, .schematic-symbol rect { fill: #22291f; }.schematic-symbol circle { fill: #e8a64d; stroke: #e8a64d; }.schematic-symbol text { fill: #e9e8e0; font: 10px "SFMono-Regular", Consolas, monospace; stroke: none; text-anchor: middle; }
-.code-surface pre { color: #d9ddd3; font: 13px/1.75 "SFMono-Regular", Consolas, monospace; margin: 0; overflow: auto; padding: 18px; }
-.code-surface code { display: block; }
-.code-surface code span { color: #747a70; display: inline-block; margin-right: 15px; text-align: right; width: 24px; }
-.wave-grid { align-content: center; display: grid; gap: 17px 15px; grid-template-columns: 72px minmax(0, 1fr); padding: 20px; }
-.wave-grid > span { color: var(--muted); font: 12px "SFMono-Regular", Consolas, monospace; }
-.signal { background-color: #1b1e19; border: 1px solid #3d443a; height: 30px; position: relative; }
-.signal::after { background-repeat: repeat-x; content: ""; inset: 0; position: absolute; }
-.signal-clock::after { background-image: linear-gradient(135deg, transparent 43%, var(--teal) 44%, var(--teal) 56%, transparent 57%), linear-gradient(45deg, transparent 43%, var(--teal) 44%, var(--teal) 56%, transparent 57%); background-size: 24px 15px; background-position: 0 0, 12px 15px; }
-.signal-reset::after { border-bottom: 2px solid var(--danger); left: 8px; right: 8px; top: 6px; transform: translateY(8px); }
-.signal-led::after { border-bottom: 2px solid var(--accent); clip-path: polygon(0 70%, 12% 70%, 12% 30%, 30% 30%, 30% 70%, 48% 70%, 48% 20%, 67% 20%, 67% 70%, 100% 70%, 100% 100%, 0 100%); }
+.surface-empty { align-self: center; color: var(--muted); justify-self: center; }
 .led-surface { align-items: stretch; }
 .led-matrix { align-content: center; display: grid; gap: 5px; grid-template-columns: repeat(8, minmax(8px, 30px)); justify-content: center; padding: 22px; }
 .led-matrix span { aspect-ratio: 1; border: 1px solid #454c42; border-radius: 3px; }

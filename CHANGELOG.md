@@ -46,7 +46,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 * `ltagent codex install | uninstall | doctor` subcommands
   for wiring the ltagent-mcp entry into the local Codex
   config.
-* Production hardening scripts:
+* Production-readiness smoke and sidecar-staging scripts:
   `scripts/smoke_codex.py`, `scripts/smoke_workbench_v2.py`,
   `scripts/build_sidecar.py`.
 * CI smoke step on the Python 3.12 matrix entry.
@@ -59,9 +59,8 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   provider layer.
 
 ### Security
-* API keys are stored in the system keyring only. They are
-  never written to the project tree, never logged, and never
-  sent to the client.
+* API keys use the system keyring when available, with a non-persistent
+  in-memory fallback. They are never written to the project tree or logs.
 * `AIContextManifest.detect_prompt_injection` rejects context
   that contains known injection patterns before the provider
   is called.

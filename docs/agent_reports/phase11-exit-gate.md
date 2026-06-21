@@ -1,5 +1,9 @@
 # Phase 11 Exit Gate — Production Release
 
+> **Independent audit correction, 2026-06-21: NOT PASSED.** Release documents
+> are present, but the Phase 10 prerequisite and production acceptance gate
+> have not passed. No production release has been built or validated.
+
 Date: 2026-06-20
 Branch: `main`
 

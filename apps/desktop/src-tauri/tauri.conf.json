@@ -26,10 +26,6 @@
   "bundle": {
     "active": false,
     "targets": "all",
-    "externalBin": [
-      "../sidecar/ltagent-engine",
-      "../sidecar/ltagent-mcp"
-    ],
     "resources": [],
     "category": "DeveloperTool",
     "shortDescription": "Local-first hardware design workbench",

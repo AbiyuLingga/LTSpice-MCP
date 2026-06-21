@@ -42,6 +42,8 @@ dev = [
     "mypy>=1.10",
     "build>=1.2",
     "jsonschema>=4",
+    # The full test suite exercises the optional MCP entry point.
+    "mcp[cli]>=1.0,<2.0",
 ]
 # Phase 10: MCP server v1.
 # Install with: pip install "ltspice-ai-agent[mcp]"

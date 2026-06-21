@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { desktopBridge, EngineBridge, EngineProject } from "./engine";
 import { ProjectDialog } from "./components/ProjectDialog";
@@ -18,7 +18,6 @@ type SchematicDocument = { gridSize: number; nodes: SchematicNode[]; schemaVersi
 
 const LED_DEMO_ROM = [0x1002, 0xC0F0, 0x1003, 0xC0F1, 0x1001, 0xC0F2, 0xC0F4, 0xF000];
 const INITIAL_SCHEMATIC: SchematicDocument = { gridSize: 16, nodes: [], schemaVersion: "1.0", wires: [] };
-const AUTOSAVE_DEBOUNCE_MS = 750;
 
 export function App({ bridge = desktopBridge }: AppProps) {
   const [project, setProject] = useState<EngineProject | null>(null);
@@ -33,20 +32,6 @@ export function App({ bridge = desktopBridge }: AppProps) {
   const [selectedComponent, setSelectedComponent] = useState<SchematicNodeKind | null>(null);
   const [ledPixels, setLedPixels] = useState<boolean[] | null>(null);
   const [ledFrameCount, setLedFrameCount] = useState(0);
-  const [autosaveAt, setAutosaveAt] = useState<string | null>(null);
-  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!project) return;
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(() => {
-      setAutosaveAt(new Date().toISOString());
-    }, AUTOSAVE_DEBOUNCE_MS);
-    return () => {
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    };
-  }, [schematic, project]);
-
   async function createProject(input: { displayName: string; projectId: string }) {
     setBusy(true);
     setError(null);
@@ -179,9 +164,6 @@ export function App({ bridge = desktopBridge }: AppProps) {
         onSurfaceChange={setSurface}
         onValidate={validateProject}
       />
-      <output className="autosave-status" data-testid="autosave-status">
-        {autosaveAt ? `Autosaved at ${autosaveAt}` : "No autosave yet"}
-      </output>
       {showDialog ? <ProjectDialog busy={busy} error={error} onClose={() => setShowDialog(false)} onCreate={createProject} /> : null}
     </>
   );

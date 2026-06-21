@@ -54,8 +54,9 @@ import logging
 import re
 import sys
 from collections.abc import Callable
+from functools import wraps
 from pathlib import Path
-from typing import Any, ParamSpec, TypeAlias, TypeVar
+from typing import Any, ParamSpec, TypeAlias
 
 from . import __version__
 from .config import Config, ConfigError, load_config
@@ -92,18 +93,16 @@ from .serialization import to_jsonable as _to_jsonable
 MCP_SDK_ERROR_CODE = "MCP_SDK_MISSING"
 
 try:
-    from mcp.server.fastmcp import (
-        FastMCP as _FastMCP,  # type: ignore[unused-ignore,import-not-found]
-    )
+    from mcp.server.fastmcp import FastMCP
 except Exception as exc:  # pragma: no cover - exercised by the fallback
-    _FastMCP = None
+    _FastMCP: Any = None
     _IMPORT_ERROR: Exception | None = exc
 else:
+    _FastMCP = FastMCP
     _IMPORT_ERROR = None
 
 HandlerResult: TypeAlias = dict[str, Any]
 
-_T = TypeVar("_T", bound=Callable[..., HandlerResult])
 _P = ParamSpec("_P")
 
 
@@ -213,7 +212,9 @@ def _ensure_default_templates(templates_root: Path) -> None:
     ensure_default_templates(templates_root)
 
 
-def _security_boundary(command: str) -> Callable[[_T], _T]:
+def _security_boundary(
+    command: str,
+) -> Callable[[Callable[_P, HandlerResult]], Callable[_P, HandlerResult]]:
     """Decorator: convert any :class:`SecurityError` raised inside the tool
     body into the standard JSON error payload.
 
@@ -222,16 +223,15 @@ def _security_boundary(command: str) -> Callable[[_T], _T]:
     exceptions to MCP clients.
     """
 
-    def wrap(fn: _T) -> _T:
-        def inner(*args: _P.args, **kwargs: _P.kwargs) -> HandlerResult:  # type: ignore[valid-type]
+    def wrap(fn: Callable[_P, HandlerResult]) -> Callable[_P, HandlerResult]:
+        @wraps(fn)
+        def inner(*args: _P.args, **kwargs: _P.kwargs) -> HandlerResult:
             try:
                 return fn(*args, **kwargs)
             except SecurityError as exc:
                 return _from_security_error(command, exc)
 
-        inner.__name__ = fn.__name__
-        inner.__doc__ = fn.__doc__
-        return inner  # type: ignore[return-value]
+        return inner
 
     return wrap
 

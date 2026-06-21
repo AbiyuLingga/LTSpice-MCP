@@ -272,14 +272,14 @@ def test_no_raw_resource_exposed() -> None:
         assert not u.lower().endswith("raw"), u
 
 
-def test_server_lists_fourteen_resources() -> None:
+def test_server_lists_sixteen_resources() -> None:
     server = _make_server()
     resources = asyncio.run(server.list_resources())
     templates = asyncio.run(server.list_resource_templates())
     static_uris = [str(r.uri) for r in resources]
     templated_uris = [str(t.uriTemplate) for t in templates]
     all_uris = static_uris + templated_uris
-    assert len(all_uris) == 14, all_uris
+    assert len(all_uris) == 16, all_uris
     assert set(all_uris) == set(_RESOURCE_URIS)
 
 

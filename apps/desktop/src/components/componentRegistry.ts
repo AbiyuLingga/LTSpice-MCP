@@ -18,8 +18,7 @@ export interface SchematicNode {
 export interface ComponentDescriptor {
   kind: SchematicNodeKind;
   label: string;
-  /** Pin names in canonical order; used by the autosave to emit
-   *  the typed wire and connect operations. */
+  /** Pin names in canonical order for future electrical connections. */
   pins: string[];
   /** Approximate bounding box in grid units. */
   width: number;

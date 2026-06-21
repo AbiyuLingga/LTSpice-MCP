@@ -30,15 +30,6 @@ type DragState = {
 
 const GRID_SIZE = 16;
 
-const hdlLines = [
-  "module counter(input clk, input rst, output reg [7:0] led);",
-  "  always @(posedge clk) begin",
-  "    if (rst) led <= 8'b00000001;",
-  "    else     led <= {led[6:0], led[7]};",
-  "  end",
-  "endmodule",
-];
-
 export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onMoveComponent, onPlaceComponent, onRunLedDemo, schematicNodes, selectedComponent }: WorkspaceSurfaceProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -113,8 +104,8 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onMo
   if (activeSurface === "hdl") {
     return (
       <section className="code-surface" aria-label="HDL editor">
-        <header className="surface-header"><Braces size={16} /><h1>HDL</h1><span>counter.v</span></header>
-        <pre>{hdlLines.map((line, index) => <code key={line}><span>{index + 1}</span>{line}{"\n"}</code>)}</pre>
+        <header className="surface-header"><Braces size={16} /><h1>HDL</h1><span>No module loaded</span></header>
+        <div className="surface-empty">HDL editing is not connected to the desktop engine yet.</div>
       </section>
     );
   }
@@ -122,11 +113,7 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onMo
     return (
       <section className="waveform-surface" aria-label="Waveform viewer">
         <header className="surface-header"><Activity size={16} /><h1>Waveform</h1><span>Run a simulation to populate signals</span></header>
-        <div className="wave-grid">
-          <span>clk</span><div className="signal signal-clock" />
-          <span>reset</span><div className="signal signal-reset" />
-          <span>led[7:0]</span><div className="signal signal-led" />
-        </div>
+        <div className="surface-empty">No waveform data is available.</div>
       </section>
     );
   }

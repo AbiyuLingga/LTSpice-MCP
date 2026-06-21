@@ -141,7 +141,7 @@ ltagent-mcp
 …and reads JSON-RPC envelopes on stdin, writes responses on stdout.
 Logging (WARNING level by default) goes to stderr.
 
-## 4. Tools (24 current integrated tools)
+## 4. Tools (27 current integrated tools)
 
 | Tool | Purpose | Notes |
 |---|---|---|
@@ -169,12 +169,15 @@ Logging (WARNING level by default) goes to stderr.
 | `simulate_hdl_project` | Run the bounded HDL simulation wrapper | Reports missing Icarus/VVP structurally. |
 | `synth_check_hdl_project` | Run the bounded Yosys synthesis wrapper | Reports missing Yosys structurally. |
 | `inspect_digital_project` | Inspect digital manifests and reports | Curated artifact view only. |
+| `wb_v2_inspect_project` | Inspect a Workbench v2 project | Returns the versioned documents without mutation. |
+| `wb_v2_apply_change_set` | Apply a typed Workbench v2 change set | Revision-guarded through `DesignService`. |
+| `wb_v2_propose_ai_design` | Build a typed AI proposal | Never applies the proposal automatically. |
 
 Every tool returns the JSON contract from `SPEC.md §2`. Failures are
 reported structurally with stable error codes (`PATH_TRAVERSAL`,
 `IR_LOAD_FAILED`, `RESOURCE_NOT_FOUND`, `TEMPLATE_NOT_FOUND`, etc.).
 
-## 5. Resources (14 current integrated resources)
+## 5. Resources (16 current integrated resources)
 
 | URI | MIME | Content |
 |---|---|---|
@@ -192,6 +195,8 @@ reported structurally with stable error codes (`PATH_TRAVERSAL`,
 | `ltagent://projects/{project_id}/digital-manifest` | `application/json` | Digital project manifest |
 | `ltagent://projects/{project_id}/rtl` | `text/plain` | Generated top-level RTL |
 | `ltagent://projects/{project_id}/verification-report` | `application/json` | Digital simulation/synthesis report |
+| `ltagent://workbench/v2/capabilities` | `application/json` | Workbench v2 tool and document capabilities |
+| `ltagent://workbench/v2/projects/{project_id}/manifest` | `application/json` | Workbench v2 project manifest |
 
 Path traversal in `{project_id}` or `{template_id}` is rejected by
 `parse_resource_uri` with stable codes (`IDENTIFIER_INVALID`,

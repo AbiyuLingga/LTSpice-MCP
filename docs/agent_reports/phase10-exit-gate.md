@@ -1,5 +1,9 @@
 # Phase 10 Exit Gate — Production Hardening
 
+> **Independent audit correction, 2026-06-21: NOT PASSED.** This phase staged
+> scripts and documentation only. There is no frozen sidecar, active Tauri
+> bundle, installer, or fresh-VM evidence.
+
 Date: 2026-06-20
 Branch: `main`
 

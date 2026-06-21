@@ -40,8 +40,8 @@ The evaluator records the score and gates from plan §15.3.
 **Phase 10 (MCP Server v1) is complete.** `ltagent-mcp` (after
 `pip install "ltspice-ai-agent[mcp]"`) runs an stdio MCP server that
 originally shipped 10 curated tools and 8 curated resources backed by the
-same Python core. The current integrated Phase 12/13 surface exposes 24
-tools and 14 resources. No `run_shell`, no `execute_python`, no generic
+same Python core. The current integrated surface exposes 27 tools and 16
+resources. No `run_shell`, no `execute_python`, no generic
 `read_file`/`write_file`, no `.raw` exposure. See `MCP.md` and
 `docs/mcp_setup.md`.
 
@@ -121,7 +121,7 @@ MUST be true for the rest of this file to apply:
 - `ltagent-mcp --list-resources` returns the 8 resource URIs from
   plan §17.4.
 - The FastMCP server (`src/ltagent/mcp_server.py`) currently registers
-  24 tools and 14 resources; tests assert both counts and forbid
+  27 tools and 16 resources; tests assert both counts and forbid
   dangerous names (`run_shell`, `execute_python`, `read_file`,
   `write_file`).
 - `tool_create_project` produces the same artifact set as
@@ -252,7 +252,7 @@ src/ltagent/
   evaluator.py       Phase 9: evaluator + promoter (score + gates)
   security.py        Phase 10 (shared): slug/path/URI validators
                      shared by CLI and MCP, see security.md
-  mcp_server.py      stdio MCP server, 24 tools, 14 resources,
+  mcp_server.py      stdio MCP server, 27 tools, 16 resources,
                      ltagent-mcp entry point, SDK-missing fallback
 
 tests/

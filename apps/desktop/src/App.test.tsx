@@ -311,11 +311,15 @@ describe("App", () => {
     fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 96, clientY: 144 });
     await user.click(screen.getByRole("button", { name: "Place Op amp" }));
     fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 256, clientY: 144 });
+    await user.click(screen.getByRole("button", { name: "Place Inductor" }));
+    fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 416, clientY: 144 });
 
     expect(await screen.findByLabelText("Resistor R1")).toBeVisible();
     expect(screen.getByLabelText("Op amp X1")).toBeVisible();
+    expect(screen.getByLabelText("Inductor L1")).toBeVisible();
     expect(screen.getByTestId("symbol-opamp").querySelector("polygon")).not.toBeNull();
     expect(screen.getByTestId("symbol-resistor").querySelector("polyline")).not.toBeNull();
+    expect(screen.getByTestId("symbol-inductor").querySelector("path")).not.toBeNull();
   });
 
   it("moves an installed component on the grid and persists the final position", async () => {

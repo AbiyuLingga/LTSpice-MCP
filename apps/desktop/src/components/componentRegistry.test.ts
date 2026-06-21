@@ -28,6 +28,7 @@ describe("componentRegistry", () => {
   it("nextNodeId increments from the count", () => {
     expect(nextNodeId("resistor", 0)).toBe("R1");
     expect(nextNodeId("resistor", 4)).toBe("R5");
+    expect(nextNodeId("inductor", 0)).toBe("L1");
   });
 
   it("rotates stable pin positions around the symbol center", () => {

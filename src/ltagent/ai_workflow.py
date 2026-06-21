@@ -79,6 +79,7 @@ AI_OPERATION_ALLOWLIST: Final[frozenset[str]] = frozenset(
 # off the label.
 CAPABILITY_RC_LOWPASS: Final[str] = "rc_lowpass"
 CAPABILITY_RC_HIGHPASS: Final[str] = "rc_highpass"
+CAPABILITY_RLC_SERIES: Final[str] = "rlc_series"
 CAPABILITY_OPAMP_INVERTING: Final[str] = "opamp_inverting"
 CAPABILITY_OPAMP_NONINVERTING: Final[str] = "opamp_noninverting"
 CAPABILITY_COUNTER_8BIT: Final[str] = "counter_8bit"
@@ -90,6 +91,7 @@ SUPPORTED_CAPABILITIES: Final[frozenset[str]] = frozenset(
     {
         CAPABILITY_RC_LOWPASS,
         CAPABILITY_RC_HIGHPASS,
+        CAPABILITY_RLC_SERIES,
         CAPABILITY_OPAMP_INVERTING,
         CAPABILITY_OPAMP_NONINVERTING,
         CAPABILITY_COUNTER_8BIT,
@@ -171,6 +173,10 @@ _RC_HIGHPASS_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bfilter\s*tinggi\b", re.IGNORECASE),
     re.compile(r"\bhighpass\b", re.IGNORECASE),
 )
+_RLC_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\brlc\b", re.IGNORECASE),
+    re.compile(r"\brangkaian\s+rlc\b", re.IGNORECASE),
+)
 _OPAMP_INVERTING_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\binverting\s+op\s*-?\s*amp\b", re.IGNORECASE),
     re.compile(r"\binverting\s+amplifier\b", re.IGNORECASE),
@@ -232,6 +238,14 @@ class CapabilityClassifier:
                 capability=CAPABILITY_RC_LOWPASS,
                 constraints=constraints,
                 rationale="matched RC low-pass pattern",
+            )
+        if any(pat.search(text) for pat in _RLC_PATTERNS):
+            constraints["topology"] = "series"
+            constraints["requires"] = ["voltage_source", "ground"]
+            return ClassificationResult(
+                capability=CAPABILITY_RLC_SERIES,
+                constraints=constraints,
+                rationale="matched RLC circuit pattern",
             )
         if any(pat.search(text) for pat in _OPAMP_NONINVERTING_PATTERNS):
             return ClassificationResult(
@@ -334,6 +348,8 @@ def validate_proposal(
     issues: list[str] = []
     warnings: list[str] = []
     impact: dict[str, Any] = {"documents": set(), "components": set(), "nets": set()}
+    added_kinds: set[str] = set()
+    added_nets: set[str] = set()
 
     if not proposal.operations:
         issues.append("proposal contains no operations")
@@ -358,6 +374,12 @@ def validate_proposal(
         impact["documents"].add(op.document)
         if op_type == "add_component":
             cid = payload.get("componentId")
+            kind = payload.get("kind")
+            if isinstance(kind, str):
+                added_kinds.add(kind)
+            pins = payload.get("pins")
+            if isinstance(pins, dict):
+                added_nets.update(str(net) for net in pins.values())
             if not isinstance(cid, str) or not cid:
                 issues.append(f"operation {index}: add_component missing componentId")
             else:
@@ -366,6 +388,15 @@ def validate_proposal(
             net = payload.get("net")
             if isinstance(net, str):
                 impact["nets"].add(net)
+                added_nets.add(net)
+
+    if "rlc" in proposal.requirement.lower():
+        if not {"resistor", "inductor", "capacitor"}.issubset(added_kinds):
+            issues.append("RLC proposal must include resistor, inductor, and capacitor")
+        if not ({"voltage_source", "current_source"} & added_kinds):
+            issues.append("RLC proposal must include a voltage_source or current_source")
+        if "0" not in added_nets:
+            issues.append("RLC proposal must connect at least one pin to ground net '0'")
 
     if not issues:
         change_set = {
@@ -464,6 +495,7 @@ class AIWorkflow:
                 requestId=request_id,
                 domain="analog"
                 if classification.capability.startswith("rc_")
+                or classification.capability.startswith("rlc_")
                 or classification.capability.startswith("opamp_")
                 else "digital",
                 intent=classification.capability,
@@ -512,12 +544,19 @@ class AIWorkflow:
         )
 
     def _compose_prompt(self, requirement: RequirementSpec) -> str:
+        guidance = ""
+        if requirement.capability == CAPABILITY_RLC_SERIES:
+            guidance = (
+                "\nFor rlc_series, include resistor, inductor, capacitor, "
+                "a voltage_source as the battery/DC source, and a ground net named 0."
+            )
         return (
             f"Capability: {requirement.capability}\n"
             f"Constraints: {json.dumps(requirement.constraints, sort_keys=True)}\n"
             f"Text: {requirement.text}\n"
             "Produce an AIProposal JSON document with operations that target "
             "the analog, schematic, requirements, digital, or system document."
+            f"{guidance}"
         )
 
     def request_proposal(

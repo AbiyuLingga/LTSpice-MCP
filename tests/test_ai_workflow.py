@@ -33,6 +33,7 @@ from ltagent.ai_workflow import (
     CAPABILITY_OPAMP_INVERTING,
     CAPABILITY_RC_HIGHPASS,
     CAPABILITY_RC_LOWPASS,
+    CAPABILITY_RLC_SERIES,
     CAPABILITY_UNSUPPORTED,
     AIWorkflow,
     CapabilityClassifier,
@@ -128,6 +129,13 @@ def test_classifier_en_rc_highpass() -> None:
     c = CapabilityClassifier()
     assert c.classify("Design an RC high-pass filter.").capability == CAPABILITY_RC_HIGHPASS
     assert c.classify("Filter tinggi dengan cutoff 10kHz.").capability == CAPABILITY_RC_HIGHPASS
+
+
+def test_classifier_id_rlc_series() -> None:
+    c = CapabilityClassifier()
+    result = c.classify("buat rangkaian rlc")
+    assert result.capability == CAPABILITY_RLC_SERIES
+    assert result.constraints["requires"] == ["voltage_source", "ground"]
 
 
 def test_classifier_en_opamp_inverting() -> None:
@@ -271,6 +279,118 @@ def test_validate_proposal_rejects_unknown_document() -> None:
     )
     assert not validation.is_valid
     assert any("unknown document" in issue for issue in validation.issues)
+
+
+def test_validate_rlc_requires_source_and_ground(tmp_path: Path) -> None:
+    _seed_v2_project(tmp_path)
+    svc = DesignService(projects_root=str(tmp_path / "projects"))
+    proposal = AIProposal(
+        schemaVersion="1.0",
+        proposalId="p_rlc_bad",
+        baseRevision=0,
+        requirement="buat rangkaian rlc",
+        operations=[
+            AIProposalOperation(
+                document="analog",
+                type="add_component",
+                payload={
+                    "componentId": "R2",
+                    "kind": "resistor",
+                    "pins": {"p1": "n1", "p2": "n2"},
+                    "value": "1k",
+                },
+            ),
+            AIProposalOperation(
+                document="analog",
+                type="add_component",
+                payload={
+                    "componentId": "L2",
+                    "kind": "inductor",
+                    "pins": {"p1": "n2", "p2": "n3"},
+                    "value": "10m",
+                },
+            ),
+            AIProposalOperation(
+                document="analog",
+                type="add_component",
+                payload={
+                    "componentId": "C2",
+                    "kind": "capacitor",
+                    "pins": {"p1": "n3", "p2": "n4"},
+                    "value": "100n",
+                },
+            ),
+        ],
+    )
+    validation = validate_proposal(
+        proposal,
+        design_service=svc,
+        project_id="rc_lab",
+        documents={},
+    )
+    assert not validation.is_valid
+    assert any("voltage_source" in issue for issue in validation.issues)
+    assert any("ground net '0'" in issue for issue in validation.issues)
+
+
+def test_validate_rlc_accepts_source_and_ground(tmp_path: Path) -> None:
+    _seed_v2_project(tmp_path)
+    svc = DesignService(projects_root=str(tmp_path / "projects"))
+    proposal = AIProposal(
+        schemaVersion="1.0",
+        proposalId="p_rlc_good",
+        baseRevision=0,
+        requirement="buat rangkaian rlc",
+        operations=[
+            AIProposalOperation(
+                document="analog",
+                type="add_component",
+                payload={
+                    "componentId": "V1",
+                    "kind": "voltage_source",
+                    "pins": {"p1": "vin", "p2": "0"},
+                    "value": "5",
+                },
+            ),
+            AIProposalOperation(
+                document="analog",
+                type="add_component",
+                payload={
+                    "componentId": "R2",
+                    "kind": "resistor",
+                    "pins": {"p1": "vin", "p2": "n1"},
+                    "value": "1k",
+                },
+            ),
+            AIProposalOperation(
+                document="analog",
+                type="add_component",
+                payload={
+                    "componentId": "L2",
+                    "kind": "inductor",
+                    "pins": {"p1": "n1", "p2": "n2"},
+                    "value": "10m",
+                },
+            ),
+            AIProposalOperation(
+                document="analog",
+                type="add_component",
+                payload={
+                    "componentId": "C2",
+                    "kind": "capacitor",
+                    "pins": {"p1": "n2", "p2": "0"},
+                    "value": "100n",
+                },
+            ),
+        ],
+    )
+    validation = validate_proposal(
+        proposal,
+        design_service=svc,
+        project_id="rc_lab",
+        documents={},
+    )
+    assert validation.is_valid, validation.issues
 
 
 def test_workflow_rejects_unsupported_capability(tmp_path: Path) -> None:

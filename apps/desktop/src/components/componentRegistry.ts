@@ -1,6 +1,7 @@
 export type SchematicNodeKind =
   | "resistor"
   | "capacitor"
+  | "inductor"
   | "diode"
   | "opamp"
   | "voltage_source"
@@ -45,6 +46,7 @@ export interface ComponentDescriptor {
 export const COMPONENT_REGISTRY: Record<SchematicNodeKind, ComponentDescriptor> = {
   resistor: { kind: "resistor", label: "Resistor", pins: ["p1", "p2"], pinOffsets: { p1: [-56, 0], p2: [56, 0] }, width: 6, height: 1 },
   capacitor: { kind: "capacitor", label: "Capacitor", pins: ["p1", "p2"], pinOffsets: { p1: [-56, 0], p2: [56, 0] }, width: 2, height: 2 },
+  inductor: { kind: "inductor", label: "Inductor", pins: ["p1", "p2"], pinOffsets: { p1: [-56, 0], p2: [56, 0] }, width: 5, height: 2 },
   diode: { kind: "diode", label: "Diode", pins: ["a", "k"], pinOffsets: { a: [-56, 0], k: [56, 0] }, width: 3, height: 2 },
   opamp: { kind: "opamp", label: "Op amp", pins: ["in+", "in-", "v+", "v-", "out"], pinOffsets: { "in+": [-40, -12], "in-": [-40, 12], "v+": [0, -36], "v-": [0, 36], out: [48, 0] }, width: 4, height: 4 },
   voltage_source: { kind: "voltage_source", label: "Voltage source", pins: ["p1", "p2"], pinOffsets: { p1: [0, -36], p2: [0, 36] }, width: 2, height: 3 },
@@ -70,6 +72,7 @@ export function nextNodeId(kind: SchematicNodeKind, count: number): string {
     counter: "U",
     diode: "D",
     gnd: "GND",
+    inductor: "L",
     led_matrix: "LED",
     opamp: "X",
     resistor: "R",
@@ -97,6 +100,7 @@ export function defaultComponentValue(kind: SchematicNodeKind): string {
     counter: "",
     diode: "1N4148",
     gnd: "",
+    inductor: "10m",
     led_matrix: "",
     opamp: "UniversalOpamp",
     resistor: "1k",

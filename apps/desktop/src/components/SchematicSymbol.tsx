@@ -21,6 +21,15 @@ function CapacitorSymbol() {
   </>;
 }
 
+function InductorSymbol() {
+  return <>
+    <TerminalLeads />
+    <path d="M20 36h12" />
+    <path d="M32 36c0-18 16-18 16 0s16 18 16 0s16-18 16 0s16 18 16 0" />
+    <path d="M96 36h4" />
+  </>;
+}
+
 function DiodeSymbol() {
   return <>
     <TerminalLeads />
@@ -80,6 +89,7 @@ export function symbolLabel(kind: string): string {
     capacitor: "Capacitor",
     counter: "Counter",
     diode: "Diode",
+    inductor: "Inductor",
     led_matrix: "LED matrix",
     opamp: "Op amp",
     resistor: "Resistor",
@@ -93,6 +103,7 @@ export function SchematicSymbol({ kind }: SchematicSymbolProps) {
   let content = <CounterSymbol />;
   if (kind === "resistor") content = <ResistorSymbol />;
   if (kind === "capacitor") content = <CapacitorSymbol />;
+  if (kind === "inductor") content = <InductorSymbol />;
   if (kind === "diode") content = <DiodeSymbol />;
   if (kind === "opamp") content = <OpAmpSymbol />;
   if (kind === "voltage_source") content = <VoltageSourceSymbol />;

@@ -150,8 +150,8 @@ describe("App", () => {
     const bridge = fakeBridge({
       analog: {
         components: {
-          R1: { pins: { pins: { "1": "VIN" } } },
-          V1: { pins: { pins: { "1": "VIN" } } },
+          R1: { kind: "resistor", pins: { pins: { "1": "VIN", "2": "N1" } } },
+          V1: { kind: "voltage_source", pins: { pins: { "1": "VIN", "2": "0" } } },
         },
       },
       schematic: {
@@ -169,7 +169,48 @@ describe("App", () => {
 
     await createProject(user);
 
-    expect(await screen.findByLabelText("Wire W_V1_R1")).toHaveAttribute("points", "216,336 328,336 328,304");
+    expect(await screen.findByLabelText("Wire W_V1_R1")).toHaveAttribute("points", "328,304 328,336");
+  });
+
+  it("auto-lays out imported RLC series circuits into a readable row", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge({
+      analog: {
+        components: {
+          C1: { kind: "capacitor", pins: { pins: { "1": "N2", "2": "0" } } },
+          L1: { kind: "inductor", pins: { pins: { "1": "N1", "2": "N2" } } },
+          R1: { kind: "resistor", pins: { pins: { "1": "VIN", "2": "N1" } } },
+          V1: { kind: "voltage_source", pins: { pins: { "1": "VIN", "2": "0" } } },
+        },
+      },
+      schematic: {
+        gridSize: 16,
+        netLabels: [],
+        schemaVersion: "2.0",
+        symbols: [
+          { id: "V1", kind: "voltage_source", rotation: 0, x: 272, y: 336 },
+          { id: "R1", kind: "resistor", rotation: 0, x: 384, y: 304 },
+          { id: "L1", kind: "inductor", rotation: 0, x: 496, y: 304 },
+          { id: "C1", kind: "capacitor", rotation: 90, x: 688, y: 320 },
+        ],
+        wires: [
+          { connections: [], id: "W_V1_R1", net: "VIN", points: [[272, 304], [352, 304]] },
+          { connections: [], id: "W_R1_L1", net: "N1", points: [[416, 304], [464, 304]] },
+          { connections: [], id: "W_L1_C1", net: "N2", points: [[528, 304], [640, 304]] },
+          { connections: [], id: "W_C1_GND", net: "0", points: [[640, 368], [704, 384]] },
+        ],
+      },
+    });
+    render(<App bridge={bridge} />);
+
+    await createProject(user);
+
+    expect(await screen.findByLabelText("Voltage source V1")).toHaveStyle({ left: "128px", top: "240px" });
+    expect(screen.getByLabelText("Resistor R1")).toHaveStyle({ left: "272px", top: "240px" });
+    expect(screen.getByLabelText("Inductor L1")).toHaveStyle({ left: "416px", top: "240px" });
+    expect(screen.getByLabelText("Capacitor C1")).toHaveStyle({ left: "560px", top: "240px" });
+    expect(screen.getByLabelText("Wire W_V1_R1")).toHaveAttribute("points", "184,240 216,240");
+    expect(screen.getByLabelText("Wire W_C1_GND")).toHaveAttribute("points", "72,240 72,336 616,336 616,240");
   });
 
   it("never applies an AI proposal until the user accepts it", async () => {

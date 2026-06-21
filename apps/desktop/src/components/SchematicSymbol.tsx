@@ -54,7 +54,7 @@ function VoltageSourceSymbol() {
     <TerminalLeads />
     <path d="M46 18v36M62 26v20" />
     <path d="M20 36h26M62 36h38" />
-    <path d="M38 22h10M43 17v10M68 50h10" />
+    <path d="M68 22h10M73 17v10M38 50h10" />
   </>;
 }
 

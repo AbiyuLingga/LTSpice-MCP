@@ -34,7 +34,7 @@ describe("componentRegistry", () => {
   it("rotates stable pin positions around the symbol center", () => {
     expect(pinPosition({ id: "R1", kind: "resistor", rotation: 0, x: 100, y: 100 }, "p1")).toEqual([44, 100]);
     expect(pinPosition({ id: "R1", kind: "resistor", rotation: 90, x: 100, y: 100 }, "p1")).toEqual([100, 44]);
-    expect(pinPosition({ id: "V1", kind: "voltage_source", rotation: 0, x: 100, y: 100 }, "p1")).toEqual([44, 100]);
-    expect(pinPosition({ id: "V1", kind: "voltage_source", rotation: 0, x: 100, y: 100 }, "p2")).toEqual([156, 100]);
+    expect(pinPosition({ id: "V1", kind: "voltage_source", rotation: 0, x: 100, y: 100 }, "p1")).toEqual([156, 100]);
+    expect(pinPosition({ id: "V1", kind: "voltage_source", rotation: 0, x: 100, y: 100 }, "p2")).toEqual([44, 100]);
   });
 });

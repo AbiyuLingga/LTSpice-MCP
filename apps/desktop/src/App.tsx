@@ -45,7 +45,7 @@ type SchematicDocument = {
   wires: SchematicWire[];
 };
 type AnalogDocument = {
-  components?: Record<string, { pins?: { pins?: Record<string, string> } | Record<string, string> }>;
+  components?: Record<string, { kind?: string; pins?: { pins?: Record<string, string> } | Record<string, string> }>;
 };
 
 const LED_DEMO_ROM = [0x1002, 0xC0F0, 0x1003, 0xC0F1, 0x1001, 0xC0F2, 0xC0F4, 0xF000];
@@ -140,16 +140,43 @@ function routeWire(wire: SchematicWire, symbols: SchematicNode[], analog?: Analo
     .sort((a, b) => a.score - b.score)[0];
   if (!best) return wire.points;
   wire.connections = [best.start, best.end];
+  if (wire.net === "0") {
+    const busY = Math.max(best.startPoint[1], best.endPoint[1]) + 96;
+    return [best.startPoint, [best.startPoint[0], busY], [best.endPoint[0], busY], best.endPoint];
+  }
   if (best.startPoint[0] === best.endPoint[0] || best.startPoint[1] === best.endPoint[1]) return [best.startPoint, best.endPoint];
   return [best.startPoint, [best.endPoint[0], best.startPoint[1]], best.endPoint];
 }
 
-function normalizeSchematicWires(schematic: SchematicDocument, analog?: AnalogDocument): SchematicDocument {
+function layoutRlcSeries(schematic: SchematicDocument, analog?: AnalogDocument): SchematicDocument {
+  const components = analog?.components ?? {};
+  const byKind = (kind: string) => Object.entries(components).find(([, component]) => component.kind === kind)?.[0];
+  const ids = {
+    capacitor: byKind("capacitor"),
+    inductor: byKind("inductor"),
+    resistor: byKind("resistor"),
+    source: byKind("voltage_source") ?? byKind("current_source"),
+  };
+  if (!ids.source || !ids.resistor || !ids.inductor || !ids.capacitor) return schematic;
+  const positions: Record<string, Pick<SchematicNode, "rotation" | "x" | "y">> = {
+    [ids.source]: { rotation: 0, x: 128, y: 240 },
+    [ids.resistor]: { rotation: 0, x: 272, y: 240 },
+    [ids.inductor]: { rotation: 0, x: 416, y: 240 },
+    [ids.capacitor]: { rotation: 0, x: 560, y: 240 },
+  };
   return {
     ...schematic,
-    wires: schematic.wires.map((wire) => {
+    symbols: schematic.symbols.map((symbol) => positions[symbol.id] ? { ...symbol, ...positions[symbol.id] } : symbol),
+  };
+}
+
+function normalizeSchematicWires(schematic: SchematicDocument, analog?: AnalogDocument): SchematicDocument {
+  const layout = layoutRlcSeries(schematic, analog);
+  return {
+    ...layout,
+    wires: layout.wires.map((wire) => {
       const next = { ...wire, connections: [...(wire.connections ?? [])] };
-      return { ...next, points: routeWire(next, schematic.symbols, analog) };
+      return { ...next, points: routeWire(next, layout.symbols, analog) };
     }),
   };
 }

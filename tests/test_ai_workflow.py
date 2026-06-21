@@ -322,7 +322,7 @@ def test_workflow_prompts_provider_and_validates(tmp_path: Path) -> None:
                 "document": "analog",
                 "type": "add_component",
                 "payload": {
-                    "componentId": "R1",
+                    "componentId": "R2",
                     "kind": "resistor",
                     "pins": {"p1": "vin", "p2": "vout"},
                     "value": "1k",
@@ -343,7 +343,7 @@ def test_workflow_prompts_provider_and_validates(tmp_path: Path) -> None:
     assert result.requirement.capability == CAPABILITY_RC_LOWPASS
     assert result.validation.is_valid
     assert result.decision == ProposalDecision.PENDING
-    assert result.proposal.operations[0].payload["componentId"] == "R1"
+    assert result.proposal.operations[0].payload["componentId"] == "R2"
 
 
 def test_workflow_repair_loop_falls_back(tmp_path: Path) -> None:
@@ -489,3 +489,152 @@ def test_workflow_accept_applies_proposal(tmp_path: Path) -> None:
     assert new_rev == 1
     on_disk = json.loads((project_dir / FILE_ANALOG_GRAPH).read_text(encoding="utf-8"))
     assert "R2" in on_disk["components"]
+
+
+def test_manifest_carries_selected_document_content(tmp_path: Path) -> None:
+    _seed_v2_project(tmp_path)
+    workflow = AIWorkflow(
+        design_service=DesignService(projects_root=str(tmp_path / "projects")),
+        provider=None,
+    )
+    requirement = workflow.parse_requirement("Make an RC low-pass", request_id="ctx")
+    manifest = workflow.build_manifest(
+        requirement,
+        project_id="rc_lab",
+        revision=0,
+        documents={"analog": {"components": {"R1": {"kind": "resistor"}}}},
+    )
+    assert manifest.documents[0].content["components"]["R1"]["kind"] == "resistor"
+
+
+def test_validate_proposal_rejects_replace_document(tmp_path: Path) -> None:
+    _seed_v2_project(tmp_path)
+    svc = DesignService(projects_root=str(tmp_path / "projects"))
+    proposal = AIProposal(
+        schemaVersion="1.0",
+        proposalId="p_raw",
+        baseRevision=0,
+        requirement="replace everything",
+        operations=[
+            AIProposalOperation(
+                document="digital",
+                type="replace_document",
+                payload={"value": {"userHdl": "module unsafe; endmodule"}},
+            )
+        ],
+    )
+    validation = validate_proposal(
+        proposal,
+        design_service=svc,
+        project_id="rc_lab",
+        documents={},
+    )
+    assert not validation.is_valid
+    assert any("not allowed for AI" in issue for issue in validation.issues)
+
+
+def test_accept_uses_proposal_revision_guard(tmp_path: Path) -> None:
+    _seed_v2_project(tmp_path)
+    svc = DesignService(projects_root=str(tmp_path / "projects"))
+    proposal = AIProposal(
+        schemaVersion="1.0",
+        proposalId="p_stale",
+        baseRevision=7,
+        requirement="RC low-pass",
+        operations=[
+            AIProposalOperation(
+                document="analog",
+                type="add_component",
+                payload={
+                    "componentId": "R7",
+                    "kind": "resistor",
+                    "pins": {"p1": "vin", "p2": "vout"},
+                    "value": "7k",
+                },
+            )
+        ],
+    )
+    validation = validate_proposal(
+        proposal,
+        design_service=svc,
+        project_id="rc_lab",
+        documents={},
+    )
+    assert not validation.is_valid
+    assert any("revision" in issue.lower() for issue in validation.issues)
+
+
+def test_workflow_repairs_deterministic_validation_failure(tmp_path: Path) -> None:
+    _seed_v2_project(tmp_path)
+    svc = DesignService(projects_root=str(tmp_path / "projects"))
+    in_memory = __import__(
+        "ltagent.ai_provider", fromlist=["_InMemoryKeychain"]
+    )._InMemoryKeychain()
+    registry = ProviderRegistry.open(tmp_path / "projects", keychain=in_memory)
+    registry.save(
+        ProviderProfile(
+            profileId="default",
+            name="Test",
+            vendor=ProviderKind.OPENAI,
+            model="gpt-4o-mini",
+            baseUrl="https://api.example.com",
+            keyId="default-key",
+        ),
+        secret="sk-test",
+    )
+    workflow = AIWorkflow(
+        design_service=svc,
+        provider=ProviderAdapter(registry.get("default"), in_memory),
+        max_repair_attempts=2,
+    )
+    proposals = [
+        {
+            "schemaVersion": "1.0",
+            "proposalId": "bad",
+            "baseRevision": 0,
+            "requirement": "RC",
+            "operations": [
+                {
+                    "document": "digital",
+                    "type": "replace_document",
+                    "payload": {"value": {"userHdl": "module bad; endmodule"}},
+                }
+            ],
+        },
+        {
+            "schemaVersion": "1.0",
+            "proposalId": "fixed",
+            "baseRevision": 0,
+            "requirement": "RC",
+            "operations": [
+                {
+                    "document": "analog",
+                    "type": "add_component",
+                    "payload": {
+                        "componentId": "C1",
+                        "kind": "capacitor",
+                        "pins": {"p1": "vout", "p2": "0"},
+                        "value": "100n",
+                    },
+                }
+            ],
+        },
+    ]
+
+    def response() -> str:
+        proposal = proposals.pop(0)
+        return json.dumps(
+            {"output": [{"content": [{"type": "text", "text": json.dumps(proposal)}]}]}
+        )
+
+    result = workflow.run(
+        "Make an RC low-pass",
+        project_id="rc_lab",
+        project_revision=0,
+        documents={"analog": {}},
+        body_override=response,
+    )
+    assert result.validation.is_valid
+    assert result.proposal.proposalId == "fixed"
+    assert len(result.repairs) == 1
+    assert "not allowed for AI" in result.repairs[0].feedback

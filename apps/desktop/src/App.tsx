@@ -570,6 +570,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
         advanced={advanced}
         activeJobId={activeJobId}
         bottomTab={bottomTab}
+        bridge={bridge}
         busy={busy}
         error={error}
         digitalSource={digitalSource}
@@ -585,6 +586,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
         surface={surface}
         waveformSignals={waveformSignals}
         onAdvancedToggle={setAdvanced}
+        onAiApplied={(nextProject) => { void loadProject(nextProject); }}
         onBottomTabChange={setBottomTab}
         onCancelJob={cancelJob}
         onAddWire={addWire}

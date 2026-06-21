@@ -5,9 +5,20 @@ import { vi } from "vitest";
 import { App } from "./App";
 import type { EngineBridge } from "./engine";
 
-function fakeBridge(options: { waveform?: boolean } = {}): EngineBridge {
+function fakeBridge(options: { ai?: boolean; waveform?: boolean } = {}): EngineBridge {
   let revision = 0;
   const request = vi.fn(async (method: string) => {
+    if (method === "ai.provider.status") return { configured: Boolean(options.ai) };
+    if (method === "ai.contextPreview") {
+      return { documents: [{ document: "schematic", redacted: false, size: 40 }], estimatedBytes: 40, snapshotId: "snapshot-1" };
+    }
+    if (method === "ai.propose") {
+      return {
+        changeSet: { baseRevision: revision, operations: [{ document: "schematic", kind: "resistor", symbolId: "R1", type: "place_node", x: 96, y: 96 }], schemaVersion: "2.0" },
+        proposal: { operations: [{ document: "schematic", payload: { symbolId: "R1" }, type: "place_node" }], rationale: "", warnings: [] },
+        validation: { isValid: true, issues: [] },
+      };
+    }
     if (method === "project.create" || method === "project.open") {
       return {
         displayName: "Analog Lab",
@@ -129,6 +140,25 @@ describe("App", () => {
       displayName: "Analog Lab",
       projectId: "analog_lab",
     });
+  });
+
+  it("never applies an AI proposal until the user accepts it", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge({ ai: true });
+    render(<App bridge={bridge} />);
+    await createProject(user);
+    await user.type(screen.getByLabelText("AI design request"), "Make an RC low-pass");
+    await user.click(screen.getByRole("button", { name: "Preview context" }));
+    await user.click(await screen.findByRole("button", { name: "Generate proposal" }));
+    await screen.findByLabelText("AI proposal diff");
+    expect(vi.mocked(bridge.request).mock.calls.filter(([method]) => method === "design.applyChanges")).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Reject AI proposal" }));
+    expect(vi.mocked(bridge.request).mock.calls.filter(([method]) => method === "design.applyChanges")).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Generate proposal" }));
+    await user.click(await screen.findByRole("button", { name: "Apply" }));
+    expect(vi.mocked(bridge.request).mock.calls.filter(([method]) => method === "design.applyChanges")).toHaveLength(1);
   });
 
   it("opens an existing project by id", async () => {

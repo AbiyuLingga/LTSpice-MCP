@@ -8,15 +8,26 @@ operations and allowlisted simulator jobs through one local service boundary.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
+import uuid
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from threading import Lock
 from typing import Final, TextIO, cast
 
+from .ai_provider import (
+    AIProviderError,
+    ProviderAdapter,
+    ProviderKind,
+    ProviderProfile,
+    ProviderRegistry,
+)
+from .ai_workflow import AIWorkflow
 from .analog_workbench import ANALOG_TOOL_ID, discover_analog_tool, run_analog_simulation
 from .design_service import (
+    DOCUMENT_NAMES,
     ERR_CHANGESET_CONFLICT,
     ERR_PROJECT_NOT_FOUND,
     DesignService,
@@ -52,6 +63,12 @@ ERR_REQUEST_INVALID: Final[str] = "ENGINE_REQUEST_INVALID"
 ERR_INTERNAL: Final[str] = "ENGINE_INTERNAL_ERROR"
 
 METHODS: Final[tuple[str, ...]] = (
+    "ai.contextPreview",
+    "ai.propose",
+    "ai.provider.configure",
+    "ai.provider.selfTest",
+    "ai.provider.status",
+    "ai.repair",
     "artifact.readSlice",
     "design.applyChanges",
     "design.get",
@@ -103,8 +120,16 @@ class EngineService:
                 data={"projectsRoot": str(self.projects_root)},
             )
         self.design = DesignService(str(self.projects_root))
+        self.providers = ProviderRegistry.open(self.projects_root)
+        self._ai_snapshots: dict[str, dict[str, object]] = {}
         self.jobs = JobBroker(self.projects_root, notify=notify)
         self._handlers: dict[str, Callable[[Mapping[str, object]], dict[str, object]]] = {
+            "ai.contextPreview": self._ai_context_preview,
+            "ai.propose": self._ai_propose,
+            "ai.provider.configure": self._ai_provider_configure,
+            "ai.provider.selfTest": self._ai_provider_self_test,
+            "ai.provider.status": self._ai_provider_status,
+            "ai.repair": self._ai_repair,
             "artifact.readSlice": self._artifact_read_slice,
             "design.applyChanges": self._design_apply_changes,
             "design.get": self._design_get,
@@ -217,6 +242,17 @@ class EngineService:
                     {"code": exc.code},
                 )
             )
+        except AIProviderError as exc:
+            return (
+                None
+                if is_notification
+                else _error_response(
+                    request_id,
+                    -32000,
+                    exc.message,
+                    {"code": exc.code, **exc.data},
+                )
+            )
         except Exception:
             return (
                 None
@@ -235,6 +271,154 @@ class EngineService:
             "engineVersion": ENGINE_VERSION,
             "protocolVersion": ENGINE_PROTOCOL_VERSION,
         }
+
+    def _ai_provider_configure(self, params: Mapping[str, object]) -> dict[str, object]:
+        profile_id = _optional_string(params, "profileId") or "default"
+        model = _required_string(params, "model")
+        base_url = _required_string(params, "baseUrl")
+        secret = _required_string(params, "apiKey")
+        vendor_raw = _optional_string(params, "vendor") or ProviderKind.OPENAI_COMPATIBLE.value
+        if vendor_raw not in {item.value for item in ProviderKind}:
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                "vendor is not supported",
+                data={"vendor": vendor_raw},
+            )
+        profile = ProviderProfile(
+            profileId=profile_id,
+            name=_optional_string(params, "name") or profile_id,
+            vendor=vendor_raw,
+            model=model,
+            baseUrl=base_url,
+            keyId=f"provider:{profile_id}",
+        )
+        self.providers.save(profile, secret=secret)
+        return {"configured": True, "profile": profile.to_dict()}
+
+    def _ai_provider_status(self, _params: Mapping[str, object]) -> dict[str, object]:
+        profiles = self.providers.list()
+        return {
+            "configured": bool(profiles),
+            "profiles": [profile.to_dict() for profile in profiles],
+        }
+
+    def _ai_provider_self_test(self, params: Mapping[str, object]) -> dict[str, object]:
+        profile_id = _optional_string(params, "profileId") or "default"
+        return self.providers.self_test(profile_id).to_dict()
+
+    def _ai_context_preview(self, params: Mapping[str, object]) -> dict[str, object]:
+        project_id = self._project_id(params)
+        prompt = _required_string(params, "prompt")
+        selected = params.get("documents", ["requirements", "analog", "schematic", "digital"])
+        if not isinstance(selected, list) or not selected or not all(
+            isinstance(item, str) and item in DOCUMENT_NAMES for item in selected
+        ):
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                "documents must be a non-empty list of known document names",
+                data={"documents": selected},
+            )
+        project = self.design.open_project(project_id)
+        documents: dict[str, dict[str, object]] = {}
+        source_hashes: dict[str, str] = {}
+        metadata: list[dict[str, object]] = []
+        estimated_bytes = 0
+        for name in cast(list[str], selected):
+            source = self.design.read_document(project_id, name)
+            source_hashes[name] = _json_hash(source)
+            redacted, redaction_count = _redact_ai_context(source)
+            documents[name] = redacted
+            encoded = json.dumps(redacted, ensure_ascii=False, sort_keys=True).encode("utf-8")
+            estimated_bytes += len(encoded)
+            metadata.append(
+                {
+                    "document": name,
+                    "sha256": f"sha256:{hashlib.sha256(encoded).hexdigest()}",
+                    "size": len(encoded),
+                    "redacted": redaction_count > 0,
+                    "redactionCount": redaction_count,
+                }
+            )
+        snapshot_id = uuid.uuid4().hex
+        self._ai_snapshots[snapshot_id] = {
+            "projectId": project_id,
+            "revision": project.revision,
+            "prompt": prompt,
+            "documents": documents,
+            "sourceHashes": source_hashes,
+        }
+        return {
+            "snapshotId": snapshot_id,
+            "projectId": project_id,
+            "revision": project.revision,
+            "prompt": prompt,
+            "documents": metadata,
+            "estimatedBytes": estimated_bytes,
+        }
+
+    def _ai_propose(self, params: Mapping[str, object]) -> dict[str, object]:
+        snapshot = self._validated_ai_snapshot(_required_string(params, "snapshotId"))
+        profile_id = _optional_string(params, "profileId") or "default"
+        profile = self.providers.get(profile_id)
+        if profile is None:
+            raise AIProviderError(
+                "WORKBENCH_AI_PROVIDER_NOT_CONFIGURED",
+                f"provider profile {profile_id!r} is not configured",
+            )
+        adapter = ProviderAdapter(profile, self.providers.keychain)
+        workflow = AIWorkflow(design_service=self.design, provider=adapter)
+        result = workflow.run(
+            str(snapshot["prompt"]),
+            project_id=str(snapshot["projectId"]),
+            project_revision=cast(int, snapshot["revision"]),
+            documents=cast(dict[str, dict[str, object]], snapshot["documents"]),
+            request_id=uuid.uuid4().hex,
+        )
+        payload = result.to_dict()
+        payload["changeSet"] = {
+            "schemaVersion": "2.0",
+            "baseRevision": result.proposal.baseRevision,
+            "actor": "ai",
+            "clientRequestId": result.proposal.proposalId,
+            "operations": [
+                {"document": op.document, "type": op.type, **op.payload}
+                for op in result.proposal.operations
+            ],
+            "validationPlan": result.proposal.validationPlan,
+        }
+        return cast(dict[str, object], payload)
+
+    def _ai_repair(self, params: Mapping[str, object]) -> dict[str, object]:
+        snapshot_id = _required_string(params, "snapshotId")
+        snapshot = self._validated_ai_snapshot(snapshot_id)
+        feedback = _required_string(params, "feedback")
+        snapshot["prompt"] = f"{snapshot['prompt']}\n\nRepair evidence:\n{feedback}"
+        return self._ai_propose(params)
+
+    def _validated_ai_snapshot(self, snapshot_id: str) -> dict[str, object]:
+        snapshot = self._ai_snapshots.get(snapshot_id)
+        if snapshot is None:
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                "AI context snapshot was not found or expired",
+                data={"snapshotId": snapshot_id},
+            )
+        project_id = str(snapshot["projectId"])
+        project = self.design.open_project(project_id)
+        if project.revision != snapshot["revision"]:
+            raise AIProviderError(
+                "WORKBENCH_AI_REVISION_CONFLICT",
+                "project changed after AI context preview",
+                data={"actualRevision": project.revision, "snapshotRevision": snapshot["revision"]},
+            )
+        for name, expected in cast(dict[str, str], snapshot["sourceHashes"]).items():
+            if _json_hash(self.design.read_document(project_id, name)) != expected:
+                raise AIProviderError(
+                    "WORKBENCH_AI_CONTEXT_CHANGED",
+                    f"document {name!r} changed after AI context preview",
+                    data={"document": name},
+                )
+        return snapshot
 
     def _project_create(self, params: Mapping[str, object]) -> dict[str, object]:
         project_id = _required_string(params, "projectId")
@@ -752,6 +936,48 @@ def _optional_byte_mapping(params: Mapping[str, object], field: str) -> dict[int
             )
         parsed[port] = raw_value
     return parsed
+
+
+_AI_SECRET_FIELDS: Final[frozenset[str]] = frozenset(
+    {"api_key", "apikey", "authorization", "password", "secret", "token"}
+)
+
+
+def _redact_ai_context(value: object) -> tuple[dict[str, object], int]:
+    if not isinstance(value, Mapping):
+        return {}, 0
+
+    def redact(item: object) -> tuple[object, int]:
+        if isinstance(item, Mapping):
+            output: dict[str, object] = {}
+            count = 0
+            for raw_key, child in item.items():
+                key = str(raw_key)
+                normalized = key.lower().replace("-", "_")
+                if normalized in _AI_SECRET_FIELDS:
+                    output[key] = "[REDACTED]"
+                    count += 1
+                else:
+                    output[key], child_count = redact(child)
+                    count += child_count
+            return output, count
+        if isinstance(item, list):
+            output_list: list[object] = []
+            count = 0
+            for child in item:
+                redacted, child_count = redact(child)
+                output_list.append(redacted)
+                count += child_count
+            return output_list, count
+        return item, 0
+
+    redacted, count = redact(value)
+    return cast(dict[str, object], redacted), count
+
+
+def _json_hash(value: object) -> str:
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _run_result_payload(result: RunResult) -> dict[str, object]:

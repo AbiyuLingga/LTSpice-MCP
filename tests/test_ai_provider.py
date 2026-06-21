@@ -88,6 +88,17 @@ def test_profile_save_rejects_empty_secret(tmp_path: Path) -> None:
     assert captured.value.code == ERR_PROVIDER_AUTH
 
 
+def test_profile_save_accepts_compatible_provider_key_format(tmp_path: Path) -> None:
+    registry = ProviderRegistry.open(
+        tmp_path,
+        keychain=__import__(
+            "ltagent.ai_provider", fromlist=["_InMemoryKeychain"]
+        )._InMemoryKeychain(),
+    )
+    registry.save(_profile(), secret="minimax-local-key")
+    assert registry.keychain.get("default-key") == "minimax-local-key"
+
+
 def test_profile_delete_removes_keyring_entry(tmp_path: Path) -> None:
     registry = ProviderRegistry.open(tmp_path)
     registry.save(_profile(), secret="sk-supersecret")
@@ -202,11 +213,90 @@ def test_create_response_parses_strict_shape(tmp_path: Path) -> None:
     assert proposal.operations[0].payload["componentId"] == "R1"
 
 
+def test_request_uses_one_strict_function_and_includes_selected_context(tmp_path: Path) -> None:
+    registry = ProviderRegistry.open(tmp_path)
+    registry.save(_profile(), secret="sk-test")
+    adapter = ProviderAdapter(registry.get("default"), registry.keychain)
+    manifest = _manifest().model_copy(
+        update={
+            "documents": [
+                AIContextDocument(
+                    kind="analog",
+                    title="rc_lab/analog",
+                    sha256="sha256:abc",
+                    size=12,
+                    content={"components": {"R1": {"kind": "resistor"}}},
+                )
+            ]
+        }
+    )
+
+    body = adapter._build_request_body(manifest)
+
+    assert body["parallel_tool_calls"] is False
+    assert body["tool_choice"] == {"type": "function", "name": "propose_changes"}
+    assert len(body["tools"]) == 1
+    assert body["tools"][0]["strict"] is True
+    assert body["tools"][0]["name"] == "propose_changes"
+    assert body["tools"][0]["parameters"]["additionalProperties"] is False
+    assert body["tools"][0]["parameters"]["required"] == ["proposal_json"]
+    user_text = body["input"][1]["content"][0]["text"]
+    assert '"components"' in user_text
+    assert '"R1"' in user_text
+
+
+def test_production_response_requires_function_call(tmp_path: Path) -> None:
+    registry = ProviderRegistry.open(tmp_path)
+    registry.save(_profile(), secret="sk-test")
+    adapter = ProviderAdapter(registry.get("default"), registry.keychain)
+    prose_response = json.dumps(
+        {"output": [{"content": [{"type": "text", "text": "{}"}]}]}
+    )
+    with pytest.raises(AIProviderError) as captured:
+        adapter._parse_response(prose_response)
+    assert captured.value.code == ERR_PROVIDER_MALFORMED
+
+
+def test_production_response_parses_strict_function_arguments(tmp_path: Path) -> None:
+    registry = ProviderRegistry.open(tmp_path)
+    registry.save(_profile(), secret="sk-test")
+    adapter = ProviderAdapter(registry.get("default"), registry.keychain)
+    proposal = {
+        "schemaVersion": "1.0",
+        "proposalId": "strict-1",
+        "baseRevision": 0,
+        "requirement": "RC",
+        "operations": [],
+    }
+    response = json.dumps(
+        {
+            "output": [
+                {
+                    "type": "function_call",
+                    "name": "propose_changes",
+                    "arguments": json.dumps({"proposal_json": json.dumps(proposal)}),
+                }
+            ]
+        }
+    )
+    assert adapter._parse_response(response).proposalId == "strict-1"
+
+
 def test_create_response_rejects_oversized(tmp_path: Path) -> None:
     registry = ProviderRegistry.open(tmp_path)
     registry.save(_profile(), secret="sk-test")
     adapter = ProviderAdapter(registry.get("default"), registry.keychain)
     manifest = _manifest().model_copy(update={"estimatedBytes": 10**9})
+    with pytest.raises(AIProviderError) as captured:
+        adapter.create_response(manifest, body_override=lambda: "{}")
+    assert captured.value.code == ERR_PROVIDER_OVERSIZE
+
+
+def test_create_response_counts_prompt_in_request_limit(tmp_path: Path) -> None:
+    registry = ProviderRegistry.open(tmp_path)
+    registry.save(_profile(), secret="sk-test")
+    adapter = ProviderAdapter(registry.get("default"), registry.keychain)
+    manifest = _manifest().model_copy(update={"prompt": "x" * (300 * 1024)})
     with pytest.raises(AIProviderError) as captured:
         adapter.create_response(manifest, body_override=lambda: "{}")
     assert captured.value.code == ERR_PROVIDER_OVERSIZE

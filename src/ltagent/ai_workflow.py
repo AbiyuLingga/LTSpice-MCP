@@ -50,6 +50,29 @@ from .design_service import ChangeSet, DesignService, WorkbenchV2Error
 
 REQUIREMENT_SPEC_SCHEMA_VERSION: Final[str] = "1.0"
 MAX_REPAIR_ATTEMPTS: Final[int] = 3
+AI_OPERATION_ALLOWLIST: Final[frozenset[str]] = frozenset(
+    {
+        "add_component",
+        "remove_component",
+        "set_component_value",
+        "rename_component",
+        "connect_pin",
+        "disconnect_pin",
+        "rename_net",
+        "add_directive",
+        "add_measurement",
+        "place_node",
+        "move_node",
+        "rotate_node",
+        "delete_node",
+        "set_node_properties",
+        "set_wire_route",
+        "remove_wire",
+        "set_net_label",
+        "set_grid_size",
+        "set_digital_design",
+    }
+)
 
 # Capability classification labels. The classifier returns one
 # of these strings; the workflow keys the proposal context
@@ -329,6 +352,9 @@ def validate_proposal(
         if not isinstance(op_type, str) or not op_type:
             issues.append(f"operation {index}: missing operation type")
             continue
+        if op_type not in AI_OPERATION_ALLOWLIST:
+            issues.append(f"operation {index}: {op_type!r} is not allowed for AI")
+            continue
         impact["documents"].add(op.document)
         if op_type == "add_component":
             cid = payload.get("componentId")
@@ -340,6 +366,23 @@ def validate_proposal(
             net = payload.get("net")
             if isinstance(net, str):
                 impact["nets"].add(net)
+
+    if not issues:
+        change_set = {
+            "schemaVersion": "2.0",
+            "baseRevision": proposal.baseRevision,
+            "actor": "ai-preview",
+            "clientRequestId": proposal.proposalId,
+            "operations": [
+                {"document": op.document, "type": op.type, **op.payload}
+                for op in proposal.operations
+            ],
+            "validationPlan": proposal.validationPlan,
+        }
+        try:
+            design_service.preview_change_set(project_id, change_set)
+        except WorkbenchV2Error as exc:
+            issues.append(f"{exc.code}: {exc.message}")
 
     return ProposalValidation(
         is_valid=not issues,
@@ -455,6 +498,7 @@ class AIWorkflow:
                     title=f"{project_id}/{kind}",
                     sha256=_hash_bytes(text.encode("utf-8")),
                     size=size,
+                    content=dict(payload),
                 )
             )
         return AIContextManifest(
@@ -571,6 +615,28 @@ class AIWorkflow:
             project_id=project_id,
             documents=documents,
         )
+        while not validation.is_valid and len(repairs) < self.max_repair_attempts:
+            feedback = "Deterministic validation failed:\n- " + "\n- ".join(
+                validation.issues
+            )
+            attempt = len(repairs) + 1
+            try:
+                proposal = self.repair(
+                    requirement,
+                    manifest,
+                    previous_feedback=feedback,
+                    body_override=body_override,
+                )
+            except AIProviderError as exc:
+                repairs.append(RepairAttempt(attempt=attempt, feedback=str(exc), proposal=None))
+                continue
+            repairs.append(RepairAttempt(attempt=attempt, feedback=feedback, proposal=proposal))
+            validation = validate_proposal(
+                proposal,
+                design_service=self.design_service,
+                project_id=project_id,
+                documents=documents,
+            )
         return WorkflowResult(
             requirement=requirement,
             proposal=proposal,
@@ -603,11 +669,7 @@ class AIWorkflow:
         change_set = ChangeSet.model_validate(
             {
                 "schemaVersion": "2.0",
-                "baseRevision": (
-                    0
-                    if workflow_result.requirement.schemaVersion
-                    else workflow_result.proposal.baseRevision
-                ),
+                "baseRevision": workflow_result.proposal.baseRevision,
                 "actor": actor,
                 "clientRequestId": workflow_result.proposal.proposalId,
                 "operations": [

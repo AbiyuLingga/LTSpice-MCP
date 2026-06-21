@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from ltagent.ai_provider import AIProposal, AIProposalOperation, ProviderAdapter
 from ltagent.engine_server import EngineService, serve
 
 
@@ -75,6 +76,12 @@ def test_handshake_advertises_versioned_local_capabilities(tmp_path: Path) -> No
         "result": {
             "capabilities": {
                 "methods": [
+                    "ai.contextPreview",
+                    "ai.propose",
+                    "ai.provider.configure",
+                    "ai.provider.selfTest",
+                    "ai.provider.status",
+                    "ai.repair",
                     "artifact.readSlice",
                     "design.applyChanges",
                     "design.get",
@@ -333,4 +340,117 @@ def test_engine_renders_only_validated_digital_v2(tmp_path: Path) -> None:
 
     assert response["result"]["schemaVersion"] == "2.0"  # type: ignore[index]
     assert "module top(" in response["result"]["source"]  # type: ignore[index]
+    service.close()
+
+
+def test_ai_provider_configuration_never_persists_secret(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LTAGENT_AI_KEYRING_BACKEND", "memory")
+    service = _service(tmp_path)
+    response = service.handle(
+        _request(
+            1,
+            "ai.provider.configure",
+            {
+                "apiKey": "minimax-private-key",
+                "baseUrl": "https://api.example.test",
+                "model": "MiniMax-M3",
+                "vendor": "openai_compatible",
+            },
+        )
+    )
+    assert response["result"]["configured"] is True  # type: ignore[index]
+    provider_file = next(
+        (tmp_path / "projects" / ".workbench" / "ai" / "providers").glob("*.json")
+    )
+    assert "minimax-private-key" not in provider_file.read_text(encoding="utf-8")
+    assert "apiKey" not in json.dumps(response)
+    service.close()
+
+
+def test_ai_snapshot_detects_document_change_without_revision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LTAGENT_AI_KEYRING_BACKEND", "memory")
+    service = _service(tmp_path)
+    service.handle(_request(1, "project.create", {"projectId": "ai_lab"}))
+    preview = service.handle(
+        _request(
+            2,
+            "ai.contextPreview",
+            {"documents": ["requirements"], "projectId": "ai_lab", "prompt": "RC low-pass"},
+        )
+    )
+    snapshot_id = preview["result"]["snapshotId"]  # type: ignore[index]
+    requirements = tmp_path / "projects" / "ai_lab" / "design" / "requirements.json"
+    payload = json.loads(requirements.read_text(encoding="utf-8"))
+    payload["text"] = "external edit"
+    requirements.write_text(json.dumps(payload), encoding="utf-8")
+    response = service.handle(
+        _request(3, "ai.propose", {"profileId": "default", "snapshotId": snapshot_id})
+    )
+    assert response["error"]["data"]["code"] == "WORKBENCH_AI_CONTEXT_CHANGED"  # type: ignore[index]
+    service.close()
+
+
+def test_ai_proposal_is_previewed_and_only_applies_by_explicit_change_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LTAGENT_AI_KEYRING_BACKEND", "memory")
+    service = _service(tmp_path)
+    service.handle(_request(1, "project.create", {"projectId": "ai_apply"}))
+    service.handle(
+        _request(
+            2,
+            "ai.provider.configure",
+            {
+                "apiKey": "test-key",
+                "baseUrl": "https://api.example.test",
+                "model": "test-model",
+            },
+        )
+    )
+    preview = service.handle(
+        _request(
+            3,
+            "ai.contextPreview",
+            {"documents": ["schematic"], "projectId": "ai_apply", "prompt": "RC low-pass"},
+        )
+    )
+
+    def proposal(*_args: object, **_kwargs: object) -> AIProposal:
+        return AIProposal(
+            schemaVersion="1.0",
+            proposalId="proposal-1",
+            baseRevision=0,
+            requirement="RC low-pass",
+            operations=[
+                AIProposalOperation(
+                    document="schematic",
+                    type="place_node",
+                    payload={"symbolId": "R1", "kind": "resistor", "x": 96, "y": 96},
+                )
+            ],
+        )
+
+    monkeypatch.setattr(ProviderAdapter, "create_response", proposal)
+    proposed = service.handle(
+        _request(
+            4,
+            "ai.propose",
+            {"snapshotId": preview["result"]["snapshotId"]},  # type: ignore[index]
+        )
+    )
+    assert proposed["result"]["validation"]["isValid"] is True  # type: ignore[index]
+    assert service.design.open_project("ai_apply").revision == 0
+
+    applied = service.handle(
+        _request(
+            5,
+            "design.applyChanges",
+            {"changeSet": proposed["result"]["changeSet"], "projectId": "ai_apply"},  # type: ignore[index]
+        )
+    )
+    assert applied["result"]["revision"] == 1  # type: ignore[index]
     service.close()

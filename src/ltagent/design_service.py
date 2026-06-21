@@ -23,8 +23,11 @@ never touch the on-disk JSON directly.
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Final
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -1195,6 +1198,30 @@ class DesignService:
             self._undo[project_id] = self._undo[project_id][-self.undo_depth :]
         self._redo.pop(project_id, None)
         return result
+
+    def preview_change_set(
+        self, project_id: str, change_set: Mapping[str, Any]
+    ) -> ChangeSetResult:
+        """Run the exact mutation path against an isolated project copy."""
+        source = self._project_dir(project_id)
+        if not source.is_dir():
+            raise WorkbenchV2Error(
+                ERR_PROJECT_NOT_FOUND,
+                f"project {project_id!r} does not exist",
+                data={"projectId": project_id},
+            )
+        symlink = next((path for path in source.rglob("*") if path.is_symlink()), None)
+        if symlink is not None:
+            raise WorkbenchV2Error(
+                ERR_CHANGESET_VALIDATION,
+                "project preview refuses symlinked content",
+                data={"path": str(symlink.relative_to(source))},
+            )
+        with TemporaryDirectory(prefix="ltagent-preview-") as temp_dir:
+            root = Path(temp_dir)
+            shutil.copytree(source, root / project_id)
+            preview = DesignService(projects_root=str(root), undo_depth=1)
+            return preview.apply_change_set(project_id, change_set)
 
     def undo(self, project_id: str) -> ChangeSetResult | None:
         undo_stack = self._undo.get(project_id, [])

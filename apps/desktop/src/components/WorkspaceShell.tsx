@@ -8,10 +8,11 @@ import { Inspector } from "./Inspector";
 import { AIPanel } from "./AIPanel";
 import { BottomPanel } from "./BottomPanel";
 import { AppHeader } from "./AppHeader";
-import { EngineProject } from "../engine";
+import { EngineBridge, EngineProject } from "../engine";
 
 export interface WorkspaceShellProps {
   project: EngineProject | null;
+  bridge: EngineBridge;
   surface: Surface;
   bottomTab: BottomTab;
   advanced: boolean;
@@ -29,6 +30,7 @@ export interface WorkspaceShellProps {
   waveformSignals: Array<{ name: string; points: Array<[number, number]> }>;
   measurements: Array<{ name: string; value: number }>;
   onAdvancedToggle: (next: boolean) => void;
+  onAiApplied: (project: EngineProject) => void;
   onCreateClick: () => void;
   onOpenClick: () => void;
   onRedo: () => void;
@@ -103,7 +105,10 @@ export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
       </section>
       <Inspector
         advanced={props.advanced}
+        bridge={props.bridge}
+        onAiApplied={props.onAiApplied}
         onApplyProperties={props.onUpdateNode}
+        project={props.project}
         selectedComponent={props.selectedComponent}
         selectedNode={props.schematicNodes.find((node) => node.id === props.selectedIds[0]) ?? null}
       />

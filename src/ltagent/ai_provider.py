@@ -330,12 +330,7 @@ class ProviderRegistry:
                     "secret is empty",
                     data={"profileId": profile.profileId},
                 )
-            if "sk-" in secret or secret.startswith("Bearer "):
-                # Defensive: profile format should never carry a key,
-                # but if the caller does pass one, the keychain
-                # must accept it. The profile file itself never
-                # receives the secret.
-                self.keychain.set(profile.keyId, secret)
+            self.keychain.set(profile.keyId, secret)
         path = self.providers_dir / f"{profile.profileId}.json"
         path.write_text(
             json.dumps(profile.to_dict(), indent=2, sort_keys=True) + "\n",
@@ -446,6 +441,8 @@ class AIContextDocument(BaseModel):
     title: str
     sha256: str
     size: int = Field(ge=0)
+    content: dict[str, Any] = Field(default_factory=dict)
+    redacted: bool = False
 
 
 class AIContextManifest(BaseModel):
@@ -494,10 +491,15 @@ class AIContextManifest(BaseModel):
             if needle in target:
                 findings.append(f"prompt contains banned phrase {needle!r}")
         for document in self.documents:
+            document_text = json.dumps(document.content, ensure_ascii=False, sort_keys=True)
             for needle in suspicious:
                 if needle in document.title.lower():
                     findings.append(
                         f"document title {document.title!r} contains banned phrase {needle!r}"
+                    )
+                if needle in document_text.lower():
+                    findings.append(
+                        f"document {document.kind!r} contains banned phrase {needle!r}"
                     )
         return findings
 
@@ -625,6 +627,25 @@ class ProviderAdapter:
                 data={"profileId": self.profile.profileId, "keyId": self.profile.keyId},
             )
         body = self._build_request_body(manifest)
+        request_size = len(json.dumps(body, ensure_ascii=False).encode("utf-8"))
+        if request_size > MAX_PROMPT_BYTES:
+            raise AIProviderError(
+                ERR_PROVIDER_OVERSIZE,
+                "provider request exceeds the maximum prompt size",
+                data={"estimatedBytes": request_size, "max": MAX_PROMPT_BYTES},
+            )
+        serialized_context = json.dumps(
+            [document.content for document in manifest.documents],
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        leak_findings = manifest.detect_secret_leak(serialized_context)
+        if leak_findings:
+            raise AIProviderError(
+                ERR_PROVIDER_SECRET_LEAK,
+                "selected context appears to contain a secret",
+                data={"findings": leak_findings},
+            )
         response_text = body_override() if body_override is not None else self._send(body, secret)
         if len(response_text) > MAX_RESPONSE_BYTES:
             raise AIProviderError(
@@ -632,9 +653,17 @@ class ProviderAdapter:
                 "response exceeded the maximum response size",
                 data={"max": MAX_RESPONSE_BYTES},
             )
-        return self._parse_response(response_text)
+        return self._parse_response(response_text, allow_legacy_text=body_override is not None)
 
     def _build_request_body(self, manifest: AIContextManifest) -> dict[str, Any]:
+        context = [
+            {
+                "kind": document.kind,
+                "sha256": document.sha256,
+                "content": document.content,
+            }
+            for document in manifest.documents
+        ]
         return {
             "model": self.profile.model,
             "input": [
@@ -642,7 +671,7 @@ class ProviderAdapter:
                     "role": "system",
                     "content": [
                         {
-                            "type": "text",
+                            "type": "input_text",
                             "text": (
                                 "You are the local-first AI Hardware Design "
                                 "Workbench assistant. Produce a typed proposal "
@@ -658,14 +687,41 @@ class ProviderAdapter:
                     "role": "user",
                     "content": [
                         {
-                            "type": "text",
-                            "text": manifest.prompt,
+                            "type": "input_text",
+                            "text": (
+                                f"{manifest.prompt}\n\nSelected project documents:\n"
+                                + json.dumps(context, ensure_ascii=False, sort_keys=True)
+                            ),
                         }
                     ],
                 },
             ],
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "propose_changes",
+                    "description": (
+                        "Return a JSON-encoded AIProposal in proposal_json. The proposal must "
+                        "contain schemaVersion, proposalId, baseRevision, requirement, and typed "
+                        "operations with document, type, and payload fields."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "proposal_json": {
+                                "type": "string",
+                                "description": "A complete AIProposal encoded as JSON.",
+                            }
+                        },
+                        "required": ["proposal_json"],
+                        "additionalProperties": False,
+                    },
+                    "strict": True,
+                }
+            ],
+            "tool_choice": {"type": "function", "name": "propose_changes"},
+            "parallel_tool_calls": False,
             "max_output_tokens": 4096,
-            "temperature": 0.2,
         }
 
     def _send(self, body: dict[str, Any], secret: str) -> str:
@@ -708,7 +764,7 @@ class ProviderAdapter:
             )
         return response.text
 
-    def _parse_response(self, response_text: str) -> AIProposal:
+    def _parse_response(self, response_text: str, *, allow_legacy_text: bool = False) -> AIProposal:
         try:
             payload = json.loads(response_text)
         except json.JSONDecodeError as exc:
@@ -716,16 +772,28 @@ class ProviderAdapter:
                 ERR_PROVIDER_MALFORMED,
                 f"provider returned non-JSON response: {exc.msg}",
             ) from exc
-        # The OpenAI Responses shape puts the model's text inside
-        # ``output[0].content[0].text``. We try the strict path
-        # first and fall back to a flat ``text`` field.
-        text = _extract_response_text(payload)
-        if not text:
+        arguments = _extract_function_arguments(payload)
+        proposal_text = ""
+        if arguments:
+            try:
+                function_payload = json.loads(arguments)
+            except json.JSONDecodeError as exc:
+                raise AIProviderError(
+                    ERR_PROVIDER_MALFORMED,
+                    f"function arguments are not JSON: {exc.msg}",
+                ) from exc
+            if isinstance(function_payload, dict):
+                candidate = function_payload.get("proposal_json")
+                if isinstance(candidate, str):
+                    proposal_text = candidate
+        elif allow_legacy_text:
+            proposal_text = _extract_response_text(payload)
+        if not proposal_text:
             raise AIProviderError(
                 ERR_PROVIDER_MALFORMED,
-                "provider response did not include a text payload",
+                "provider response did not call propose_changes",
             )
-        leak_findings = AIContextManifest.model_construct().detect_secret_leak(text)
+        leak_findings = AIContextManifest.model_construct().detect_secret_leak(proposal_text)
         if leak_findings:
             raise AIProviderError(
                 ERR_PROVIDER_SECRET_LEAK,
@@ -733,7 +801,7 @@ class ProviderAdapter:
                 data={"findings": leak_findings},
             )
         try:
-            proposal_payload = json.loads(text)
+            proposal_payload = json.loads(proposal_text)
         except json.JSONDecodeError as exc:
             raise AIProviderError(
                 ERR_PROVIDER_MALFORMED,
@@ -747,6 +815,23 @@ class ProviderAdapter:
                 f"proposal failed schema validation: {exc}",
                 data={"errors": exc.errors()},
             ) from exc
+
+
+def _extract_function_arguments(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    outputs = payload.get("output")
+    if not isinstance(outputs, list):
+        return ""
+    for output in outputs:
+        if not isinstance(output, dict):
+            continue
+        if output.get("type") != "function_call" or output.get("name") != "propose_changes":
+            continue
+        arguments = output.get("arguments")
+        if isinstance(arguments, str):
+            return arguments
+    return ""
 
 
 def _extract_response_text(payload: Any) -> str:

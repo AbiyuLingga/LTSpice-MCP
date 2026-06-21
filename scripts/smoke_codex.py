@@ -11,25 +11,26 @@ This is the smoke hook CI calls after ``pip install -e .``.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
-CLI = "ltagent"
+CLI = ["ltagent"] if shutil.which("ltagent") else [sys.executable, "-m", "ltagent.cli"]
 
 
 def _run(args: list[str], *, expect_zero: bool = True) -> dict[str, Any]:
     proc = subprocess.run(
-        [CLI, *args],
+        [*CLI, *args],
         capture_output=True,
         text=True,
         check=False,
     )
     if expect_zero and proc.returncode != 0:
         sys.stderr.write(
-            f"FAIL: {' '.join([CLI, *args])}\nstdout: {proc.stdout}\nstderr: {proc.stderr}\n"
+            f"FAIL: {' '.join([*CLI, *args])}\nstdout: {proc.stdout}\nstderr: {proc.stderr}\n"
         )
         raise SystemExit(1)
     return json.loads(proc.stdout)  # type: ignore[no-any-return]

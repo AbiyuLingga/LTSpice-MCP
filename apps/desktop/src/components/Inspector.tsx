@@ -1,14 +1,19 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { Bot, Settings2, Sparkles } from "lucide-react";
+import { Settings2 } from "lucide-react";
 
+import { type EngineBridge, type EngineProject } from "../engine";
+import { AIPanel } from "./AIPanel";
 import { type SchematicNode, type SchematicNodeKind } from "./componentRegistry";
 import { COMPONENT_REGISTRY } from "./componentRegistry";
 
 export interface InspectorProps {
   advanced: boolean;
+  bridge: EngineBridge;
+  project: EngineProject | null;
   selectedComponent: SchematicNodeKind | null;
   selectedNode: SchematicNode | null;
   onApplyProperties(id: string, label: string, value: string): void;
+  onAiApplied(project: EngineProject): void;
 }
 
 export function Inspector(props: InspectorProps): ReactNode {
@@ -64,24 +69,7 @@ export function Inspector(props: InspectorProps): ReactNode {
           </form>
         ) : null}
       </section>
-      <AIPanel />
+      <AIPanel bridge={props.bridge} onApplied={props.onAiApplied} project={props.project} />
     </aside>
-  );
-}
-
-function AIPanel(): ReactNode {
-  return (
-    <section className="ai-panel">
-      <header className="panel-heading">
-        <Bot size={15} />
-        <h2>AI proposal</h2>
-      </header>
-      <p className="muted">
-        AI remains off until a provider and a validated change proposal are configured.
-      </p>
-      <button className="text-button" disabled type="button">
-        <Sparkles size={15} />Generate proposal
-      </button>
-    </section>
   );
 }

@@ -5,9 +5,9 @@ import { vi } from "vitest";
 import { App } from "./App";
 import type { EngineBridge } from "./engine";
 
-function fakeBridge(options: { ai?: boolean; waveform?: boolean } = {}): EngineBridge {
+function fakeBridge(options: { ai?: boolean; analog?: Record<string, unknown>; schematic?: Record<string, unknown>; waveform?: boolean } = {}): EngineBridge {
   let revision = 0;
-  const request = vi.fn(async (method: string) => {
+  const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
     if (method === "ai.provider.status") return { configured: Boolean(options.ai) };
     if (method === "ai.contextPreview") {
       return { documents: [{ document: "schematic", redacted: false, size: 40 }], estimatedBytes: 40, snapshotId: "snapshot-1" };
@@ -30,8 +30,10 @@ function fakeBridge(options: { ai?: boolean; waveform?: boolean } = {}): EngineB
       };
     }
     if (method === "design.get") {
+      if (params?.document === "analog") return { document: options.analog ?? { components: {} } };
+      if (params?.document === "digital") return { document: { design: {} } };
       return {
-        document: { gridSize: 16, netLabels: [], schemaVersion: "2.0", symbols: [], wires: [] },
+        document: options.schematic ?? { gridSize: 16, netLabels: [], schemaVersion: "2.0", symbols: [], wires: [] },
         project: {
           displayName: "Analog Lab",
           projectDir: "/projects/analog_lab",
@@ -141,6 +143,33 @@ describe("App", () => {
       displayName: "Analog Lab",
       projectId: "analog_lab",
     });
+  });
+
+  it("snaps imported loose wire routes to actual analog pin endpoints", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge({
+      analog: {
+        components: {
+          R1: { pins: { pins: { "1": "VIN" } } },
+          V1: { pins: { pins: { "1": "VIN" } } },
+        },
+      },
+      schematic: {
+        gridSize: 16,
+        netLabels: [],
+        schemaVersion: "2.0",
+        symbols: [
+          { id: "V1", kind: "voltage_source", rotation: 0, x: 272, y: 336 },
+          { id: "R1", kind: "resistor", rotation: 0, x: 384, y: 304 },
+        ],
+        wires: [{ connections: [], id: "W_V1_R1", net: "VIN", points: [[272, 304], [352, 304]] }],
+      },
+    });
+    render(<App bridge={bridge} />);
+
+    await createProject(user);
+
+    expect(await screen.findByLabelText("Wire W_V1_R1")).toHaveAttribute("points", "216,336 328,336 328,304");
   });
 
   it("never applies an AI proposal until the user accepts it", async () => {

@@ -11,6 +11,7 @@ import {
 } from "./components/WorkspaceSurface";
 import { WorkspaceShell } from "./components/WorkspaceShell";
 import {
+  componentDescriptor,
   defaultComponentValue,
   isAnalogKind,
   nextNodeId,
@@ -42,6 +43,9 @@ type SchematicDocument = {
   schemaVersion: "2.0";
   symbols: SchematicNode[];
   wires: SchematicWire[];
+};
+type AnalogDocument = {
+  components?: Record<string, { pins?: { pins?: Record<string, string> } | Record<string, string> }>;
 };
 
 const LED_DEMO_ROM = [0x1002, 0xC0F0, 0x1003, 0xC0F1, 0x1001, 0xC0F2, 0xC0F4, 0xF000];
@@ -93,14 +97,61 @@ function digitalTemplate(kind: DigitalTemplate): Record<string, unknown> {
   };
 }
 
-function routeWire(wire: SchematicWire, symbols: SchematicNode[]): Array<[number, number]> {
-  if (wire.connections?.length !== 2) return wire.points;
-  const endpoints = wire.connections.map((connection) => {
-    const symbol = symbols.find((item) => item.id === connection.symbolId);
-    return symbol ? pinPosition(symbol, connection.pin) : null;
+function canonicalPin(symbol: SchematicNode, pin: string): string {
+  const numeric = Number.parseInt(pin, 10);
+  return Number.isFinite(numeric) && String(numeric) === pin
+    ? componentDescriptor(symbol.kind).pins[numeric - 1] ?? pin
+    : pin;
+}
+
+function wireEndpoint(connection: SchematicPinConnection, symbols: SchematicNode[]) {
+  const symbol = symbols.find((item) => item.id === connection.symbolId);
+  return symbol ? pinPosition(symbol, canonicalPin(symbol, connection.pin)) : null;
+}
+
+function analogEndpointsForNet(wire: SchematicWire, symbols: SchematicNode[], analog?: AnalogDocument): SchematicPinConnection[] {
+  if (!wire.net || !analog?.components) return [];
+  return Object.entries(analog.components).flatMap(([symbolId, component]) => {
+    const symbol = symbols.find((item) => item.id === symbolId);
+    const pins = component.pins && "pins" in component.pins ? component.pins.pins : component.pins;
+    if (!symbol || !pins) return [];
+    return Object.entries(pins).flatMap(([pin, net]) => (
+      net === wire.net ? [{ pin: canonicalPin(symbol, pin), symbolId }] : []
+    ));
   });
-  if (!endpoints[0] || !endpoints[1]) return wire.points;
-  return [endpoints[0], [endpoints[1][0], endpoints[0][1]], endpoints[1]];
+}
+
+function distanceSquared(a: [number, number], b: [number, number]) {
+  return ((a[0] - b[0]) ** 2) + ((a[1] - b[1]) ** 2);
+}
+
+function routeWire(wire: SchematicWire, symbols: SchematicNode[], analog?: AnalogDocument): Array<[number, number]> {
+  const connections = wire.connections?.length === 2 ? wire.connections : analogEndpointsForNet(wire, symbols, analog);
+  if (connections.length < 2 || wire.points.length < 2) return wire.points;
+  const firstPoint = wire.points[0];
+  const lastPoint = wire.points.at(-1) ?? firstPoint;
+  const best = connections
+    .flatMap((start, startIndex) => connections.flatMap((end, endIndex) => {
+      if (startIndex === endIndex) return [];
+      const startPoint = wireEndpoint(start, symbols);
+      const endPoint = wireEndpoint(end, symbols);
+      return startPoint && endPoint ? [{ end, endPoint, score: distanceSquared(firstPoint, startPoint) + distanceSquared(lastPoint, endPoint), start, startPoint }] : [];
+    }))
+    .sort((a, b) => a.score - b.score)[0];
+  if (!best) return wire.points;
+  wire.connections = [best.start, best.end];
+  if (best.startPoint[0] === best.endPoint[0] || best.startPoint[1] === best.endPoint[1]) return [best.startPoint, best.endPoint];
+  return [best.startPoint, [best.endPoint[0], best.startPoint[1]], best.endPoint];
+}
+
+function normalizeSchematicWires(schematic: SchematicDocument, analog?: AnalogDocument): SchematicDocument {
+  return {
+    ...schematic,
+    wires: schematic.wires.map((wire) => {
+      const next = { ...wire, connections: [...(wire.connections ?? [])] };
+      return { ...next, points: routeWire(next, schematic.symbols, analog) };
+    }),
+  };
 }
 
 export function App({ bridge = desktopBridge }: AppProps) {
@@ -114,6 +165,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
   const [jobMessage, setJobMessage] = useState("No jobs running");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [schematic, setSchematic] = useState<SchematicDocument>(INITIAL_SCHEMATIC);
+  const [analog, setAnalog] = useState<AnalogDocument>({});
   const [selectedComponent, setSelectedComponent] = useState<SchematicNodeKind | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [ledPixels, setLedPixels] = useState<boolean[] | null>(null);
@@ -123,7 +175,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
   const [digitalSource, setDigitalSource] = useState("");
 
   async function loadProject(nextProject: EngineProject) {
-    const [loaded, digital] = await Promise.all([
+    const [loaded, digital, loadedAnalog] = await Promise.all([
       bridge.request<{ document: SchematicDocument }>("design.get", {
         document: "schematic",
         projectId: nextProject.projectId,
@@ -132,9 +184,14 @@ export function App({ bridge = desktopBridge }: AppProps) {
         document: "digital",
         projectId: nextProject.projectId,
       }),
+      bridge.request<{ document: AnalogDocument }>("design.get", {
+        document: "analog",
+        projectId: nextProject.projectId,
+      }),
     ]);
     setProject(nextProject);
-    setSchematic(loaded.document);
+    setAnalog(loadedAnalog.document);
+    setSchematic(normalizeSchematicWires(loaded.document, loadedAnalog.document));
     if (digital.document.design?.instances?.length) {
       const rendered = await bridge.request<{ source: string }>("digital.render", {
         projectId: nextProject.projectId,
@@ -414,7 +471,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
     };
     nextSchematic.wires = nextSchematic.wires.map((wire) => ({
       ...wire,
-      points: routeWire(wire, nextSchematic.symbols),
+      points: routeWire(wire, nextSchematic.symbols, analog),
     }));
     if (nextSchematic.symbols.every((node, index) => node === schematic.symbols[index])) return;
     setSchematic(nextSchematic);
@@ -493,7 +550,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
         .map((node) => [node.id, (((node.rotation ?? 0) + 90) % 360) as 0 | 90 | 180 | 270]),
     );
     const nextSymbols = schematic.symbols.map((node) => rotations.has(node.id) ? { ...node, rotation: rotations.get(node.id) } : node);
-    const nextWires = schematic.wires.map((wire) => ({ ...wire, points: routeWire(wire, nextSymbols) }));
+    const nextWires = schematic.wires.map((wire) => ({ ...wire, points: routeWire(wire, nextSymbols, analog) }));
     const result = await bridge.request<{ revision: number }>("design.applyChanges", {
       changeSet: {
         baseRevision: project.revision,

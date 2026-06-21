@@ -135,17 +135,13 @@ def write_lint_report(project_dir: Path, report: LintReport) -> Path:
     return out
 
 
-def write_simulation_report(
-    project_dir: Path, report: SimulationReport
-) -> Path:
+def write_simulation_report(project_dir: Path, report: SimulationReport) -> Path:
     out = project_dir / "reports" / "sim.json"
     write_json(out, report.to_dict())
     return out
 
 
-def write_synthesis_report(
-    project_dir: Path, report: SynthesisReport
-) -> Path:
+def write_synthesis_report(project_dir: Path, report: SynthesisReport) -> Path:
     out = project_dir / "reports" / "synth.json"
     write_json(out, report.to_dict())
     return out

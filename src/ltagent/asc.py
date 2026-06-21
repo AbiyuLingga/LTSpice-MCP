@@ -142,9 +142,7 @@ class ASCResult:
 # --- component lookup -----------------------------------------------------
 
 
-def _by_kind(
-    components: Sequence[Component], kind: ComponentKind
-) -> Component:
+def _by_kind(components: Sequence[Component], kind: ComponentKind) -> Component:
     """Return the single component of a given kind.
 
     The MVP topologies each have exactly one source and either one or
@@ -170,8 +168,7 @@ def _by_kind(
         # appear in pairs.
         raise ASCError(
             "ASC_DUPLICATE_COMPONENT",
-            f"topology has multiple {kind.value!r} components; "
-            "MVP supports exactly one source",
+            f"topology has multiple {kind.value!r} components; MVP supports exactly one source",
             data={"kind": kind.value, "count": len(matches)},
         )
     return matches[0]
@@ -273,26 +270,20 @@ def _place_rc(ir: CircuitIR) -> list[SymbolPlacement]:
     each symbol's top pin lands on the appropriate line.
     """
     vin = _by_kind(ir.components, ComponentKind.VOLTAGE_SOURCE)
-    series_kind = (
-        ComponentKind.RESISTOR if ir.topology == "rc_lowpass" else ComponentKind.CAPACITOR
-    )
-    shunt_kind = (
-        ComponentKind.CAPACITOR if ir.topology == "rc_lowpass" else ComponentKind.RESISTOR
-    )
+    series_kind = ComponentKind.RESISTOR if ir.topology == "rc_lowpass" else ComponentKind.CAPACITOR
+    shunt_kind = ComponentKind.CAPACITOR if ir.topology == "rc_lowpass" else ComponentKind.RESISTOR
     series_components = [c for c in ir.components if c.kind == series_kind]
     shunt_components = [c for c in ir.components if c.kind == shunt_kind]
     if len(series_components) != 1:
         raise ASCError(
             "ASC_INVALID_TOPOLOGY",
-            f"{ir.topology}: expected exactly 1 {series_kind.value}, "
-            f"got {len(series_components)}",
+            f"{ir.topology}: expected exactly 1 {series_kind.value}, got {len(series_components)}",
             data={"kind": series_kind.value, "count": len(series_components)},
         )
     if len(shunt_components) != 1:
         raise ASCError(
             "ASC_INVALID_TOPOLOGY",
-            f"{ir.topology}: expected exactly 1 {shunt_kind.value}, "
-            f"got {len(shunt_components)}",
+            f"{ir.topology}: expected exactly 1 {shunt_kind.value}, got {len(shunt_components)}",
             data={"kind": shunt_kind.value, "count": len(shunt_components)},
         )
     series = series_components[0]
@@ -393,10 +384,18 @@ def _route(
         return [_emit_wire(p1, p2)]
     if via_y is not None:
         corner = Point(p1.x, via_y)
-        return [_emit_wire(p1, corner), _emit_wire(corner, Point(p2.x, via_y)), _emit_wire(Point(p2.x, via_y), p2)]
+        return [
+            _emit_wire(p1, corner),
+            _emit_wire(corner, Point(p2.x, via_y)),
+            _emit_wire(Point(p2.x, via_y), p2),
+        ]
     if via_x is not None:
         corner = Point(via_x, p1.y)
-        return [_emit_wire(p1, corner), _emit_wire(corner, Point(via_x, p2.y)), _emit_wire(Point(via_x, p2.y), p2)]
+        return [
+            _emit_wire(p1, corner),
+            _emit_wire(corner, Point(via_x, p2.y)),
+            _emit_wire(Point(via_x, p2.y), p2),
+        ]
     # Default: horizontal-then-vertical.
     corner = Point(p2.x, p1.y)
     return [_emit_wire(p1, corner), _emit_wire(corner, p2)]
@@ -486,8 +485,8 @@ def _layout_voltage_divider(
         ground_rail,
     ]
     node_points: dict[str, Point] = {
-        vin.nodes[0]: vin_plus,                # in
-        vin.nodes[1]: vin_minus,               # 0
+        vin.nodes[0]: vin_plus,  # in
+        vin.nodes[1]: vin_minus,  # 0
         r_series.nodes[0]: r1_a,
         r_series.nodes[1]: r1_b,
         r_shunt.nodes[0]: r2_a,
@@ -504,12 +503,8 @@ def _layout_rc(
     ir: CircuitIR, placement_by_id: Mapping[str, SymbolPlacement]
 ) -> tuple[list[str], dict[str, Point], list[Point]]:
     vin = _by_kind(ir.components, ComponentKind.VOLTAGE_SOURCE)
-    series_kind = (
-        ComponentKind.RESISTOR if ir.topology == "rc_lowpass" else ComponentKind.CAPACITOR
-    )
-    shunt_kind = (
-        ComponentKind.CAPACITOR if ir.topology == "rc_lowpass" else ComponentKind.RESISTOR
-    )
+    series_kind = ComponentKind.RESISTOR if ir.topology == "rc_lowpass" else ComponentKind.CAPACITOR
+    shunt_kind = ComponentKind.CAPACITOR if ir.topology == "rc_lowpass" else ComponentKind.RESISTOR
     series = next(c for c in ir.components if c.kind == series_kind)
     shunt = next(c for c in ir.components if c.kind == shunt_kind)
 
@@ -567,8 +562,8 @@ def _layout_rc(
     shunt_node_a = shunt.nodes[0]
     shunt_node_b = shunt.nodes[1]
     node_points: dict[str, Point] = {
-        vin.nodes[0]: vin_plus,                # in
-        vin.nodes[1]: vin_minus,               # 0
+        vin.nodes[0]: vin_plus,  # in
+        vin.nodes[1]: vin_minus,  # 0
         series_node_a: s_a,
         series_node_b: s_b,
         shunt_node_a: h_a,
@@ -701,8 +696,7 @@ def _place_inverting_opamp(ir: CircuitIR) -> list[SymbolPlacement]:
     if len(sources) != 3:
         raise ASCError(
             "ASC_INVALID_TOPOLOGY",
-            f"inverting_opamp: expected 3 voltage sources (Vin, Vcc, Vee), "
-            f"got {len(sources)}",
+            f"inverting_opamp: expected 3 voltage sources (Vin, Vcc, Vee), got {len(sources)}",
             data={"expected": 3, "count": len(sources)},
         )
     # The IR can name the sources anything; we identify them by their
@@ -822,9 +816,12 @@ def _layout_inverting_opamp(
     # Source rails: Vin- and Vcc-/Vee- all drop to ground.
     lines.append(_emit_wire(vin_minus, Point(vin_minus.x, GROUND_Y)))
     # Ground rail spans every component's ground column.
-    lines.append(_emit_wire(
-        Point(vin_minus.x, GROUND_Y), Point(r_fb_b.x, GROUND_Y),
-    ))
+    lines.append(
+        _emit_wire(
+            Point(vin_minus.x, GROUND_Y),
+            Point(r_fb_b.x, GROUND_Y),
+        )
+    )
     # v+ to vcc plus, v- to vee plus.
     lines.extend(_route(u_v_plus, vcc_plus))
     lines.extend(_route(u_v_minus, vee_plus))
@@ -962,9 +959,12 @@ def _layout_noninv_opamp(
     lines.append(_emit_wire(r2_b, Point(r2_b.x, GROUND_Y)))
     # Source rails.
     lines.append(_emit_wire(vin_minus, Point(vin_minus.x, GROUND_Y)))
-    lines.append(_emit_wire(
-        Point(vin_minus.x, GROUND_Y), Point(r2_b.x, GROUND_Y),
-    ))
+    lines.append(
+        _emit_wire(
+            Point(vin_minus.x, GROUND_Y),
+            Point(r2_b.x, GROUND_Y),
+        )
+    )
     # v+ / v- wires.
     vcc_plus = plus_pin(vcc_p)
     vee_plus = plus_pin(vee_p)
@@ -1096,9 +1096,12 @@ def _layout_comparator(
         _emit_wire(vin_minus, Point(vin_minus.x, GROUND_Y)),
         _emit_wire(vee_plus, Point(vee_plus.x, GROUND_Y)),
     ]
-    lines.append(_emit_wire(
-        Point(vin_minus.x, GROUND_Y), Point(vee_plus.x, GROUND_Y),
-    ))
+    lines.append(
+        _emit_wire(
+            Point(vin_minus.x, GROUND_Y),
+            Point(vee_plus.x, GROUND_Y),
+        )
+    )
 
     node_points: dict[str, Point] = {
         vin.nodes[0]: vin_plus,
@@ -1204,7 +1207,8 @@ def _layout_diode_clipper(
         # Source rails.
         _emit_wire(vin_minus, Point(vin_minus.x, GROUND_Y)),
         _emit_wire(
-            Point(vin_minus.x, GROUND_Y), Point(dl_k.x, GROUND_Y),
+            Point(vin_minus.x, GROUND_Y),
+            Point(dl_k.x, GROUND_Y),
         ),
     ]
     node_points: dict[str, Point] = {
@@ -1299,9 +1303,12 @@ def _layout_halfwave_rectifier(
         _emit_wire(r_b, Point(r_b.x, GROUND_Y)),
         _emit_wire(vin_minus, Point(vin_minus.x, GROUND_Y)),
     ]
-    lines.append(_emit_wire(
-        Point(vin_minus.x, GROUND_Y), Point(r_b.x, GROUND_Y),
-    ))
+    lines.append(
+        _emit_wire(
+            Point(vin_minus.x, GROUND_Y),
+            Point(r_b.x, GROUND_Y),
+        )
+    )
     node_points: dict[str, Point] = {
         vin.nodes[0]: vin_plus,
         vin.nodes[1]: vin_minus,
@@ -1316,9 +1323,12 @@ def _layout_halfwave_rectifier(
         c_a, c_b = capacitor_pins(c_p)
         lines.append(_emit_wire(r_a, c_a))
         lines.append(_emit_wire(c_b, Point(c_b.x, GROUND_Y)))
-        lines.append(_emit_wire(
-            Point(r_b.x, GROUND_Y), Point(c_b.x, GROUND_Y),
-        ))
+        lines.append(
+            _emit_wire(
+                Point(r_b.x, GROUND_Y),
+                Point(c_b.x, GROUND_Y),
+            )
+        )
         node_points[cap.nodes[0]] = c_a
         node_points[cap.nodes[1]] = c_b
     ground_points: list[Point] = [
@@ -1436,9 +1446,12 @@ def _layout_bridge_rectifier(
         _emit_wire(r_b, Point(r_b.x, GROUND_Y)),
     ]
     lines.append(_emit_wire(vin_minus, Point(vin_minus.x, GROUND_Y)))
-    lines.append(_emit_wire(
-        Point(vin_minus.x, GROUND_Y), Point(r_b.x, GROUND_Y),
-    ))
+    lines.append(
+        _emit_wire(
+            Point(vin_minus.x, GROUND_Y),
+            Point(r_b.x, GROUND_Y),
+        )
+    )
     node_points: dict[str, Point] = {
         vin.nodes[0]: vin_plus,
         vin.nodes[1]: vin_minus,
@@ -1467,8 +1480,7 @@ def _place_transistor_switch(ir: CircuitIR) -> list[SymbolPlacement]:
     if len(sources) != 2:
         raise ASCError(
             "ASC_INVALID_TOPOLOGY",
-            f"transistor_switch: expected 2 voltage sources (Vin, Vcc), "
-            f"got {len(sources)}",
+            f"transistor_switch: expected 2 voltage sources (Vin, Vcc), got {len(sources)}",
             data={"count": len(sources)},
         )
     vcc = next(s for s in sources if s.nodes[0] == "vcc")
@@ -1477,8 +1489,7 @@ def _place_transistor_switch(ir: CircuitIR) -> list[SymbolPlacement]:
     if len(resistors) != 2:
         raise ASCError(
             "ASC_INVALID_TOPOLOGY",
-            f"transistor_switch: expected 2 resistors (base, load), "
-            f"got {len(resistors)}",
+            f"transistor_switch: expected 2 resistors (base, load), got {len(resistors)}",
             data={"count": len(resistors)},
         )
     r_base = next(r for r in resistors if r.nodes[1] == "base")
@@ -1563,9 +1574,12 @@ def _layout_transistor_switch(
         _emit_wire(Point(vcc_plus.x, MAIN_Y - 16), rl_a),
         _emit_wire(vin_minus, Point(vin_minus.x, GROUND_Y)),
     ]
-    lines.append(_emit_wire(
-        Point(vin_minus.x, GROUND_Y), Point(q_e.x, GROUND_Y),
-    ))
+    lines.append(
+        _emit_wire(
+            Point(vin_minus.x, GROUND_Y),
+            Point(q_e.x, GROUND_Y),
+        )
+    )
     node_points: dict[str, Point] = {
         vin.nodes[0]: vin_plus,
         vin.nodes[1]: vin_minus,

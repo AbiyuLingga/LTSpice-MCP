@@ -88,9 +88,7 @@ def test_project_and_design_requests_share_one_revisioned_contract(tmp_path: Pat
 
 
 def test_engine_rejects_project_paths_outside_its_root(tmp_path: Path) -> None:
-    response = _service(tmp_path).handle(
-        _request(1, "project.open", {"projectDir": str(tmp_path)})
-    )
+    response = _service(tmp_path).handle(_request(1, "project.open", {"projectDir": str(tmp_path)}))
 
     assert response["error"]["data"]["code"] == "WORKBENCH_PROJECT_NOT_FOUND"  # type: ignore[index]
 

@@ -194,9 +194,7 @@ def assemble_program(source: str, *, rom_size: int = 256) -> AssembleResult:
         AssemblerError: if the source has any errors.
     """
     if not 1 <= rom_size <= _ROM_MAX + 1:
-        raise ValueError(
-            f"rom_size must be in [1, {_ROM_MAX + 1}], got {rom_size}"
-        )
+        raise ValueError(f"rom_size must be in [1, {_ROM_MAX + 1}], got {rom_size}")
 
     errors: list[AsmError] = []
     labels: dict[str, int] = {}
@@ -249,10 +247,7 @@ def assemble_program(source: str, *, rom_size: int = 256) -> AssembleResult:
             AsmError(
                 code="ASM_PROGRAM_TOO_LARGE",
                 line=0,
-                detail=(
-                    f"program has {len(words)} instructions but "
-                    f"rom_size is {rom_size}"
-                ),
+                detail=(f"program has {len(words)} instructions but rom_size is {rom_size}"),
             )
         )
 
@@ -301,9 +296,7 @@ def _register_label(
         return AsmError(
             code="ASM_BAD_LABEL",
             line=line_no,
-            detail=(
-                f"label {name!r} must match {_LABEL_RE.pattern}"
-            ),
+            detail=(f"label {name!r} must match {_LABEL_RE.pattern}"),
         )
     if name in labels:
         return AsmError(
@@ -337,10 +330,7 @@ def _assemble_instruction(
             AsmError(
                 code="ASM_UNKNOWN_OPCODE",
                 line=line_no,
-                detail=(
-                    f"unknown mnemonic {tokens[0]!r}; "
-                    f"valid: {sorted(_MNEMONIC_OPCODE)}"
-                ),
+                detail=(f"unknown mnemonic {tokens[0]!r}; valid: {sorted(_MNEMONIC_OPCODE)}"),
             )
         ]
 
@@ -352,10 +342,7 @@ def _assemble_instruction(
                 AsmError(
                     code="ASM_BAD_OPERAND",
                     line=line_no,
-                    detail=(
-                        f"{mnemonic} takes no operand, got "
-                        f"{operands!r}"
-                    ),
+                    detail=(f"{mnemonic} takes no operand, got {operands!r}"),
                 )
             ]
         return _encode(opcode, 0), []
@@ -374,10 +361,7 @@ def _assemble_instruction(
             AsmError(
                 code="ASM_BAD_OPERAND",
                 line=line_no,
-                detail=(
-                    f"{mnemonic} takes exactly one operand, got "
-                    f"{len(operands)}"
-                ),
+                detail=(f"{mnemonic} takes exactly one operand, got {len(operands)}"),
             )
         ]
 
@@ -421,10 +405,7 @@ def _parse_operand(
         return 0, AsmError(
             code="ASM_BAD_OPERAND",
             line=line_no,
-            detail=(
-                f"operand {value} out of range for 8-bit field "
-                f"(0..{_OPERAND_MAX})"
-            ),
+            detail=(f"operand {value} out of range for 8-bit field (0..{_OPERAND_MAX})"),
         )
     return value, None
 

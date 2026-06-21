@@ -86,8 +86,7 @@ def test_parse_log_with_text_argument(tmp_path: Path) -> None:
         [
             "parse-log",
             "--log-text",
-            "vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005\n"
-            "Elapsed time: 0.01 seconds.\n",
+            "vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005\nElapsed time: 0.01 seconds.\n",
             "--json",
         ],
         env={"XDG_CONFIG_HOME": str(tmp_path / "xdg")},
@@ -254,9 +253,7 @@ def test_result_rejects_invalid_run_payload(tmp_path: Path) -> None:
     )
     assert proc.returncode == 1
     payload = json.loads(proc.stdout)
-    assert any(
-        e["code"] == "RESULT_RUN_PAYLOAD_INVALID" for e in payload["errors"]
-    )
+    assert any(e["code"] == "RESULT_RUN_PAYLOAD_INVALID" for e in payload["errors"])
 
 
 def test_result_requires_project_id(tmp_path: Path) -> None:
@@ -274,9 +271,7 @@ def test_result_requires_project_id(tmp_path: Path) -> None:
     )
     assert proc.returncode == 1
     payload = json.loads(proc.stdout)
-    assert any(
-        e["code"] == "RESULT_PROJECT_ID_REQUIRED" for e in payload["errors"]
-    )
+    assert any(e["code"] == "RESULT_PROJECT_ID_REQUIRED" for e in payload["errors"])
 
 
 def test_result_help_lists_subcommand() -> None:
@@ -290,9 +285,7 @@ def test_result_help_lists_subcommand() -> None:
 
 
 def test_main_parse_log_in_process() -> None:
-    rc = cli.main(
-        ["parse-log", str(LOGS / "rc_lowpass_tran_ok.log"), "--json"]
-    )
+    rc = cli.main(["parse-log", str(LOGS / "rc_lowpass_tran_ok.log"), "--json"])
     assert rc == 0
 
 

@@ -18,9 +18,7 @@ def test_calculate_noninverting_opamp_gain_ten() -> None:
 
 
 def test_calculate_led_resistor() -> None:
-    result = calculate(
-        "led_resistor", {"vsupply": "5V", "vf": "2V", "iled": "20mA"}
-    )
+    result = calculate("led_resistor", {"vsupply": "5V", "vf": "2V", "iled": "20mA"})
     assert result["idealValues"]["R"]["value"] == pytest.approx(150.0)
     assert result["idealValues"]["P_R"]["value"] == pytest.approx(0.06)
 

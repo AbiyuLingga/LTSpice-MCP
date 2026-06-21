@@ -30,10 +30,7 @@ from typing import Any
 CODEX_PROJECT_NAME = "ltagent"
 CODEX_COMMAND = "ltagent-mcp"
 CODEX_SECTION = "mcp_servers"
-CODEX_SDK_ERROR_HINT = (
-    "pip install \"ltspice-ai-agent[mcp]\" "
-    "(or run `uv add ltspice-ai-agent[mcp]`)"
-)
+CODEX_SDK_ERROR_HINT = 'pip install "ltspice-ai-agent[mcp]" (or run `uv add ltspice-ai-agent[mcp]`)'
 
 ENV_CODEX_CONFIG = "LTAGENT_CODEX_CONFIG"
 
@@ -142,9 +139,7 @@ def codex_install(
     exist yet it is created with a header comment; existing
     ``[mcp_servers.*]`` sections are preserved.
     """
-    target = resolve_codex_config_path(
-        str(config_path) if config_path is not None else None
-    )
+    target = resolve_codex_config_path(str(config_path) if config_path is not None else None)
     payload = _read_toml(target)
     server_section: dict[str, Any] = {
         "command": command,
@@ -175,9 +170,7 @@ def codex_uninstall(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Remove the ``[mcp_servers.ltagent]`` section from the Codex config."""
-    target = resolve_codex_config_path(
-        str(config_path) if config_path is not None else None
-    )
+    target = resolve_codex_config_path(str(config_path) if config_path is not None else None)
     payload = _read_toml(target)
     servers = payload.get(CODEX_SECTION, {})
     removed = False
@@ -208,9 +201,7 @@ def codex_doctor(
     config_path: Path | None = None,
 ) -> dict[str, Any]:
     """Inspect the Codex config and report on the ltagent server entry."""
-    target = resolve_codex_config_path(
-        str(config_path) if config_path is not None else None
-    )
+    target = resolve_codex_config_path(str(config_path) if config_path is not None else None)
     payload = _read_toml(target)
     servers = payload.get(CODEX_SECTION, {})
     if not isinstance(servers, dict):

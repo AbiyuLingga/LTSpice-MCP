@@ -177,9 +177,7 @@ class TestDirectiveGeneration:
         assert line == ".meas tran VOUT_MIN MIN v(out)\n"
 
     def test_transient_ripple(self) -> None:
-        r = transient_ripple(
-            "VOUT_RIPPLE", "v(out)", from_value="10m", to_value="20m"
-        )
+        r = transient_ripple("VOUT_RIPPLE", "v(out)", from_value="10m", to_value="20m")
         line = format_meas_directive(r)
         assert line == ".meas tran VOUT_RIPPLE PP v(out) FROM 10m TO 20m\n"
 
@@ -358,16 +356,12 @@ class TestCompareFormulaVsSimulation:
         assert r.passed is False
 
     def test_nan_formula(self) -> None:
-        r = compare_formula_vs_simulation(
-            float("nan"), 1000.0, tolerance_percent=5.0
-        )
+        r = compare_formula_vs_simulation(float("nan"), 1000.0, tolerance_percent=5.0)
         assert r.code == CODE_FORMULA_INPUT_INVALID
         assert r.passed is False
 
     def test_inf_simulation(self) -> None:
-        r = compare_formula_vs_simulation(
-            994.7, float("inf"), tolerance_percent=5.0
-        )
+        r = compare_formula_vs_simulation(994.7, float("inf"), tolerance_percent=5.0)
         assert r.code == CODE_FORMULA_INPUT_INVALID
         assert r.passed is False
 

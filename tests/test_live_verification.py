@@ -314,6 +314,7 @@ class TestAggregateVerification:
         def _gen() -> Any:
             yield check_near_target(1000, 1000, 1.0, name="a")
             yield check_max(0.4, 0.5, name="b")
+
         r = aggregate_verification(_gen())
         assert r.overall_passed is True
 
@@ -347,9 +348,7 @@ class TestRunAndVerifySuccess:
         assert isinstance(report, SimLoopReport)
         assert report.run_payload.success is True
         assert report.parse_outcome is not None
-        assert report.parse_outcome.measurements["vout_max"] == pytest.approx(
-            0.70710678
-        )
+        assert report.parse_outcome.measurements["vout_max"] == pytest.approx(0.70710678)
         # The first check passed: vout_max actual ~ 0.7071 is within
         # 1% of 0.7071 (== 0.70710678 is well within 0.7% error).
         assert report.result.checks[0].passed is True
@@ -527,9 +526,7 @@ class TestShapeContracts:
         }
 
     def test_verification_result_to_dict_shape(self) -> None:
-        r = aggregate_verification(
-            [check_near_target(995, 1000, 2.0, name="fc")]
-        )
+        r = aggregate_verification([check_near_target(995, 1000, 2.0, name="fc")])
         d = r.to_dict()
         assert set(d.keys()) == {
             "checks",
@@ -611,10 +608,7 @@ class TestPlanScenarios:
         # actually carries a frequency-derived value; here we use
         # a 994.7 Hz measurement named after the check so the
         # orchestrator can bind it.
-        log = (
-            "cutoff_frequency: FIND(fc)=994.7\n"
-            "Elapsed time: 0.1s\n"
-        )
+        log = "cutoff_frequency: FIND(fc)=994.7\nElapsed time: 0.1s\n"
         adapter = fake_runner(log)
         checks = [check_near_target(0.0, 1000.0, 2.0, name="cutoff_frequency")]
         report = run_and_verify({}, adapter, checks)

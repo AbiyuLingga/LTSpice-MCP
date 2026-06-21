@@ -308,9 +308,13 @@ def test_write_result_json(tmp_path: Path) -> None:
 
 def test_run_result_to_lint_pass() -> None:
     res = RunResult(
-        returncode=0, timed_out=False, duration_ms=10,
-        stdout_tail="", stderr_tail="",
-        stdout_truncated=False, stderr_truncated=False,
+        returncode=0,
+        timed_out=False,
+        duration_ms=10,
+        stdout_tail="",
+        stderr_tail="",
+        stdout_truncated=False,
+        stderr_truncated=False,
     )
     lint = run_result_to_lint(res)
     assert lint.status == "pass"
@@ -318,9 +322,13 @@ def test_run_result_to_lint_pass() -> None:
 
 def test_run_result_to_lint_fail() -> None:
     res = RunResult(
-        returncode=1, timed_out=False, duration_ms=10,
-        stdout_tail="", stderr_tail="oops",
-        stdout_truncated=False, stderr_truncated=False,
+        returncode=1,
+        timed_out=False,
+        duration_ms=10,
+        stdout_tail="",
+        stderr_tail="oops",
+        stdout_truncated=False,
+        stderr_truncated=False,
     )
     lint = run_result_to_lint(res)
     assert lint.status == "fail"
@@ -328,9 +336,13 @@ def test_run_result_to_lint_fail() -> None:
 
 def test_run_result_to_lint_timeout() -> None:
     res = RunResult(
-        returncode=-1, timed_out=True, duration_ms=30000,
-        stdout_tail="", stderr_tail="timeout",
-        stdout_truncated=False, stderr_truncated=False,
+        returncode=-1,
+        timed_out=True,
+        duration_ms=30000,
+        stdout_tail="",
+        stderr_tail="timeout",
+        stdout_truncated=False,
+        stderr_truncated=False,
     )
     lint = run_result_to_lint(res)
     assert lint.status == "fail"

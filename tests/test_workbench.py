@@ -79,9 +79,7 @@ def test_apply_change_set_replaces_allowed_document_and_bumps_revision(
 
     assert updated.revision == 1
     assert updated.changed_documents == ("requirements",)
-    assert read_document(project.project_dir, "requirements")["constraints"] == {
-        "targetGain": 2
-    }
+    assert read_document(project.project_dir, "requirements")["constraints"] == {"targetGain": 2}
     manifest = json.loads(project.manifest.read_text(encoding="utf-8"))
     assert manifest["revision"] == 1
 

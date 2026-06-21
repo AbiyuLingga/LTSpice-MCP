@@ -48,10 +48,7 @@ from ltagent.result import (
 
 
 def test_build_result_clean_run_clean_log(tmp_path: Path) -> None:
-    log_text = (
-        "vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005\n"
-        "Elapsed time: 0.012 seconds.\n"
-    )
+    log_text = "vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005\nElapsed time: 0.012 seconds.\n"
     report = parse_log_text(log_text)
     run_payload = {
         "success": True,
@@ -85,8 +82,7 @@ def test_build_result_clean_run_clean_log(tmp_path: Path) -> None:
 
 def test_build_result_failed_run_is_not_marked_success() -> None:
     log_text = (
-        "vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005\n"
-        "Fatal Error: convergence failure\n"
+        "vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005\nFatal Error: convergence failure\n"
     )
     report = parse_log_text(log_text)
     run_payload = {
@@ -103,9 +99,7 @@ def test_build_result_failed_run_is_not_marked_success() -> None:
     assert result.run.success is False
     # The simulation_has_no_errors assertion must fail because the
     # parser saw a fatal error.
-    no_errors = next(
-        a for a in result.assertions if a.name == ASSERT_SIM_NO_ERRORS
-    )
+    no_errors = next(a for a in result.assertions if a.name == ASSERT_SIM_NO_ERRORS)
     assert no_errors.passed is False
     # And the result-level success flag must be False.
     assert result.success is False
@@ -184,18 +178,14 @@ def test_assert_constraints_missing_measurement_is_skipped() -> None:
 def test_assert_constraints_unknown_key_is_warning() -> None:
     result = Result(project_id="x")
     assert_constraints(result, "rc_lowpass", {"madeUpKey": 42})
-    assert any(
-        w["code"] == RES_ERR_UNSUPPORTED_CONSTRAINT for w in result.warnings
-    )
+    assert any(w["code"] == RES_ERR_UNSUPPORTED_CONSTRAINT for w in result.warnings)
     assert result.success is True  # warnings don't fail the result
 
 
 def test_assert_constraints_wrong_topology_warns() -> None:
     result = Result(project_id="x")
     assert_constraints(result, "voltage_divider", {"targetCutoffHz": 1000.0})
-    assert any(
-        w["code"] == RES_ERR_UNSUPPORTED_CONSTRAINT for w in result.warnings
-    )
+    assert any(w["code"] == RES_ERR_UNSUPPORTED_CONSTRAINT for w in result.warnings)
 
 
 def test_assert_constraints_no_constraints_is_noop() -> None:
@@ -220,9 +210,7 @@ def test_add_simulation_assertions_missing_trailer_warns() -> None:
     report = parse_log_text(text)
     result = Result(project_id="x")
     add_simulation_assertions(result, report)
-    finished = next(
-        a for a in result.assertions if a.name == ASSERT_SIM_FINISHED
-    )
+    finished = next(a for a in result.assertions if a.name == ASSERT_SIM_FINISHED)
     assert finished.passed is False
 
 
@@ -332,12 +320,7 @@ def test_compute_rc_cutoff_hz_rejects_nonpositive() -> None:
 
 
 def test_build_result_end_to_end_with_fixture(tmp_path: Path) -> None:
-    log_path = (
-        Path(__file__).resolve().parent
-        / "fixtures"
-        / "logs"
-        / "rc_lowpass_tran_ok.log"
-    )
+    log_path = Path(__file__).resolve().parent / "fixtures" / "logs" / "rc_lowpass_tran_ok.log"
     report = parse_log_text(log_path.read_text(encoding="utf-8"))
     run_payload = {
         "success": True,
@@ -360,12 +343,7 @@ def test_build_result_end_to_end_with_fixture(tmp_path: Path) -> None:
 
 
 def test_build_result_end_to_end_with_fatal_fixture(tmp_path: Path) -> None:
-    log_path = (
-        Path(__file__).resolve().parent
-        / "fixtures"
-        / "logs"
-        / "simulation_fatal.log"
-    )
+    log_path = Path(__file__).resolve().parent / "fixtures" / "logs" / "simulation_fatal.log"
     report = parse_log_text(log_path.read_text(encoding="utf-8"))
     r = build_result_from_run(
         project_id="broken",
@@ -381,6 +359,4 @@ def test_build_result_end_to_end_with_fatal_fixture(tmp_path: Path) -> None:
     write_result(r, out)
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["success"] is False
-    assert any(
-        e["code"] == "LTSPICE_FATAL" for e in payload["errors"]
-    )
+    assert any(e["code"] == "LTSPICE_FATAL" for e in payload["errors"])

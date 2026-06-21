@@ -507,14 +507,10 @@ def to_json_payload(
 ) -> dict[str, Any]:
     """Wrap checks into the JSON output contract from ``docs/SPEC.md``."""
     warnings = [
-        {"code": c.code, "detail": c.detail, "data": c.data}
-        for c in checks
-        if c.status == "warn"
+        {"code": c.code, "detail": c.detail, "data": c.data} for c in checks if c.status == "warn"
     ]
     errors = [
-        {"code": c.code, "detail": c.detail, "data": c.data}
-        for c in checks
-        if c.status == "fail"
+        {"code": c.code, "detail": c.detail, "data": c.data} for c in checks if c.status == "fail"
     ]
     payload: dict[str, Any] = {
         "success": not errors,

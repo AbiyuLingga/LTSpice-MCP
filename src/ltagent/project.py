@@ -277,9 +277,7 @@ def create_project(
                     "data": {"target": str(target_resolved)},
                 }
             )
-            return _empty_result(
-                target_resolved, errors=errors, warnings=warnings
-            )
+            return _empty_result(target_resolved, errors=errors, warnings=warnings)
     else:
         try:
             target_resolved.mkdir(parents=True, exist_ok=False)
@@ -291,9 +289,7 @@ def create_project(
                     "data": {"target": str(target_resolved)},
                 }
             )
-            return _empty_result(
-                target_resolved, errors=errors, warnings=warnings
-            )
+            return _empty_result(target_resolved, errors=errors, warnings=warnings)
 
     # ---- 2. normalise IR ------------------------------------------------
     from .ir import load_ir, validate_dict  # local import to avoid cycle
@@ -311,9 +307,7 @@ def create_project(
                         "data": {"path": err.path, "code": err.code},
                     }
                 )
-            return _empty_result(
-                target_resolved, errors=errors, warnings=warnings
-            )
+            return _empty_result(target_resolved, errors=errors, warnings=warnings)
         circuit = rebuilt
     elif isinstance(ir, (str, Path)):
         try:
@@ -326,9 +320,7 @@ def create_project(
                     "data": {"path": str(ir)},
                 }
             )
-            return _empty_result(
-                target_resolved, errors=errors, warnings=warnings
-            )
+            return _empty_result(target_resolved, errors=errors, warnings=warnings)
         except Exception as exc:
             errors.append(
                 {
@@ -337,9 +329,7 @@ def create_project(
                     "data": {"path": str(ir)},
                 }
             )
-            return _empty_result(
-                target_resolved, errors=errors, warnings=warnings
-            )
+            return _empty_result(target_resolved, errors=errors, warnings=warnings)
     else:
         errors.append(
             {
@@ -348,9 +338,7 @@ def create_project(
                 "data": {},
             }
         )
-        return _empty_result(
-            target_resolved, errors=errors, warnings=warnings
-        )
+        return _empty_result(target_resolved, errors=errors, warnings=warnings)
 
     # Build the project id AFTER we know the IR is valid.
     try:
@@ -363,9 +351,7 @@ def create_project(
                 "data": {"name": circuit.name},
             }
         )
-        return _empty_result(
-            target_resolved, errors=errors, warnings=warnings
-        )
+        return _empty_result(target_resolved, errors=errors, warnings=warnings)
 
     # ---- 3. match template (best-effort) --------------------------------
     match_result: MatchResult | None = None
@@ -400,9 +386,7 @@ def create_project(
                 "data": {"path": str(ir_path)},
             }
         )
-        return _empty_result(
-            target_resolved, errors=errors, warnings=warnings
-        )
+        return _empty_result(target_resolved, errors=errors, warnings=warnings)
 
     try:
         netlist.write_netlist(circuit, cir_path)
@@ -420,9 +404,7 @@ def create_project(
                 "data": {"path": str(cir_path)},
             }
         )
-        return _empty_result(
-            target_resolved, errors=errors, warnings=warnings
-        )
+        return _empty_result(target_resolved, errors=errors, warnings=warnings)
 
     try:
         asc.write_asc(circuit, asc_path)
@@ -433,16 +415,12 @@ def create_project(
             {
                 "code": PRJ_ERR_ASC_WRITE_FAILED,
                 "detail": (
-                    exc.detail
-                    if isinstance(exc, ASCError) and hasattr(exc, "detail")
-                    else str(exc)
+                    exc.detail if isinstance(exc, ASCError) and hasattr(exc, "detail") else str(exc)
                 ),
                 "data": {"path": str(asc_path)},
             }
         )
-        return _empty_result(
-            target_resolved, errors=errors, warnings=warnings
-        )
+        return _empty_result(target_resolved, errors=errors, warnings=warnings)
 
     # ---- 5b. layout score (always) --------------------------------------
     layout_score: int | None = None
@@ -551,9 +529,7 @@ def create_project(
                 "data": {"path": str(result_path)},
             }
         )
-        return _empty_result(
-            target_resolved, errors=errors, warnings=warnings
-        )
+        return _empty_result(target_resolved, errors=errors, warnings=warnings)
 
     # ---- 8. metadata.json -----------------------------------------------
     metadata = _build_metadata(
@@ -846,7 +822,5 @@ __all__ = [
 
 
 if __name__ == "__main__":  # pragma: no cover
-    sys.stderr.write(
-        "ltagent.project is a library module; invoke via 'ltagent create'\n"
-    )
+    sys.stderr.write("ltagent.project is a library module; invoke via 'ltagent create'\n")
     sys.exit(2)

@@ -271,7 +271,9 @@ def _convert_analog(v1: Mapping[str, object]) -> AnalogGraph:
         )
     payload: dict[str, object] = {
         "schemaVersion": ANALOG_GRAPH_SCHEMA_VERSION,
-        "projectId": components.get("__project_id__", "migrated") if isinstance(components, dict) else "migrated",
+        "projectId": components.get("__project_id__", "migrated")
+        if isinstance(components, dict)
+        else "migrated",
         "topology": v1.get("topology", ""),
         "description": v1.get("description"),
         "components": components,
@@ -426,9 +428,7 @@ def _backup_1_0_documents(
     return copied
 
 
-def _restore_from_backup(
-    project_dir: Path, backup_dir: Path, copied: tuple[str, ...]
-) -> None:
+def _restore_from_backup(project_dir: Path, backup_dir: Path, copied: tuple[str, ...]) -> None:
     """Copy every file in ``copied`` back to ``project_dir``.
 
     Used both for the happy-path backup of stale v1 files after a
@@ -518,9 +518,7 @@ def migrate_workbench_project_to_v2(
     try:
         for document, relative in v1_documents.items():
             source = project_root / relative
-            v1_payload: dict[str, object] = (
-                _read_json_object(source) if source.exists() else {}
-            )
+            v1_payload: dict[str, object] = _read_json_object(source) if source.exists() else {}
             if document == "requirements":
                 converted_doc = _convert_requirements(v1_payload).model_dump(
                     mode="json", exclude_none=True

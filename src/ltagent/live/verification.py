@@ -425,8 +425,7 @@ def check_min(
         passed=passed,
         code=CODE_OK,
         detail=(
-            f"actual={actual_f:g}, min={min_f:g}, "
-            + ("within bound" if passed else "below bound")
+            f"actual={actual_f:g}, min={min_f:g}, " + ("within bound" if passed else "below bound")
         ),
     )
 

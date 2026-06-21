@@ -144,9 +144,7 @@ def test_build_argv_wine_mode_uses_configured_wine(tmp_path: Path) -> None:
     workdir = tmp_path / "work"
     workdir.mkdir()
     cir = _write_cir(workdir)
-    req = _request(
-        workdir, executable=str(exe), wine_command=str(wine), mode="wine"
-    )
+    req = _request(workdir, executable=str(exe), wine_command=str(wine), mode="wine")
     argv = build_argv(req)
     assert argv[0] == str(wine.resolve())
     assert argv[1] == str(exe.resolve())
@@ -219,9 +217,7 @@ def test_build_argv_executable_not_on_disk_raises(tmp_path: Path) -> None:
     workdir = tmp_path / "work"
     workdir.mkdir()
     _write_cir(workdir)
-    req = _request(
-        workdir, executable=str(tmp_path / "no_such.exe"), mode="native"
-    )
+    req = _request(workdir, executable=str(tmp_path / "no_such.exe"), mode="native")
     with pytest.raises(runner.RunnerBuildError) as ei:
         build_argv(req)
     assert ei.value.code == runner.ERR_EXECUTABLE_MISSING
@@ -233,9 +229,7 @@ def test_build_argv_wine_not_found_raises(tmp_path: Path) -> None:
     workdir = tmp_path / "work"
     workdir.mkdir()
     _write_cir(workdir)
-    req = _request(
-        workdir, executable=str(exe), wine_command=None, mode="wine"
-    )
+    req = _request(workdir, executable=str(exe), wine_command=None, mode="wine")
     with pytest.raises(runner.RunnerBuildError) as ei:
         build_argv(req, wine_resolver=lambda _: None)
     assert ei.value.code == runner.ERR_WINE_NOT_FOUND
@@ -289,9 +283,7 @@ def test_run_simulation_executable_missing(tmp_path: Path) -> None:
     workdir = tmp_path / "work"
     workdir.mkdir()
     _write_cir(workdir)
-    req = _request(
-        workdir, executable=str(tmp_path / "no_such.exe"), mode="native"
-    )
+    req = _request(workdir, executable=str(tmp_path / "no_such.exe"), mode="native")
     res = run_simulation(req)
     assert res.success is False
     assert res.errors[0]["code"] == runner.ERR_EXECUTABLE_MISSING
@@ -303,12 +295,16 @@ def test_run_simulation_wine_not_found(tmp_path: Path) -> None:
     workdir = tmp_path / "work"
     workdir.mkdir()
     _write_cir(workdir)
-    req = _request(
-        workdir, executable=str(exe), wine_command=None, mode="wine"
+    req = _request(workdir, executable=str(exe), wine_command=None, mode="wine")
+    res = (
+        run_simulation(
+            req,
+            run_subprocess=_make_run_returning(),
+            wine_resolver_override=None,  # type: ignore[arg-type]
+        )
+        if False
+        else _runner_with_no_wine(req)
     )
-    res = run_simulation(
-        req, run_subprocess=_make_run_returning(), wine_resolver_override=None  # type: ignore[arg-type]
-    ) if False else _runner_with_no_wine(req)
     assert res.success is False
     assert res.errors[0]["code"] == runner.ERR_WINE_NOT_FOUND
 
@@ -367,7 +363,9 @@ def test_run_simulation_allows_cir_outside_workdir_when_opted_in(tmp_path: Path)
     )
     # Should not be the path-traversal fail code.
     if not res.success:
-        assert res.errors[0]["code"] != runner.ERR_LAUNCH or "outside" not in res.errors[0]["detail"]
+        assert (
+            res.errors[0]["code"] != runner.ERR_LAUNCH or "outside" not in res.errors[0]["detail"]
+        )
 
 
 def _fake_writes_log(workdir: Path) -> Any:
@@ -523,9 +521,7 @@ def _fake_writes_log_with_exit(workdir: Path, *, exit_code: int) -> Any:
         cir = Path(argv[-1])
         log = Path(kwargs["cwd"]) / (cir.stem + ".log")
         log.write_text("stepping...\n", encoding="utf-8")
-        return subprocess.CompletedProcess(
-            args=argv, returncode=exit_code, stdout="ok", stderr=""
-        )
+        return subprocess.CompletedProcess(args=argv, returncode=exit_code, stdout="ok", stderr="")
 
     return _fake
 
@@ -543,9 +539,7 @@ def test_run_simulation_detects_raw_file_when_present(tmp_path: Path) -> None:
         wd = Path(kwargs["cwd"])
         (wd / (cir.stem + ".log")).write_text("ok\n", encoding="utf-8")
         (wd / (cir.stem + ".raw")).write_bytes(b"\x00" * 16)
-        return subprocess.CompletedProcess(
-            args=argv, returncode=0, stdout="ok", stderr=""
-        )
+        return subprocess.CompletedProcess(args=argv, returncode=0, stdout="ok", stderr="")
 
     res = run_simulation(req, run_subprocess=_fake)
     assert res.success is True
@@ -569,9 +563,7 @@ def test_run_simulation_uses_expected_log_name(tmp_path: Path) -> None:
     def _fake(argv: list[str], **kwargs: Any) -> Any:
         wd = Path(kwargs["cwd"])
         (wd / "custom.log").write_text("ok\n", encoding="utf-8")
-        return subprocess.CompletedProcess(
-            args=argv, returncode=0, stdout="ok", stderr=""
-        )
+        return subprocess.CompletedProcess(args=argv, returncode=0, stdout="ok", stderr="")
 
     res = run_simulation(req, run_subprocess=_fake)
     assert res.success is True
@@ -585,9 +577,7 @@ def test_run_simulation_timeout_floor_enforced(tmp_path: Path) -> None:
     workdir = tmp_path / "work"
     workdir.mkdir()
     _write_cir(workdir)
-    req = _request(
-        workdir, executable=str(exe), mode="native", timeout=1
-    )
+    req = _request(workdir, executable=str(exe), mode="native", timeout=1)
     captured: dict[str, Any] = {}
 
     def _fake(argv: list[str], **kwargs: Any) -> Any:
@@ -636,9 +626,7 @@ def test_argv_is_a_flat_list_of_strings(tmp_path: Path) -> None:
     workdir = tmp_path / "work"
     workdir.mkdir()
     _write_cir(workdir)
-    req = _request(
-        workdir, executable=str(exe), wine_command=str(wine), mode="wine"
-    )
+    req = _request(workdir, executable=str(exe), wine_command=str(wine), mode="wine")
     argv = build_argv(req)
     assert isinstance(argv, list)
     for token in argv:

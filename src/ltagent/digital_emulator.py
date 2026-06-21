@@ -190,9 +190,7 @@ class Tiny8Emulator:
             state=self.state,
             output_events=tuple(self._output_events),
             fault=self._fault,
-            timed_out=(
-                self._cycles >= max_cycles and not self._halted and self._fault is None
-            ),
+            timed_out=(self._cycles >= max_cycles and not self._halted and self._fault is None),
         )
 
     def _write_acc(self, value: int) -> None:

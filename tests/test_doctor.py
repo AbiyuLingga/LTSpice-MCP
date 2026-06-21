@@ -27,9 +27,7 @@ def _config_with(
     timeout: int = 30,
 ) -> Config:
     return Config(
-        ltspice=LTSpiceConfig(
-            mode=mode, executable=executable, wine_command=wine_command
-        ),
+        ltspice=LTSpiceConfig(mode=mode, executable=executable, wine_command=wine_command),
         runner=Config().runner.__class__(timeout_seconds=timeout),
     )
 
@@ -152,7 +150,9 @@ def test_check_wine_ok_when_configured_works(tmp_path: Path) -> None:
     assert r.data["path"] == str(wine)
 
 
-def test_check_wine_fail_when_nothing_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_check_wine_fail_when_nothing_found(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Patch the well-known paths to point at non-existent files in a tmp dir.
     monkeypatch.setattr(doctor, "WELL_KNOWN_WINE_PATHS", (str(tmp_path / "no_wine_a"),))
     # `shutil.which("wine")` is hard to control on systems where wine IS on
@@ -259,9 +259,7 @@ def test_smoke_timeout_returns_structured_fail(
 ) -> None:
     exe = tmp_path / "lt.exe"
     exe.write_text("noop")
-    monkeypatch.setattr(
-        doctor, "_resolve_wine_for_run", lambda _: "/usr/bin/wine"
-    )
+    monkeypatch.setattr(doctor, "_resolve_wine_for_run", lambda _: "/usr/bin/wine")
 
     def _raise_timeout(*a: Any, **kw: Any) -> Any:
         raise subprocess.TimeoutExpired(cmd=a[0] if a else [], timeout=kw.get("timeout", 30))
@@ -291,9 +289,7 @@ def test_smoke_no_log_returns_structured_fail(
     assert r.data["exitCode"] == 0
 
 
-def test_smoke_ok_when_log_written(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_smoke_ok_when_log_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """If the fake subprocess creates the .log, the check should report ok.
 
     We replace ``tempfile.TemporaryDirectory`` with a context manager that
@@ -323,9 +319,7 @@ def test_smoke_ok_when_log_written(
 
     def _fake_run(argv: list[str], **kw: Any) -> Any:
         (workdir / "smoke.log").write_text("stepping...\n", encoding="utf-8")
-        return subprocess.CompletedProcess(
-            args=argv, returncode=0, stdout="ok", stderr=""
-        )
+        return subprocess.CompletedProcess(args=argv, returncode=0, stdout="ok", stderr="")
 
     cfg = _config_with(executable=str(exe), wine_command="/usr/bin/wine")
     r = doctor.check_lt_spice_smoke(cfg, run_subprocess=_fake_run)

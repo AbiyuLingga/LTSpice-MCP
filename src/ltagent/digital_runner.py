@@ -47,9 +47,7 @@ class ToolStatus:
 def which_tool(name: str) -> ToolStatus:
     """Find ``name`` on PATH. ``name`` must match the allowlist."""
     if name not in _TOOL_ALLOWLIST:
-        raise ValueError(
-            f"tool {name!r} not in allowlist {sorted(_TOOL_ALLOWLIST)}"
-        )
+        raise ValueError(f"tool {name!r} not in allowlist {sorted(_TOOL_ALLOWLIST)}")
     path = shutil.which(name)
     if path is None:
         return ToolStatus(name=name, available=False)
@@ -62,9 +60,7 @@ def doctor_status() -> dict[str, ToolStatus]:
     return {name: which_tool(name) for name in _TOOL_ALLOWLIST}
 
 
-_TOOL_ALLOWLIST: frozenset[str] = frozenset(
-    {"iverilog", "vvp", "verilator", "yosys", "gtkwave"}
-)
+_TOOL_ALLOWLIST: frozenset[str] = frozenset({"iverilog", "vvp", "verilator", "yosys", "gtkwave"})
 
 _VERSION_FLAGS: Mapping[str, Sequence[str]] = {
     "iverilog": ("-V",),

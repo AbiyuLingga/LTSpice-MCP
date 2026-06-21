@@ -245,9 +245,7 @@ def _split_mantissa_and_rest(numeric_part: str) -> tuple[float, str] | UnitError
     return last_good_value, numeric_part[last_good_index:]
 
 
-def _parse_tail(
-    tail: str, raw: str
-) -> tuple[float, str, Quantity] | UnitError:
+def _parse_tail(tail: str, raw: str) -> tuple[float, str, Quantity] | UnitError:
     """Resolve the suffix into (multiplier, unit_letter, quantity).
 
     The tail is the post-mantissa text (e.g. ``"k"``, ``"nF"``,
@@ -273,7 +271,7 @@ def _parse_tail(
         # Case-sensitive match for the M/m disambiguation.
         if prefix_str in {"M", "m"}:
             if tail.startswith(prefix_str):
-                unit_part = tail[len(prefix_str):]
+                unit_part = tail[len(prefix_str) :]
                 if not unit_part:
                     return multiplier, "", "dimensionless"
                 quantity = _match_unit(unit_part)
@@ -287,7 +285,7 @@ def _parse_tail(
             continue
         # Case-insensitive match for every other prefix.
         if tail.lower().startswith(prefix_str.lower()):
-            unit_part = tail[len(prefix_str):]
+            unit_part = tail[len(prefix_str) :]
             if not unit_part:
                 return multiplier, "", "dimensionless"
             quantity = _match_unit(unit_part)
@@ -377,7 +375,16 @@ def _best_prefix(value: float) -> tuple[float, str]:
         return 0.0, ""
     abs_value = abs(value)
     ordered: tuple[float, ...] = (
-        1e12, 1e9, 1e6, 1e3, 1.0, 1e-3, 1e-6, 1e-9, 1e-12, 1e-15,
+        1e12,
+        1e9,
+        1e6,
+        1e3,
+        1.0,
+        1e-3,
+        1e-6,
+        1e-9,
+        1e-12,
+        1e-15,
     )
     for mult in ordered:
         if abs_value >= mult and abs_value < mult * 1000:
@@ -405,9 +412,7 @@ def format_value(value: float, unit: str = "") -> str:
             caller fed bad inputs, and silent formatting would just
             produce ``"nan"`` strings that the next stage cannot parse.)
     """
-    if value is None or (
-        isinstance(value, float) and not _math.isfinite(value)
-    ):
+    if value is None or (isinstance(value, float) and not _math.isfinite(value)):
         raise ValueError(f"format_value requires a finite value, got {value!r}")
     if value == 0:
         return f"0{unit}"
@@ -421,9 +426,7 @@ def format_value(value: float, unit: str = "") -> str:
 # ---------------------------------------------------------------------------
 
 
-def parse_to_si(
-    value: str, expected_quantity: Quantity | None = None
-) -> float | UnitError:
+def parse_to_si(value: str, expected_quantity: Quantity | None = None) -> float | UnitError:
     """Parse ``value`` and return the SI number, optionally checking quantity.
 
     This is a thin convenience wrapper used by :mod:`formulas` when the
@@ -441,10 +444,7 @@ def parse_to_si(
     if expected_quantity is not None and parsed.quantity != expected_quantity:
         return UnitError(
             "UNIT_QUANTITY_MISMATCH",
-            (
-                f"expected {expected_quantity!r} but got "
-                f"{parsed.quantity!r} for {value!r}"
-            ),
+            (f"expected {expected_quantity!r} but got {parsed.quantity!r} for {value!r}"),
             value,
         )
     return parsed.si_value

@@ -223,9 +223,7 @@ def _resolve_project_dir(
     projects_root = _resolve_projects_root(cfg)
     project_dir = projects_root / project_id
     try:
-        project_dir = safe_resolve_under(
-            project_dir, projects_root, must_exist=must_exist
-        )
+        project_dir = safe_resolve_under(project_dir, projects_root, must_exist=must_exist)
     except PathSafetyError as exc:
         return None, _from_security_error(command, exc)
     return project_dir, None
@@ -273,8 +271,10 @@ def tool_live_open_project(
     command = "live_open_project"
     if not isinstance(project_id, str) or not project_id:
         return _err(
-            command, "project id must be a non-empty string",
-            ERR_MISSING_PARAM, "project_id is required",
+            command,
+            "project id must be a non-empty string",
+            ERR_MISSING_PARAM,
+            "project_id is required",
             {"field": "projectId"},
         )
 
@@ -284,7 +284,9 @@ def tool_live_open_project(
 
     project_dir, perr = _resolve_project_dir(cfg, project_id, command=command)
     if perr is not None or project_dir is None:
-        return _ensure_jsonable(perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project"))
+        return _ensure_jsonable(
+            perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project")
+        )
 
     metadata_path = project_dir / "metadata.json"
     graph_path = project_dir / "circuit.graph.json"
@@ -346,8 +348,10 @@ def tool_live_inspect_project(
     command = "live_inspect_project"
     if not isinstance(project_id, str) or not project_id:
         return _err(
-            command, "project id must be a non-empty string",
-            ERR_MISSING_PARAM, "project_id is required",
+            command,
+            "project id must be a non-empty string",
+            ERR_MISSING_PARAM,
+            "project_id is required",
             {"field": "projectId"},
         )
 
@@ -357,7 +361,9 @@ def tool_live_inspect_project(
 
     project_dir, perr = _resolve_project_dir(cfg, project_id, command=command)
     if perr is not None or project_dir is None:
-        return _ensure_jsonable(perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project"))
+        return _ensure_jsonable(
+            perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project")
+        )
 
     graph_path = project_dir / "circuit.graph.json"
     ir_path = project_dir / "circuit.ir.json"
@@ -422,29 +428,37 @@ def tool_live_apply_edit(
     command = "live_apply_edit"
     if not isinstance(project_id, str) or not project_id:
         return _err(
-            command, "project id must be a non-empty string",
-            ERR_MISSING_PARAM, "project_id is required",
+            command,
+            "project id must be a non-empty string",
+            ERR_MISSING_PARAM,
+            "project_id is required",
             {"field": "projectId"},
         )
     if not isinstance(operation, Mapping):
         return _err(
-            command, "operation must be a dict",
-            ERR_INVALID_OPERATION, "operation is missing or not a dict",
+            command,
+            "operation must be a dict",
+            ERR_INVALID_OPERATION,
+            "operation is missing or not a dict",
             {"receivedType": type(operation).__name__},
         )
 
     op_name = operation.get("op")
     if not isinstance(op_name, str) or not op_name:
         return _err(
-            command, "operation.op must be a non-empty string",
-            ERR_INVALID_OPERATION, "operation.op is missing or empty",
+            command,
+            "operation.op must be a non-empty string",
+            ERR_INVALID_OPERATION,
+            "operation.op is missing or empty",
             {"operation": dict(operation)},
         )
     op_args = operation.get("args", {})
     if not isinstance(op_args, Mapping):
         return _err(
-            command, "operation.args must be a dict",
-            ERR_INVALID_OPERATION, "operation.args is not a dict",
+            command,
+            "operation.args must be a dict",
+            ERR_INVALID_OPERATION,
+            "operation.args is not a dict",
             {"receivedType": type(op_args).__name__},
         )
     op_reason_raw = operation.get("reason", "")
@@ -456,7 +470,9 @@ def tool_live_apply_edit(
 
     project_dir, perr = _resolve_project_dir(cfg, project_id, command=command)
     if perr is not None or project_dir is None:
-        return _ensure_jsonable(perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project"))
+        return _ensure_jsonable(
+            perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project")
+        )
 
     if _LIVE_MODULE is None:
         return _ensure_jsonable(
@@ -495,11 +511,23 @@ def tool_live_apply_edit(
         )
     except (TypeError, ValueError) as exc:
         return _ensure_jsonable(
-            _err(command, "live.apply rejected the operation", ERR_EDIT_OP_FAILED, str(exc), {"op": op_name})
+            _err(
+                command,
+                "live.apply rejected the operation",
+                ERR_EDIT_OP_FAILED,
+                str(exc),
+                {"op": op_name},
+            )
         )
     except Exception as exc:  # pragma: no cover - depends on live module
         return _ensure_jsonable(
-            _err(command, "live.apply raised an unexpected error", ERR_EDIT_OP_FAILED, repr(exc), {"op": op_name})
+            _err(
+                command,
+                "live.apply raised an unexpected error",
+                ERR_EDIT_OP_FAILED,
+                repr(exc),
+                {"op": op_name},
+            )
         )
 
     data = _to_jsonable(result) if result is not None else {}
@@ -525,14 +553,18 @@ def tool_live_snapshot(
     command = "live_snapshot"
     if not isinstance(project_id, str) or not project_id:
         return _err(
-            command, "project id must be a non-empty string",
-            ERR_MISSING_PARAM, "project_id is required",
+            command,
+            "project id must be a non-empty string",
+            ERR_MISSING_PARAM,
+            "project_id is required",
             {"field": "projectId"},
         )
     if reason is not None and not isinstance(reason, str):
         return _err(
-            command, "reason must be a string",
-            ERR_INVALID_INPUT, "reason is not a string",
+            command,
+            "reason must be a string",
+            ERR_INVALID_INPUT,
+            "reason is not a string",
             {"receivedType": type(reason).__name__},
         )
 
@@ -542,7 +574,9 @@ def tool_live_snapshot(
 
     project_dir, perr = _resolve_project_dir(cfg, project_id, command=command)
     if perr is not None or project_dir is None:
-        return _ensure_jsonable(perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project"))
+        return _ensure_jsonable(
+            perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project")
+        )
 
     if _LIVE_MODULE is None:
         return _ensure_jsonable(
@@ -574,7 +608,13 @@ def tool_live_snapshot(
         )
     except Exception as exc:  # pragma: no cover - depends on live module
         return _ensure_jsonable(
-            _err(command, "snapshot failed", ERR_SNAPSHOT_FAILED, repr(exc), {"projectId": project_id})
+            _err(
+                command,
+                "snapshot failed",
+                ERR_SNAPSHOT_FAILED,
+                repr(exc),
+                {"projectId": project_id},
+            )
         )
 
     data = _to_jsonable(result) if result is not None else {}
@@ -595,20 +635,26 @@ def tool_live_restore_snapshot(
     command = "live_restore_snapshot"
     if not isinstance(project_id, str) or not project_id:
         return _err(
-            command, "project id must be a non-empty string",
-            ERR_MISSING_PARAM, "project_id is required",
+            command,
+            "project id must be a non-empty string",
+            ERR_MISSING_PARAM,
+            "project_id is required",
             {"field": "projectId"},
         )
     if not isinstance(snapshot_id, str) or not snapshot_id:
         return _err(
-            command, "snapshot id must be a non-empty string",
-            ERR_MISSING_PARAM, "snapshot_id is required",
+            command,
+            "snapshot id must be a non-empty string",
+            ERR_MISSING_PARAM,
+            "snapshot_id is required",
             {"field": "snapshotId"},
         )
     if "/" in snapshot_id or "\\" in snapshot_id or ".." in Path(snapshot_id).parts:
         return _err(
-            command, "snapshot id must not contain path separators",
-            ERR_INVALID_SNAPSHOT_ID, "snapshot id is not a plain slug",
+            command,
+            "snapshot id must not contain path separators",
+            ERR_INVALID_SNAPSHOT_ID,
+            "snapshot id is not a plain slug",
             {"snapshotId": snapshot_id},
         )
 
@@ -618,7 +664,9 @@ def tool_live_restore_snapshot(
 
     project_dir, perr = _resolve_project_dir(cfg, project_id, command=command)
     if perr is not None or project_dir is None:
-        return _ensure_jsonable(perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project"))
+        return _ensure_jsonable(
+            perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project")
+        )
 
     if _LIVE_MODULE is None:
         return _ensure_jsonable(
@@ -651,14 +699,20 @@ def tool_live_restore_snapshot(
     except FileNotFoundError as exc:
         return _ensure_jsonable(
             _err(
-                command, "snapshot not found", ERR_SNAPSHOT_NOT_FOUND,
-                str(exc), {"projectId": project_id, "snapshotId": snapshot_id},
+                command,
+                "snapshot not found",
+                ERR_SNAPSHOT_NOT_FOUND,
+                str(exc),
+                {"projectId": project_id, "snapshotId": snapshot_id},
             )
         )
     except Exception as exc:  # pragma: no cover - depends on live module
         return _ensure_jsonable(
             _err(
-                command, "restore failed", ERR_RESTORE_FAILED, repr(exc),
+                command,
+                "restore failed",
+                ERR_RESTORE_FAILED,
+                repr(exc),
                 {"projectId": project_id, "snapshotId": snapshot_id},
             )
         )
@@ -681,13 +735,14 @@ def tool_live_run_and_verify(
     command = "live_run_and_verify"
     if not isinstance(project_id, str) or not project_id:
         return _err(
-            command, "project id must be a non-empty string",
-            ERR_MISSING_PARAM, "project_id is required",
+            command,
+            "project id must be a non-empty string",
+            ERR_MISSING_PARAM,
+            "project_id is required",
             {"field": "projectId"},
         )
     if checks is not None and (
-        not isinstance(checks, list)
-        or any(not isinstance(check, Mapping) for check in checks)
+        not isinstance(checks, list) or any(not isinstance(check, Mapping) for check in checks)
     ):
         return _err(
             command,
@@ -702,7 +757,9 @@ def tool_live_run_and_verify(
 
     project_dir, perr = _resolve_project_dir(cfg, project_id, command=command)
     if perr is not None or project_dir is None:
-        return _ensure_jsonable(perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project"))
+        return _ensure_jsonable(
+            perr or _err(command, "no project", ERR_PROJECT_NOT_FOUND, "no project")
+        )
 
     if _LIVE_MODULE is None:
         return _ensure_jsonable(
@@ -735,7 +792,13 @@ def tool_live_run_and_verify(
         )
     except Exception as exc:  # pragma: no cover - depends on live module
         return _ensure_jsonable(
-            _err(command, "run and verify failed", ERR_RUN_FAILED, repr(exc), {"projectId": project_id})
+            _err(
+                command,
+                "run and verify failed",
+                ERR_RUN_FAILED,
+                repr(exc),
+                {"projectId": project_id},
+            )
         )
 
     data = _to_jsonable(result) if result is not None else {}
@@ -776,21 +839,27 @@ def tool_calculate_circuit(
     command = "calculate_circuit"
     if not isinstance(topology, str) or not topology:
         return _err(
-            command, "topology must be a non-empty string",
-            ERR_MISSING_PARAM, "topology is required",
+            command,
+            "topology must be a non-empty string",
+            ERR_MISSING_PARAM,
+            "topology is required",
             {"field": "topology"},
         )
     if not isinstance(parameters, Mapping):
         return _err(
-            command, "parameters must be a dict",
-            ERR_INVALID_INPUT, "parameters is missing or not a dict",
+            command,
+            "parameters must be a dict",
+            ERR_INVALID_INPUT,
+            "parameters is missing or not a dict",
             {"receivedType": type(parameters).__name__},
         )
 
     if project_id is not None and not isinstance(project_id, str):
         return _err(
-            command, "project id must be a string",
-            ERR_INVALID_INPUT, "project_id is not a string",
+            command,
+            "project id must be a string",
+            ERR_INVALID_INPUT,
+            "project_id is not a string",
             {"receivedType": type(project_id).__name__},
         )
 
@@ -841,11 +910,23 @@ def tool_calculate_circuit(
         result = calc_fn(topology, dict(parameters))
     except (KeyError, ValueError, TypeError, ArithmeticError) as exc:
         return _ensure_jsonable(
-            _err(command, "math_core.calculate failed", ERR_CALCULATION_FAILED, str(exc), {"topology": topology})
+            _err(
+                command,
+                "math_core.calculate failed",
+                ERR_CALCULATION_FAILED,
+                str(exc),
+                {"topology": topology},
+            )
         )
     except Exception as exc:  # pragma: no cover - backend defensive boundary
         return _ensure_jsonable(
-            _err(command, "math_core.calculate raised", ERR_CALCULATION_FAILED, repr(exc), {"topology": topology})
+            _err(
+                command,
+                "math_core.calculate raised",
+                ERR_CALCULATION_FAILED,
+                repr(exc),
+                {"topology": topology},
+            )
         )
     data = _to_jsonable(result) if result is not None else {}
     if not isinstance(data, dict):
@@ -867,20 +948,26 @@ def tool_explain_calculation(
     command = "explain_calculation"
     if not isinstance(topology, str) or not topology:
         return _err(
-            command, "topology must be a non-empty string",
-            ERR_MISSING_PARAM, "topology is required",
+            command,
+            "topology must be a non-empty string",
+            ERR_MISSING_PARAM,
+            "topology is required",
             {"field": "topology"},
         )
     if parameters is not None and not isinstance(parameters, Mapping):
         return _err(
-            command, "parameters must be a dict when provided",
-            ERR_INVALID_INPUT, "parameters is not a dict",
+            command,
+            "parameters must be a dict when provided",
+            ERR_INVALID_INPUT,
+            "parameters is not a dict",
             {"receivedType": type(parameters).__name__},
         )
     if project_id is not None and not isinstance(project_id, str):
         return _err(
-            command, "project id must be a string",
-            ERR_INVALID_INPUT, "project_id is not a string",
+            command,
+            "project id must be a string",
+            ERR_INVALID_INPUT,
+            "project_id is not a string",
             {"receivedType": type(project_id).__name__},
         )
 
@@ -906,18 +993,35 @@ def tool_explain_calculation(
     explain_fn = _math_core_method("explain")
     if explain_fn is None:
         return _ensure_jsonable(
-            _err(command, "math core method is unavailable", ERR_MATH_CORE_METHOD_MISSING, "ltagent.math_core does not expose explain")
+            _err(
+                command,
+                "math core method is unavailable",
+                ERR_MATH_CORE_METHOD_MISSING,
+                "ltagent.math_core does not expose explain",
+            )
         )
     supported = supported_builtin_topologies()
     if supported and topology not in supported:
         return _ensure_jsonable(
-            _err(command, "topology is not supported", ERR_INVALID_TOPOLOGY, f"unsupported topology {topology!r}", {"supported": list(supported)})
+            _err(
+                command,
+                "topology is not supported",
+                ERR_INVALID_TOPOLOGY,
+                f"unsupported topology {topology!r}",
+                {"supported": list(supported)},
+            )
         )
     try:
         result = explain_fn(topology, dict(parameters) if parameters is not None else None)
     except Exception as exc:  # pragma: no cover - backend defensive boundary
         return _ensure_jsonable(
-            _err(command, "math_core.explain raised", ERR_CALCULATION_FAILED, repr(exc), {"topology": topology})
+            _err(
+                command,
+                "math_core.explain raised",
+                ERR_CALCULATION_FAILED,
+                repr(exc),
+                {"topology": topology},
+            )
         )
     data = _to_jsonable(result) if result is not None else {}
     if not isinstance(data, dict):

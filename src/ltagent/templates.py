@@ -137,8 +137,7 @@ class TemplateStatus(str, Enum):
         if v in ("rejected",):
             return cls.REJECTED
         raise ValueError(
-            f"unknown template status: {value!r}; expected one of "
-            f"{[s.value for s in cls]}"
+            f"unknown template status: {value!r}; expected one of {[s.value for s in cls]}"
         )
 
     @property
@@ -289,9 +288,7 @@ class AuditReport:
             "counts": dict(self.counts),
             "totals": dict(self.totals),
             "topologies": dict(self.topologies),
-            "duplicates": [
-                {"topology": t, "templateIds": list(ids)} for t, ids in self.duplicates
-            ],
+            "duplicates": [{"topology": t, "templateIds": list(ids)} for t, ids in self.duplicates],
             "warnings": list(self.warnings),
             "indexed": self.indexed,
         }
@@ -463,9 +460,7 @@ def dump_manifest(manifest: TemplateManifest, path: str | Path) -> Path:
     # Write to a sibling .tmp then atomically replace. Using
     # ``mkstemp`` keeps the file on disk so we can ``Path.replace`` it;
     # the underlying file descriptor is closed by ``Path.open`` below.
-    _fd, tmp_name = tempfile.mkstemp(
-        prefix=".manifest_", suffix=".tmp", dir=str(target.parent)
-    )
+    _fd, tmp_name = tempfile.mkstemp(prefix=".manifest_", suffix=".tmp", dir=str(target.parent))
     tmp_path = Path(tmp_name)
     try:
         with Path(tmp_path).open("wb") as fh:
@@ -625,9 +620,7 @@ def _ir_signature(ir: CircuitIR | Mapping[str, Any]) -> tuple[Any, ...]:
     sequence of node terminals so that structural identity is preserved.
     """
     if isinstance(ir, CircuitIR):
-        components = [
-            (c.id, c.kind.value, tuple(c.nodes), c.role) for c in ir.components
-        ]
+        components = [(c.id, c.kind.value, tuple(c.nodes), c.role) for c in ir.components]
         return (ir.topology, tuple(components))
     if isinstance(ir, Mapping):
         comps = ir.get("components", []) or []
@@ -937,9 +930,7 @@ def create_candidate_from_project(
             ) from exc
         run = result_data.get("run", {}) or {}
         sim_verified = bool(run.get("success"))
-        raw_layout = result_data.get("layoutScore") or result_data.get(
-            "layout_score"
-        )
+        raw_layout = result_data.get("layoutScore") or result_data.get("layout_score")
         if raw_layout is not None:
             try:
                 layout_score = int(raw_layout)
@@ -1012,7 +1003,9 @@ def move_template(
     """
     root = _ensure_root(templates_dir)
     _validate_id(template_id)
-    s_to = to_status if isinstance(to_status, TemplateStatus) else TemplateStatus.from_str(to_status)
+    s_to = (
+        to_status if isinstance(to_status, TemplateStatus) else TemplateStatus.from_str(to_status)
+    )
 
     # Find source. If the same id exists in multiple status directories
     # (which should never happen, but the filesystem can be edited by
@@ -1032,9 +1025,7 @@ def move_template(
             f"template {template_id!r} not found in any status",
             {"templateId": template_id},
         )
-    if len(matches) > 1 and not all(
-        s == matches[0][0] for s, _ in matches
-    ):
+    if len(matches) > 1 and not all(s == matches[0][0] for s, _ in matches):
         # Two different status directories legitimately claim the same id.
         # This is a data-integrity violation; surface it loudly.
         statuses = [s.value for s, _ in matches]
@@ -1251,9 +1242,7 @@ def _default_seeds() -> list[TemplateManifest]:
             topology="voltage_divider",
             status=TemplateStatus.OFFICIAL,
             tags=("divider", "resistor", "reference"),
-            description=(
-                "Resistive voltage divider. Edit R1, R2 to scale the output."
-            ),
+            description=("Resistive voltage divider. Edit R1, R2 to scale the output."),
             files={"ir": "template.ir.json"},
             parameters={
                 "R1": TemplateParameter(
@@ -1279,9 +1268,7 @@ def _default_seeds() -> list[TemplateManifest]:
             topology="rc_lowpass",
             status=TemplateStatus.OFFICIAL,
             tags=("filter", "rc", "lowpass"),
-            description=(
-                "First-order RC low-pass filter. Cutoff fc = 1 / (2*pi*R*C)."
-            ),
+            description=("First-order RC low-pass filter. Cutoff fc = 1 / (2*pi*R*C)."),
             files={"ir": "template.ir.json"},
             parameters={
                 "R1": TemplateParameter(
@@ -1307,9 +1294,7 @@ def _default_seeds() -> list[TemplateManifest]:
             topology="rc_highpass",
             status=TemplateStatus.OFFICIAL,
             tags=("filter", "rc", "highpass"),
-            description=(
-                "First-order RC high-pass filter. Cutoff fc = 1 / (2*pi*R*C)."
-            ),
+            description=("First-order RC high-pass filter. Cutoff fc = 1 / (2*pi*R*C)."),
             files={"ir": "template.ir.json"},
             parameters={
                 "C1": TemplateParameter(
@@ -1336,9 +1321,7 @@ def _default_seeds() -> list[TemplateManifest]:
             topology="inverting_opamp",
             status=TemplateStatus.OFFICIAL,
             tags=("opamp", "analog", "inverting"),
-            description=(
-                "Inverting op-amp with Rin, Rfb. Closed-loop gain = -Rfb/Rin."
-            ),
+            description=("Inverting op-amp with Rin, Rfb. Closed-loop gain = -Rfb/Rin."),
             files={"ir": "template.ir.json"},
             parameters={
                 "R1": TemplateParameter(
@@ -1364,9 +1347,7 @@ def _default_seeds() -> list[TemplateManifest]:
             topology="noninv_opamp",
             status=TemplateStatus.OFFICIAL,
             tags=("opamp", "analog", "noninverting"),
-            description=(
-                "Non-inverting op-amp. Gain = 1 + Rfb / Rg."
-            ),
+            description=("Non-inverting op-amp. Gain = 1 + Rfb / Rg."),
             files={"ir": "template.ir.json"},
             parameters={
                 "R1": TemplateParameter(
@@ -1418,8 +1399,7 @@ def _default_seeds() -> list[TemplateManifest]:
             status=TemplateStatus.OFFICIAL,
             tags=("diode", "analog", "clipper"),
             description=(
-                "Series resistor + diode pair clamps the output to "
-                "+/-Vforward around 0.7V."
+                "Series resistor + diode pair clamps the output to +/-Vforward around 0.7V."
             ),
             files={"ir": "template.ir.json"},
             parameters={
@@ -1655,19 +1635,54 @@ def _ir_payload_for_seed(seed: TemplateManifest) -> dict[str, Any]:
             "description": "Inverting op-amp (seed IR).",
             "nodes": ["in", "out", "vfb", "vcc", "vee", "0"],
             "components": [
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 0.5 1k)", "role": "input"},
-                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vcc", "0"], "value": "DC 12", "role": "supply_positive"},
-                {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vee", "0"], "value": "DC -12", "role": "supply_negative"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "vfb"], "value": "10k", "role": "input_resistor"},
-                {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["vfb", "out"], "value": "100k", "role": "feedback_resistor"},
-                {"id": "U1", "kind": "opamp", "spicePrefix": "X",
-                 "nodes": ["in", "vfb", "vcc", "vee", "out"],
-                 "value": "UniversalOpamp", "role": "opamp"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 0.5 1k)",
+                    "role": "input",
+                },
+                {
+                    "id": "Vcc",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vcc", "0"],
+                    "value": "DC 12",
+                    "role": "supply_positive",
+                },
+                {
+                    "id": "Vee",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vee", "0"],
+                    "value": "DC -12",
+                    "role": "supply_negative",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "vfb"],
+                    "value": "10k",
+                    "role": "input_resistor",
+                },
+                {
+                    "id": "R2",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["vfb", "out"],
+                    "value": "100k",
+                    "role": "feedback_resistor",
+                },
+                {
+                    "id": "U1",
+                    "kind": "opamp",
+                    "spicePrefix": "X",
+                    "nodes": ["in", "vfb", "vcc", "vee", "out"],
+                    "value": "UniversalOpamp",
+                    "role": "opamp",
+                },
             ],
             "subcircuits": [
                 {
@@ -1695,19 +1710,50 @@ def _ir_payload_for_seed(seed: TemplateManifest) -> dict[str, Any]:
             "description": "Non-inverting op-amp (seed IR).",
             "nodes": ["in", "out", "vfb", "vcc", "vee", "0"],
             "components": [
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 0.5 1k)"},
-                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vcc", "0"], "value": "DC 12"},
-                {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vee", "0"], "value": "DC -12"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "vfb"], "value": "10k", "role": "input_resistor"},
-                {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["vfb", "0"], "value": "10k", "role": "ground_resistor"},
-                {"id": "U1", "kind": "opamp", "spicePrefix": "X",
-                 "nodes": ["vfb", "0", "vcc", "vee", "out"],
-                 "value": "UniversalOpamp"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 0.5 1k)",
+                },
+                {
+                    "id": "Vcc",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vcc", "0"],
+                    "value": "DC 12",
+                },
+                {
+                    "id": "Vee",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vee", "0"],
+                    "value": "DC -12",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "vfb"],
+                    "value": "10k",
+                    "role": "input_resistor",
+                },
+                {
+                    "id": "R2",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["vfb", "0"],
+                    "value": "10k",
+                    "role": "ground_resistor",
+                },
+                {
+                    "id": "U1",
+                    "kind": "opamp",
+                    "spicePrefix": "X",
+                    "nodes": ["vfb", "0", "vcc", "vee", "out"],
+                    "value": "UniversalOpamp",
+                },
             ],
             "subcircuits": [
                 {
@@ -1734,17 +1780,41 @@ def _ir_payload_for_seed(seed: TemplateManifest) -> dict[str, Any]:
             "description": "Open-loop comparator (seed IR).",
             "nodes": ["in", "out", "vcc", "vee", "0"],
             "components": [
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 1 1k)"},
-                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vcc", "0"], "value": "DC 5"},
-                {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vee", "0"], "value": "DC 0"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "vcc"], "value": "1k"},
-                {"id": "U1", "kind": "opamp", "spicePrefix": "X",
-                 "nodes": ["vcc", "vee", "vcc", "vee", "out"],
-                 "value": "UniversalOpamp"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 1 1k)",
+                },
+                {
+                    "id": "Vcc",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vcc", "0"],
+                    "value": "DC 5",
+                },
+                {
+                    "id": "Vee",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vee", "0"],
+                    "value": "DC 0",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "vcc"],
+                    "value": "1k",
+                },
+                {
+                    "id": "U1",
+                    "kind": "opamp",
+                    "spicePrefix": "X",
+                    "nodes": ["vcc", "vee", "vcc", "vee", "out"],
+                    "value": "UniversalOpamp",
+                },
             ],
             "subcircuits": [
                 {
@@ -1772,14 +1842,34 @@ def _ir_payload_for_seed(seed: TemplateManifest) -> dict[str, Any]:
             "description": "Diode clipper (seed IR).",
             "nodes": ["in", "out", "high", "low", "0"],
             "components": [
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "out"], "value": "1k"},
-                {"id": "D1", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["out", "high"], "value": "1N4148"},
-                {"id": "D2", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["low", "out"], "value": "1N4148"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 5 1k)",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "out"],
+                    "value": "1k",
+                },
+                {
+                    "id": "D1",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["out", "high"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "D2",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["low", "out"],
+                    "value": "1N4148",
+                },
             ],
             "models": [
                 {"name": "1N4148", "type": "D", "params": ["IS=2.55e-9", "RS=0.5"]},
@@ -1800,12 +1890,27 @@ def _ir_payload_for_seed(seed: TemplateManifest) -> dict[str, Any]:
             "description": "Half-wave rectifier (seed IR).",
             "nodes": ["in", "out", "0"],
             "components": [
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
-                {"id": "D1", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["in", "out"], "value": "1N4148"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["out", "0"], "value": "1k"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 5 1k)",
+                },
+                {
+                    "id": "D1",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["in", "out"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["out", "0"],
+                    "value": "1k",
+                },
             ],
             "models": [
                 {"name": "1N4148", "type": "D", "params": ["IS=2.55e-9", "RS=0.5"]},
@@ -1825,18 +1930,48 @@ def _ir_payload_for_seed(seed: TemplateManifest) -> dict[str, Any]:
             "description": "Full-wave bridge rectifier (seed IR).",
             "nodes": ["in", "out", "0"],
             "components": [
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
-                {"id": "D1", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["in", "out"], "value": "1N4148"},
-                {"id": "D2", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["out", "in"], "value": "1N4148"},
-                {"id": "D3", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["0", "out"], "value": "1N4148"},
-                {"id": "D4", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["out", "0"], "value": "1N4148"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["out", "0"], "value": "1k"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 5 1k)",
+                },
+                {
+                    "id": "D1",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["in", "out"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "D2",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["out", "in"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "D3",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["0", "out"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "D4",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["out", "0"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["out", "0"],
+                    "value": "1k",
+                },
             ],
             "models": [
                 {"name": "1N4148", "type": "D", "params": ["IS=2.55e-9", "RS=0.5"]},
@@ -1857,16 +1992,41 @@ def _ir_payload_for_seed(seed: TemplateManifest) -> dict[str, Any]:
             "description": "NPN low-side switch (seed IR).",
             "nodes": ["in", "base", "vcc", "out", "0"],
             "components": [
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "PULSE(0 5 0 1n 1n 1m 2m)"},
-                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vcc", "0"], "value": "DC 12"},
-                {"id": "Rb", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "base"], "value": "10k"},
-                {"id": "Rl", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["vcc", "out"], "value": "1k"},
-                {"id": "Q1", "kind": "npn", "spicePrefix": "Q",
-                 "nodes": ["out", "base", "0"], "value": "BC547"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "PULSE(0 5 0 1n 1n 1m 2m)",
+                },
+                {
+                    "id": "Vcc",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vcc", "0"],
+                    "value": "DC 12",
+                },
+                {
+                    "id": "Rb",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "base"],
+                    "value": "10k",
+                },
+                {
+                    "id": "Rl",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["vcc", "out"],
+                    "value": "1k",
+                },
+                {
+                    "id": "Q1",
+                    "kind": "npn",
+                    "spicePrefix": "Q",
+                    "nodes": ["out", "base", "0"],
+                    "value": "BC547",
+                },
             ],
             "models": [
                 {"name": "BC547", "type": "NPN", "params": ["BF=400", "VAF=80"]},

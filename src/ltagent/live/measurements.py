@@ -179,23 +179,13 @@ class MeasurementRequest:
         # construction, so the only thing to do here is sanity-check
         # the strings.
         if not isinstance(self.analysis, AnalysisKind):
-            raise TypeError(
-                f"analysis must be an AnalysisKind, got {type(self.analysis).__name__}"
-            )
+            raise TypeError(f"analysis must be an AnalysisKind, got {type(self.analysis).__name__}")
         if not isinstance(self.function, MeasFunction):
-            raise TypeError(
-                f"function must be a MeasFunction, got {type(self.function).__name__}"
-            )
+            raise TypeError(f"function must be a MeasFunction, got {type(self.function).__name__}")
         if not _MEAS_NAME_PATTERN.match(self.name):
-            raise ValueError(
-                f"measurement name {self.name!r} is not a valid SPICE identifier"
-            )
-        if not _EXPR_PATTERN.match(self.expression) or not _PROBE_PATTERN.search(
-            self.expression
-        ):
-            raise ValueError(
-                f"measurement expression {self.expression!r} is not a valid probe"
-            )
+            raise ValueError(f"measurement name {self.name!r} is not a valid SPICE identifier")
+        if not _EXPR_PATTERN.match(self.expression) or not _PROBE_PATTERN.search(self.expression):
+            raise ValueError(f"measurement expression {self.expression!r} is not a valid probe")
         if self.at_value is not None and self.function is not MeasFunction.FIND:
             raise ValueError(
                 "AT clause is only valid for .meas FIND directives; "
@@ -427,8 +417,7 @@ def ripple_from_max_min(
             "vmin": vmin_f if vmin_f is not None else 0.0,
             "passed": False,
             "detail": (
-                "ripple_from_max_min requires two finite numbers; "
-                f"got vmax={vmax!r}, vmin={vmin!r}"
+                f"ripple_from_max_min requires two finite numbers; got vmax={vmax!r}, vmin={vmin!r}"
             ),
         }
     ripple = vmax_f - vmin_f

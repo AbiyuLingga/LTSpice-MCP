@@ -22,20 +22,33 @@ KIND_ARITY = KIND_MIN_ARITY
 MEASUREMENT_ANALYSIS_KINDS = SUPPORTED_ANALYSIS_KINDS
 
 KIND_TO_SPICE_PREFIX: dict[str, str] = {
-    "voltage_source": "V", "current_source": "I", "resistor": "R",
-    "capacitor": "C", "inductor": "L", "diode": "D",
-    "npn": "Q", "pnp": "Q", "nmos": "M", "pmos": "M", "opamp": "X",
+    "voltage_source": "V",
+    "current_source": "I",
+    "resistor": "R",
+    "capacitor": "C",
+    "inductor": "L",
+    "diode": "D",
+    "npn": "Q",
+    "pnp": "Q",
+    "nmos": "M",
+    "pmos": "M",
+    "opamp": "X",
 }
 
 NET_TYPE_GROUND: str = "ground"
 NET_TYPE_SIGNAL: str = "signal"
 
 PIN_NAMES: dict[str, tuple[str, ...]] = {
-    "resistor": ("p1", "p2"), "capacitor": ("p1", "p2"),
-    "inductor": ("p1", "p2"), "voltage_source": ("p1", "p2"),
-    "current_source": ("p1", "p2"), "diode": ("p1", "p2"),
-    "npn": ("c", "b", "e"), "pnp": ("c", "b", "e"),
-    "nmos": ("d", "g", "s", "b"), "pmos": ("d", "g", "s", "b"),
+    "resistor": ("p1", "p2"),
+    "capacitor": ("p1", "p2"),
+    "inductor": ("p1", "p2"),
+    "voltage_source": ("p1", "p2"),
+    "current_source": ("p1", "p2"),
+    "diode": ("p1", "p2"),
+    "npn": ("c", "b", "e"),
+    "pnp": ("c", "b", "e"),
+    "nmos": ("d", "g", "s", "b"),
+    "pmos": ("d", "g", "s", "b"),
     "opamp": ("ip", "in", "vp", "vn", "out"),
 }
 
@@ -90,24 +103,34 @@ def clone_graph(graph: Any) -> Any:
 
 def _empty_graph() -> dict[str, Any]:
     return {
-        "schemaVersion": GRAPH_SCHEMA_VERSION, "projectId": "", "domain": "analog",
-        "topology": "", "components": {}, "nets": {}, "analyses": [],
-        "measurements": [], "directives": [],
+        "schemaVersion": GRAPH_SCHEMA_VERSION,
+        "projectId": "",
+        "domain": "analog",
+        "topology": "",
+        "components": {},
+        "nets": {},
+        "analyses": [],
+        "measurements": [],
+        "directives": [],
     }
 
 
 def _coerce_graph(graph: Any) -> tuple[Any, EditError | None]:
     if graph is None:
         return _empty_graph(), EditError(
-            code=ERR_GRAPH_TYPE, path="<root>",
-            detail="graph must be a Mapping or CircuitGraph, got None")
+            code=ERR_GRAPH_TYPE,
+            path="<root>",
+            detail="graph must be a Mapping or CircuitGraph, got None",
+        )
     model_dump = getattr(graph, "model_dump", None)
     if callable(model_dump):
         return clone_graph(graph), None
     if not isinstance(graph, Mapping):
         return _empty_graph(), EditError(
-            code=ERR_GRAPH_TYPE, path="<root>",
-            detail=f"graph must be a Mapping or CircuitGraph, got {type(graph).__name__}")
+            code=ERR_GRAPH_TYPE,
+            path="<root>",
+            detail=f"graph must be a Mapping or CircuitGraph, got {type(graph).__name__}",
+        )
     return clone_graph(graph), None
 
 
@@ -138,9 +161,11 @@ def _register_net(graph: dict[str, Any], net_name: str, *, result: EditResult) -
         return
     nets[net_name] = {"name": net_name, "type": NET_TYPE_SIGNAL}
     result.add_warning(
-        code=WARN_NET_AUTO_CREATED, path=f"nets.{net_name}",
+        code=WARN_NET_AUTO_CREATED,
+        path=f"nets.{net_name}",
         detail=f"net {net_name!r} was not declared; auto-created as {NET_TYPE_SIGNAL!r}",
-        data={"netName": net_name, "type": NET_TYPE_SIGNAL})
+        data={"netName": net_name, "type": NET_TYPE_SIGNAL},
+    )
 
 
 def _net_referenced(components: Mapping[str, Any], net_name: str) -> bool:
@@ -179,8 +204,14 @@ def _get_mapping(graph: Any, key: str) -> Mapping[str, Any] | None:
 
 
 def add_component(
-    graph: Any, component_id: str, kind: str, pins: Mapping[str, str | None],
-    *, value: str | None = None, model: str | None = None, role: str | None = None,
+    graph: Any,
+    component_id: str,
+    kind: str,
+    pins: Mapping[str, str | None],
+    *,
+    value: str | None = None,
+    model: str | None = None,
+    role: str | None = None,
 ) -> EditResult:
     new_graph, graph_error = _coerce_graph(graph)
     result = EditResult(graph=new_graph)
@@ -189,72 +220,99 @@ def add_component(
         return result
     if not _validate_identifier(component_id):
         result.add_error(
-            code=ERR_COMPONENT_ID_INVALID, path="components",
+            code=ERR_COMPONENT_ID_INVALID,
+            path="components",
             detail=f"component id {component_id!r} must match {IDENTIFIER_PATTERN.pattern}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
     if kind not in KIND_ARITY:
         result.add_error(
-            code=ERR_COMPONENT_KIND_UNKNOWN, path=f"components.{component_id}.kind",
+            code=ERR_COMPONENT_KIND_UNKNOWN,
+            path=f"components.{component_id}.kind",
             detail=f"component kind {kind!r} is not supported; allowed: {sorted(KIND_ARITY)}",
-            data={"componentId": component_id, "kind": kind})
+            data={"componentId": component_id, "kind": kind},
+        )
         return result
     components: dict[str, Any] = new_graph.setdefault("components", {})
     if component_id in components:
         result.add_error(
-            code=ERR_COMPONENT_ID_DUPLICATE, path=f"components.{component_id}",
+            code=ERR_COMPONENT_ID_DUPLICATE,
+            path=f"components.{component_id}",
             detail=f"component id {component_id!r} already exists",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     if not isinstance(pins, Mapping):
         result.add_error(
-            code=ERR_COMPONENT_PIN_SHAPE, path=f"components.{component_id}.pins",
+            code=ERR_COMPONENT_PIN_SHAPE,
+            path=f"components.{component_id}.pins",
             detail=f"pins must be a mapping, got {type(pins).__name__}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     arity = KIND_ARITY[kind]
     pin_items: list[tuple[str, str | None]] = []
     for pin_name, net_name in pins.items():
         if not _validate_identifier(pin_name):
             result.add_error(
-                code=ERR_PIN_NAME_INVALID, path=f"components.{component_id}.pins",
+                code=ERR_PIN_NAME_INVALID,
+                path=f"components.{component_id}.pins",
                 detail=f"pin name {pin_name!r} must match {IDENTIFIER_PATTERN.pattern}",
-                data={"componentId": component_id, "pin": str(pin_name)})
+                data={"componentId": component_id, "pin": str(pin_name)},
+            )
             continue
         if net_name is not None and not _validate_node_name(net_name):
             result.add_error(
-                code=ERR_NET_NAME_INVALID, path=f"components.{component_id}.pins.{pin_name}",
+                code=ERR_NET_NAME_INVALID,
+                path=f"components.{component_id}.pins.{pin_name}",
                 detail=f"net name {net_name!r} must match {NODE_NAME_PATTERN.pattern}",
-                data={"componentId": component_id, "pin": pin_name, "net": str(net_name)})
+                data={"componentId": component_id, "pin": pin_name, "net": str(net_name)},
+            )
             continue
         pin_items.append((pin_name, net_name))
     if len(pin_items) != arity:
         result.add_error(
-            code=ERR_COMPONENT_ARITY, path=f"components.{component_id}.pins",
+            code=ERR_COMPONENT_ARITY,
+            path=f"components.{component_id}.pins",
             detail=f"component {component_id!r} kind {kind!r} requires {arity} pins, got {len(pin_items)}",
-            data={"componentId": component_id, "kind": kind, "expected": arity, "got": len(pin_items)})
+            data={
+                "componentId": component_id,
+                "kind": kind,
+                "expected": arity,
+                "got": len(pin_items),
+            },
+        )
         return result
     if kind in _SOURCE_KINDS and (not isinstance(value, str) or not value.strip()):
         result.add_error(
-            code=ERR_COMPONENT_VALUE_REQUIRED, path=f"components.{component_id}.value",
+            code=ERR_COMPONENT_VALUE_REQUIRED,
+            path=f"components.{component_id}.value",
             detail=f"source component {component_id!r} requires a non-empty value",
-            data={"componentId": component_id, "kind": kind})
+            data={"componentId": component_id, "kind": kind},
+        )
     if kind in _SEMICON_KINDS:
         chosen = model if (isinstance(model, str) and model.strip()) else value
         if not isinstance(chosen, str) or not chosen.strip():
             result.add_error(
-                code=ERR_COMPONENT_MODEL_REQUIRED, path=f"components.{component_id}.model",
+                code=ERR_COMPONENT_MODEL_REQUIRED,
+                path=f"components.{component_id}.model",
                 detail=f"semiconductor component {component_id!r} requires a non-empty model name in `model` or `value`",
-                data={"componentId": component_id, "kind": kind})
+                data={"componentId": component_id, "kind": kind},
+            )
     if kind in _SUBCKT_KINDS and (not isinstance(value, str) or not value.strip()):
         result.add_error(
-            code=ERR_COMPONENT_VALUE_REQUIRED, path=f"components.{component_id}.value",
+            code=ERR_COMPONENT_VALUE_REQUIRED,
+            path=f"components.{component_id}.value",
             detail=f"opamp component {component_id!r} requires a non-empty subcircuit name in `value`",
-            data={"componentId": component_id, "kind": kind})
+            data={"componentId": component_id, "kind": kind},
+        )
     if kind in _VALUE_OR_MODEL_KINDS and (not isinstance(value, str) or not value.strip()):
         result.add_error(
-            code=ERR_COMPONENT_VALUE_REQUIRED, path=f"components.{component_id}.value",
+            code=ERR_COMPONENT_VALUE_REQUIRED,
+            path=f"components.{component_id}.value",
             detail=f"passive component {component_id!r} requires a non-empty value",
-            data={"componentId": component_id, "kind": kind})
+            data={"componentId": component_id, "kind": kind},
+        )
     if result.errors:
         return result
     pin_map: dict[str, str | None] = {pin: net for pin, net in pin_items}
@@ -270,8 +328,12 @@ def add_component(
         _register_net(new_graph, net_name, result=result)
     components[component_id] = new_component
     result.add_change(
-        op="add_component", target=component_id, before=None, after=dict(new_component),
-        data={"kind": kind, "value": value, "model": model, "role": role})
+        op="add_component",
+        target=component_id,
+        before=None,
+        after=dict(new_component),
+        data={"kind": kind, "value": value, "model": model, "role": role},
+    )
     return result
 
 
@@ -283,16 +345,20 @@ def remove_component(graph: Any, component_id: str) -> EditResult:
         return result
     if not _validate_identifier(component_id):
         result.add_error(
-            code=ERR_COMPONENT_ID_INVALID, path="components",
+            code=ERR_COMPONENT_ID_INVALID,
+            path="components",
             detail=f"component id {component_id!r} must match {IDENTIFIER_PATTERN.pattern}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     components: dict[str, Any] = new_graph.setdefault("components", {})
     if component_id not in components:
         result.add_error(
-            code=ERR_COMPONENT_NOT_FOUND, path=f"components.{component_id}",
+            code=ERR_COMPONENT_NOT_FOUND,
+            path=f"components.{component_id}",
             detail=f"component id {component_id!r} does not exist",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     removed = components.pop(component_id)
     result.add_change(op="remove_component", target=component_id, before=removed, after=None)
@@ -307,42 +373,54 @@ def set_component_value(graph: Any, component_id: str, value: str) -> EditResult
         return result
     if not _validate_identifier(component_id):
         result.add_error(
-            code=ERR_COMPONENT_ID_INVALID, path="components",
+            code=ERR_COMPONENT_ID_INVALID,
+            path="components",
             detail=f"component id {component_id!r} must match {IDENTIFIER_PATTERN.pattern}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     if not isinstance(value, str):
         result.add_error(
-            code=ERR_COMPONENT_VALUE_INVALID, path=f"components.{component_id}.value",
+            code=ERR_COMPONENT_VALUE_INVALID,
+            path=f"components.{component_id}.value",
             detail=f"value must be a string, got {type(value).__name__}",
-            data={"componentId": component_id, "type": type(value).__name__})
+            data={"componentId": component_id, "type": type(value).__name__},
+        )
         return result
     if not value.strip():
         result.add_error(
-            code=ERR_COMPONENT_VALUE_INVALID, path=f"components.{component_id}.value",
+            code=ERR_COMPONENT_VALUE_INVALID,
+            path=f"components.{component_id}.value",
             detail="value must be a non-empty string",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     components: dict[str, Any] = new_graph.setdefault("components", {})
     if component_id not in components:
         result.add_error(
-            code=ERR_COMPONENT_NOT_FOUND, path=f"components.{component_id}",
+            code=ERR_COMPONENT_NOT_FOUND,
+            path=f"components.{component_id}",
             detail=f"component id {component_id!r} does not exist",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     component = components[component_id]
     if not isinstance(component, dict):
         result.add_error(
-            code=ERR_COMPONENT_MISSING, path=f"components.{component_id}",
+            code=ERR_COMPONENT_MISSING,
+            path=f"components.{component_id}",
             detail=f"component {component_id!r} is malformed: expected dict, got {type(component).__name__}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     before = component.get("value")
     if before == value:
         result.add_warning(
-            code=WARN_VALUE_UNCHANGED, path=f"components.{component_id}.value",
+            code=WARN_VALUE_UNCHANGED,
+            path=f"components.{component_id}.value",
             detail=f"value of {component_id!r} is already {value!r}; no change applied",
-            data={"componentId": component_id, "value": value})
+            data={"componentId": component_id, "value": value},
+        )
         return result
     component["value"] = value
     result.add_change(op="set_component_value", target=component_id, before=before, after=value)
@@ -357,63 +435,82 @@ def connect_pin(graph: Any, component_id: str, pin_name: str, net_name: str) -> 
         return result
     if not _validate_identifier(component_id):
         result.add_error(
-            code=ERR_COMPONENT_ID_INVALID, path="components",
+            code=ERR_COMPONENT_ID_INVALID,
+            path="components",
             detail=f"component id {component_id!r} must match {IDENTIFIER_PATTERN.pattern}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     if not _validate_identifier(pin_name):
         result.add_error(
-            code=ERR_PIN_NAME_INVALID, path=f"components.{component_id}.pins",
+            code=ERR_PIN_NAME_INVALID,
+            path=f"components.{component_id}.pins",
             detail=f"pin name {pin_name!r} must match {IDENTIFIER_PATTERN.pattern}",
-            data={"componentId": component_id, "pin": str(pin_name)})
+            data={"componentId": component_id, "pin": str(pin_name)},
+        )
         return result
     if not _validate_node_name(net_name):
         result.add_error(
-            code=ERR_NET_NAME_INVALID, path=f"components.{component_id}.pins.{pin_name}",
+            code=ERR_NET_NAME_INVALID,
+            path=f"components.{component_id}.pins.{pin_name}",
             detail=f"net name {net_name!r} must match {NODE_NAME_PATTERN.pattern}",
-            data={"componentId": component_id, "pin": pin_name, "net": str(net_name)})
+            data={"componentId": component_id, "pin": pin_name, "net": str(net_name)},
+        )
         return result
     components: dict[str, Any] = new_graph.setdefault("components", {})
     if component_id not in components:
         result.add_error(
-            code=ERR_COMPONENT_NOT_FOUND, path=f"components.{component_id}",
+            code=ERR_COMPONENT_NOT_FOUND,
+            path=f"components.{component_id}",
             detail=f"component id {component_id!r} does not exist",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     component = components[component_id]
     if not isinstance(component, dict):
         result.add_error(
-            code=ERR_COMPONENT_MISSING, path=f"components.{component_id}",
+            code=ERR_COMPONENT_MISSING,
+            path=f"components.{component_id}",
             detail=f"component {component_id!r} is malformed: expected dict, got {type(component).__name__}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     pins_obj = component.get("pins")
     if not isinstance(pins_obj, dict):
         result.add_error(
-            code=ERR_COMPONENT_PIN_SHAPE, path=f"components.{component_id}.pins",
+            code=ERR_COMPONENT_PIN_SHAPE,
+            path=f"components.{component_id}.pins",
             detail=f"component {component_id!r} pins must be a dict, got {type(pins_obj).__name__}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     if pin_name not in pins_obj:
         result.add_error(
-            code=ERR_PIN_NOT_FOUND, path=f"components.{component_id}.pins.{pin_name}",
+            code=ERR_PIN_NOT_FOUND,
+            path=f"components.{component_id}.pins.{pin_name}",
             detail=f"pin {pin_name!r} is not declared on component {component_id!r}",
-            data={"componentId": component_id, "pin": pin_name})
+            data={"componentId": component_id, "pin": pin_name},
+        )
         return result
     before = pins_obj[pin_name]
     if before == net_name:
         result.add_warning(
-            code=WARN_PIN_ALREADY_CONNECTED, path=f"components.{component_id}.pins.{pin_name}",
+            code=WARN_PIN_ALREADY_CONNECTED,
+            path=f"components.{component_id}.pins.{pin_name}",
             detail=f"pin {pin_name!r} of {component_id!r} is already connected to net {net_name!r}",
-            data={"componentId": component_id, "pin": pin_name, "net": net_name})
+            data={"componentId": component_id, "pin": pin_name, "net": net_name},
+        )
         return result
     _ensure_ground_net(new_graph)
     _register_net(new_graph, net_name, result=result)
     pins_obj[pin_name] = net_name
     result.add_change(
-        op="connect_pin", target=f"{component_id}.{pin_name}",
-        before=before, after=net_name,
-        data={"componentId": component_id, "pin": pin_name, "net": net_name})
+        op="connect_pin",
+        target=f"{component_id}.{pin_name}",
+        before=before,
+        after=net_name,
+        data={"componentId": component_id, "pin": pin_name, "net": net_name},
+    )
     return result
 
 
@@ -425,55 +522,72 @@ def disconnect_pin(graph: Any, component_id: str, pin_name: str) -> EditResult:
         return result
     if not _validate_identifier(component_id):
         result.add_error(
-            code=ERR_COMPONENT_ID_INVALID, path="components",
+            code=ERR_COMPONENT_ID_INVALID,
+            path="components",
             detail=f"component id {component_id!r} must match {IDENTIFIER_PATTERN.pattern}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     if not _validate_identifier(pin_name):
         result.add_error(
-            code=ERR_PIN_NAME_INVALID, path=f"components.{component_id}.pins",
+            code=ERR_PIN_NAME_INVALID,
+            path=f"components.{component_id}.pins",
             detail=f"pin name {pin_name!r} must match {IDENTIFIER_PATTERN.pattern}",
-            data={"componentId": component_id, "pin": str(pin_name)})
+            data={"componentId": component_id, "pin": str(pin_name)},
+        )
         return result
     components: dict[str, Any] = new_graph.setdefault("components", {})
     if component_id not in components:
         result.add_error(
-            code=ERR_COMPONENT_NOT_FOUND, path=f"components.{component_id}",
+            code=ERR_COMPONENT_NOT_FOUND,
+            path=f"components.{component_id}",
             detail=f"component id {component_id!r} does not exist",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     component = components[component_id]
     if not isinstance(component, dict):
         result.add_error(
-            code=ERR_COMPONENT_MISSING, path=f"components.{component_id}",
+            code=ERR_COMPONENT_MISSING,
+            path=f"components.{component_id}",
             detail=f"component {component_id!r} is malformed: expected dict, got {type(component).__name__}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     pins_obj = component.get("pins")
     if not isinstance(pins_obj, dict):
         result.add_error(
-            code=ERR_COMPONENT_PIN_SHAPE, path=f"components.{component_id}.pins",
+            code=ERR_COMPONENT_PIN_SHAPE,
+            path=f"components.{component_id}.pins",
             detail=f"component {component_id!r} pins must be a dict, got {type(pins_obj).__name__}",
-            data={"componentId": component_id})
+            data={"componentId": component_id},
+        )
         return result
     if pin_name not in pins_obj:
         result.add_error(
-            code=ERR_PIN_NOT_FOUND, path=f"components.{component_id}.pins.{pin_name}",
+            code=ERR_PIN_NOT_FOUND,
+            path=f"components.{component_id}.pins.{pin_name}",
             detail=f"pin {pin_name!r} is not declared on component {component_id!r}",
-            data={"componentId": component_id, "pin": pin_name})
+            data={"componentId": component_id, "pin": pin_name},
+        )
         return result
     before = pins_obj[pin_name]
     if before is None:
         result.add_warning(
-            code=WARN_PIN_ALREADY_DISCONNECTED, path=f"components.{component_id}.pins.{pin_name}",
+            code=WARN_PIN_ALREADY_DISCONNECTED,
+            path=f"components.{component_id}.pins.{pin_name}",
             detail=f"pin {pin_name!r} of {component_id!r} is already disconnected",
-            data={"componentId": component_id, "pin": pin_name})
+            data={"componentId": component_id, "pin": pin_name},
+        )
         return result
     pins_obj[pin_name] = None
     result.add_change(
-        op="disconnect_pin", target=f"{component_id}.{pin_name}",
-        before=before, after=None,
-        data={"componentId": component_id, "pin": pin_name})
+        op="disconnect_pin",
+        target=f"{component_id}.{pin_name}",
+        before=before,
+        after=None,
+        data={"componentId": component_id, "pin": pin_name},
+    )
     return result
 
 
@@ -485,35 +599,45 @@ def rename_net(graph: Any, old_name: str, new_name: str) -> EditResult:
         return result
     if not _validate_node_name(old_name):
         result.add_error(
-            code=ERR_NET_NAME_INVALID, path="nets",
+            code=ERR_NET_NAME_INVALID,
+            path="nets",
             detail=f"net name {old_name!r} must match {NODE_NAME_PATTERN.pattern}",
-            data={"net": str(old_name)})
+            data={"net": str(old_name)},
+        )
         return result
     if not _validate_node_name(new_name):
         result.add_error(
-            code=ERR_NET_NAME_INVALID, path="nets",
+            code=ERR_NET_NAME_INVALID,
+            path="nets",
             detail=f"net name {new_name!r} must match {NODE_NAME_PATTERN.pattern}",
-            data={"net": str(new_name)})
+            data={"net": str(new_name)},
+        )
         return result
     if old_name == new_name:
         result.add_warning(
-            code=WARN_VALUE_UNCHANGED, path="nets",
+            code=WARN_VALUE_UNCHANGED,
+            path="nets",
             detail=f"net {old_name!r} is already named {new_name!r}; no change applied",
-            data={"oldName": old_name, "newName": new_name})
+            data={"oldName": old_name, "newName": new_name},
+        )
         return result
     nets: dict[str, Any] = new_graph.setdefault("nets", {})
     components: dict[str, Any] = new_graph.setdefault("components", {})
     if old_name not in nets and not _net_referenced(components, old_name):
         result.add_error(
-            code=ERR_NET_NOT_FOUND, path=f"nets.{old_name}",
+            code=ERR_NET_NOT_FOUND,
+            path=f"nets.{old_name}",
             detail=f"net {old_name!r} is not declared and not referenced by any component pin",
-            data={"net": old_name})
+            data={"net": old_name},
+        )
         return result
     if new_name in nets:
         result.add_error(
-            code=ERR_NET_EXISTS, path=f"nets.{new_name}",
+            code=ERR_NET_EXISTS,
+            path=f"nets.{new_name}",
             detail=f"net {new_name!r} already exists; refusing to overwrite",
-            data={"oldName": old_name, "newName": new_name})
+            data={"oldName": old_name, "newName": new_name},
+        )
         return result
     net_type = NET_TYPE_SIGNAL
     if old_name in nets and isinstance(nets[old_name], Mapping):
@@ -534,10 +658,21 @@ def rename_net(graph: Any, old_name: str, new_name: str) -> EditResult:
         for pin_name, pin_net in pins_obj.items():
             if pin_net == old_name:
                 pins_obj[pin_name] = new_name
-                pin_updates.append({"componentId": comp_id, "pin": pin_name, "from": old_name, "to": new_name})
+                pin_updates.append(
+                    {"componentId": comp_id, "pin": pin_name, "from": old_name, "to": new_name}
+                )
     result.add_change(
-        op="rename_net", target=old_name, before=old_name, after=new_name,
-        data={"oldName": old_name, "newName": new_name, "type": net_type, "pinUpdates": pin_updates})
+        op="rename_net",
+        target=old_name,
+        before=old_name,
+        after=new_name,
+        data={
+            "oldName": old_name,
+            "newName": new_name,
+            "type": net_type,
+            "pinUpdates": pin_updates,
+        },
+    )
     return result
 
 
@@ -549,30 +684,41 @@ def add_directive(graph: Any, directive_text: str) -> EditResult:
         return result
     if not isinstance(directive_text, str):
         result.add_error(
-            code=ERR_DIRECTIVE_EMPTY, path="directives",
+            code=ERR_DIRECTIVE_EMPTY,
+            path="directives",
             detail=f"directive must be a string, got {type(directive_text).__name__}",
-            data={"type": type(directive_text).__name__})
+            data={"type": type(directive_text).__name__},
+        )
         return result
     stripped = directive_text.strip()
     if not stripped:
-        result.add_error(code=ERR_DIRECTIVE_EMPTY, path="directives", detail="directive must be a non-empty string")
+        result.add_error(
+            code=ERR_DIRECTIVE_EMPTY,
+            path="directives",
+            detail="directive must be a non-empty string",
+        )
         return result
     first_token = stripped.split()[0]
     if first_token not in DIRECTIVE_ALLOWLIST:
         result.add_error(
-            code=ERR_DIRECTIVE_NOT_ALLOWED, path="directives",
+            code=ERR_DIRECTIVE_NOT_ALLOWED,
+            path="directives",
             detail=f"directive {first_token!r} is not in allowlist; allowed: {sorted(DIRECTIVE_ALLOWLIST)}",
-            data={"directive": stripped, "firstToken": first_token})
+            data={"directive": stripped, "firstToken": first_token},
+        )
         return result
     directives: list[dict[str, Any]] = new_graph.setdefault("directives", [])
     directive_entry: dict[str, Any] = {"name": first_token}
-    args = stripped[len(first_token):].strip()
+    args = stripped[len(first_token) :].strip()
     if args:
         directive_entry["args"] = args
     directives.append(directive_entry)
     result.add_change(
-        op="add_directive", target=f"directives[{len(directives) - 1}]",
-        before=None, after=dict(directive_entry))
+        op="add_directive",
+        target=f"directives[{len(directives) - 1}]",
+        before=None,
+        after=dict(directive_entry),
+    )
     return result
 
 
@@ -584,35 +730,51 @@ def add_measurement(graph: Any, name: str, analysis: str, expression: str) -> Ed
         return result
     if not _validate_identifier(name):
         result.add_error(
-            code=ERR_MEASUREMENT_NAME_INVALID, path="measurements",
+            code=ERR_MEASUREMENT_NAME_INVALID,
+            path="measurements",
             detail=f"measurement name {name!r} must match {IDENTIFIER_PATTERN.pattern}",
-            data={"measurementName": name})
+            data={"measurementName": name},
+        )
         return result
     if not isinstance(analysis, str) or analysis not in MEASUREMENT_ANALYSIS_KINDS:
         result.add_error(
-            code=ERR_MEASUREMENT_ANALYSIS_INVALID, path=f"measurements.{name}.analysis",
+            code=ERR_MEASUREMENT_ANALYSIS_INVALID,
+            path=f"measurements.{name}.analysis",
             detail=f"measurement analysis {analysis!r} must be one of {sorted(MEASUREMENT_ANALYSIS_KINDS)}",
-            data={"measurementName": name, "analysis": str(analysis)})
+            data={"measurementName": name, "analysis": str(analysis)},
+        )
         return result
     if not isinstance(expression, str) or not expression.strip():
         result.add_error(
-            code=ERR_MEASUREMENT_EXPRESSION_EMPTY, path=f"measurements.{name}.expression",
+            code=ERR_MEASUREMENT_EXPRESSION_EMPTY,
+            path=f"measurements.{name}.expression",
             detail="measurement expression must be a non-empty string",
-            data={"measurementName": name})
+            data={"measurementName": name},
+        )
         return result
     measurements: list[dict[str, Any]] = new_graph.setdefault("measurements", [])
     for existing in measurements:
         if isinstance(existing, dict) and existing.get("name") == name:
             result.add_error(
-                code=ERR_MEASUREMENT_EXISTS, path=f"measurements.{name}",
+                code=ERR_MEASUREMENT_EXISTS,
+                path=f"measurements.{name}",
                 detail=f"measurement {name!r} already exists",
-                data={"measurementName": name})
+                data={"measurementName": name},
+            )
             return result
-    new_measurement: dict[str, Any] = {"name": name, "analysis": analysis, "expression": expression.strip()}
+    new_measurement: dict[str, Any] = {
+        "name": name,
+        "analysis": analysis,
+        "expression": expression.strip(),
+    }
     measurements.append(new_measurement)
     result.add_change(
-        op="add_measurement", target=name, before=None, after=dict(new_measurement),
-        data={"analysis": analysis})
+        op="add_measurement",
+        target=name,
+        before=None,
+        after=dict(new_measurement),
+        data={"analysis": analysis},
+    )
     return result
 
 

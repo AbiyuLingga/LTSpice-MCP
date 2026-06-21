@@ -41,9 +41,7 @@ def _ir() -> DesignIR:
 
 
 def test_resolve_project_dir_uses_date_prefix(tmp_path: Path) -> None:
-    pid, pdir = resolve_project_dir(
-        name="tiny8_x", projects_root=tmp_path, today="2026-06-19"
-    )
+    pid, pdir = resolve_project_dir(name="tiny8_x", projects_root=tmp_path, today="2026-06-19")
     assert pid == "2026-06-19_tiny8_x"
     assert pdir == tmp_path / "2026-06-19_tiny8_x"
 
@@ -79,7 +77,5 @@ def test_create_project_passes_allow_outside_workspace_through() -> None:
     the normal flow (resolve_project_dir always returns a path
     under projects_root).
     """
-    req = ProjectRequest(
-        ir=_ir(), projects_root=Path("/tmp"), allow_outside_workspace=True
-    )
+    req = ProjectRequest(ir=_ir(), projects_root=Path("/tmp"), allow_outside_workspace=True)
     assert req.allow_outside_workspace is True

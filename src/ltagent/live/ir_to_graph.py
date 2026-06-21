@@ -85,9 +85,7 @@ class IRToGraphError(ValueError):
     response without re-parsing the message text.
     """
 
-    def __init__(
-        self, code: str, message: str, *, data: dict[str, object] | None = None
-    ) -> None:
+    def __init__(self, code: str, message: str, *, data: dict[str, object] | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
@@ -129,9 +127,7 @@ def _graph_constraints(ir: CircuitIR) -> Constraints | None:
     # Pydantic model; the graph layer accepts the same shape (flat
     # scalar dict). We re-dump to a dict and re-validate to keep the
     # graph model defensive against any IR evolution.
-    payload: dict[str, object] = ir.constraints.model_dump(
-        mode="json", exclude_none=True
-    )
+    payload: dict[str, object] = ir.constraints.model_dump(mode="json", exclude_none=True)
     if not payload:
         return None
     return Constraints.model_validate(payload)
@@ -154,9 +150,7 @@ def _graph_layout_hints(ir: CircuitIR) -> LayoutHint | None:
     return LayoutHint.model_validate(hints_payload)
 
 
-def _build_pins(
-    component: IRComponent, pin_names: tuple[str, ...]
-) -> dict[str, str]:
+def _build_pins(component: IRComponent, pin_names: tuple[str, ...]) -> dict[str, str]:
     if len(component.nodes) != len(pin_names):
         raise IRToGraphError(
             ERR_IR_TO_GRAPH_PIN_ARITY,

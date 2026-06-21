@@ -192,9 +192,7 @@ def test_create_rejects_traversal_outside_workspace(workspace: Path, examples_di
     assert not outside.exists()
 
 
-def test_create_allows_outside_workspace_with_flag(
-    workspace: Path, examples_dir: Path
-) -> None:
+def test_create_allows_outside_workspace_with_flag(workspace: Path, examples_dir: Path) -> None:
     outside = workspace.parent / "legit_target"
     proc = _run_ltagent(
         [
@@ -235,9 +233,7 @@ def test_create_rejects_missing_ir_file(workspace: Path) -> None:
     assert payload["success"] is False
 
 
-def test_create_with_both_ir_file_and_prompt_ambiguous(
-    workspace: Path, examples_dir: Path
-) -> None:
+def test_create_with_both_ir_file_and_prompt_ambiguous(workspace: Path, examples_dir: Path) -> None:
     proc = _run_ltagent(
         [
             "create",

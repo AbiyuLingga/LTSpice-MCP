@@ -77,9 +77,7 @@ IDENTIFIER_PATTERN: re.Pattern[str] = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 #: characters that would be SPICE syntax (parens, dots, brackets,
 #: equals) so the pin name cannot smuggle anything through to the
 #: generated netlist.
-PIN_NAME_PATTERN: re.Pattern[str] = re.compile(
-    r"^[A-Za-z0-9_+\-][A-Za-z0-9_+\-]*$"
-)
+PIN_NAME_PATTERN: re.Pattern[str] = re.compile(r"^[A-Za-z0-9_+\-][A-Za-z0-9_+\-]*$")
 
 #: SPICE-safe net name. Allows leading letter/underscore so node names
 #: such as ``out`` or ``fb`` are accepted. The ground net must be
@@ -249,9 +247,7 @@ class PinMap(BaseModel):
     def _check_pin_and_net_names(cls, v: dict[str, str]) -> dict[str, str]:
         for pin, net in v.items():
             if not isinstance(pin, str) or not PIN_NAME_PATTERN.match(pin):
-                raise ValueError(
-                    f"pin name {pin!r} must match {PIN_NAME_PATTERN.pattern}"
-                )
+                raise ValueError(f"pin name {pin!r} must match {PIN_NAME_PATTERN.pattern}")
             if not isinstance(net, str) or not NODE_NAME_PATTERN.match(net):
                 raise ValueError(
                     f"net name {net!r} (referenced by pin {pin!r}) is not a safe "
@@ -294,9 +290,7 @@ class Net(BaseModel):
     @classmethod
     def _name_matches(cls, v: str) -> str:
         if not NODE_NAME_PATTERN.match(v):
-            raise ValueError(
-                f"net name {v!r} must match {NODE_NAME_PATTERN.pattern}"
-            )
+            raise ValueError(f"net name {v!r} must match {NODE_NAME_PATTERN.pattern}")
         return v
 
     @field_validator("aliases")
@@ -304,9 +298,7 @@ class Net(BaseModel):
     def _aliases_well_formed(cls, v: list[str]) -> list[str]:
         for alias in v:
             if not isinstance(alias, str) or not NODE_NAME_PATTERN.match(alias):
-                raise ValueError(
-                    f"net alias {alias!r} must match {NODE_NAME_PATTERN.pattern}"
-                )
+                raise ValueError(f"net alias {alias!r} must match {NODE_NAME_PATTERN.pattern}")
         # Aliases are user-facing; keep them deterministic for stable
         # diffs.
         return sorted(set(v))
@@ -314,9 +306,7 @@ class Net(BaseModel):
     @model_validator(mode="after")
     def _ground_must_be_zero(self) -> Net:
         if self.type is NetType.GROUND and self.name != GROUND_NODE:
-            raise ValueError(
-                f"ground net must be named {GROUND_NODE!r}, got {self.name!r}"
-            )
+            raise ValueError(f"ground net must be named {GROUND_NODE!r}, got {self.name!r}")
         return self
 
 
@@ -368,9 +358,7 @@ class Component(BaseModel):
     @classmethod
     def _id_matches(cls, v: str) -> str:
         if not IDENTIFIER_PATTERN.match(v):
-            raise ValueError(
-                f"component id {v!r} must match {IDENTIFIER_PATTERN.pattern}"
-            )
+            raise ValueError(f"component id {v!r} must match {IDENTIFIER_PATTERN.pattern}")
         return v
 
 
@@ -400,12 +388,8 @@ class Analysis(BaseModel):
     def _kind_specific_fields(self) -> Analysis:
         if self.kind is AnalysisKind.TRAN and not self.stopTime:
             raise ValueError("analysis kind 'tran' requires stopTime")
-        if self.kind is AnalysisKind.AC and not (
-            self.stopFreq or self.pointsPerDecade
-        ):
-            raise ValueError(
-                "analysis kind 'ac' requires stopFreq or pointsPerDecade"
-            )
+        if self.kind is AnalysisKind.AC and not (self.stopFreq or self.pointsPerDecade):
+            raise ValueError("analysis kind 'ac' requires stopFreq or pointsPerDecade")
         if self.kind is AnalysisKind.DC and not self.sweepVariable:
             raise ValueError("analysis kind 'dc' requires sweepVariable")
         return self
@@ -424,9 +408,7 @@ class Measurement(BaseModel):
     @classmethod
     def _safe_name(cls, v: str) -> str:
         if not IDENTIFIER_PATTERN.match(v):
-            raise ValueError(
-                f"measurement name {v!r} must match {IDENTIFIER_PATTERN.pattern}"
-            )
+            raise ValueError(f"measurement name {v!r} must match {IDENTIFIER_PATTERN.pattern}")
         return v
 
 
@@ -460,13 +442,10 @@ class Directive(BaseModel):
     @classmethod
     def _name_allowlisted(cls, v: str) -> str:
         if not isinstance(v, str) or not v.startswith("."):
-            raise ValueError(
-                f"directive name {v!r} must start with '.'"
-            )
+            raise ValueError(f"directive name {v!r} must start with '.'")
         if v not in DIRECTIVE_ALLOWLIST:
             raise ValueError(
-                f"directive {v!r} is not in allowlist "
-                f"(allowed: {sorted(DIRECTIVE_ALLOWLIST)})"
+                f"directive {v!r} is not in allowlist (allowed: {sorted(DIRECTIVE_ALLOWLIST)})"
             )
         return v
 
@@ -521,8 +500,7 @@ class LayoutHint(BaseModel):
             return v
         if v not in {"left_to_right", "top_to_bottom"}:
             raise ValueError(
-                f"layout flow {v!r} is not recognised; "
-                "expected 'left_to_right' or 'top_to_bottom'"
+                f"layout flow {v!r} is not recognised; expected 'left_to_right' or 'top_to_bottom'"
             )
         return v
 
@@ -532,9 +510,7 @@ class LayoutHint(BaseModel):
         if v is None:
             return v
         if not NODE_NAME_PATTERN.match(v):
-            raise ValueError(
-                f"layout node {v!r} must match {NODE_NAME_PATTERN.pattern}"
-            )
+            raise ValueError(f"layout node {v!r} must match {NODE_NAME_PATTERN.pattern}")
         return v
 
 
@@ -552,9 +528,7 @@ class Constraints(BaseModel):
     @classmethod
     def _flat_only(cls, v: Any) -> Any:
         if isinstance(v, (dict, list)):
-            raise ValueError(
-                "constraints values must be scalars (str, int, float, bool)"
-            )
+            raise ValueError("constraints values must be scalars (str, int, float, bool)")
         return v
 
 
@@ -624,18 +598,14 @@ class CircuitGraph(BaseModel):
     @classmethod
     def _schema_version_supported(cls, v: str) -> str:
         if v != SCHEMA_VERSION:
-            raise ValueError(
-                f"schemaVersion {v!r} not supported; expected {SCHEMA_VERSION!r}"
-            )
+            raise ValueError(f"schemaVersion {v!r} not supported; expected {SCHEMA_VERSION!r}")
         return v
 
     @field_validator("projectId")
     @classmethod
     def _project_id_safe(cls, v: str) -> str:
         if not PROJECT_ID_PATTERN.match(v):
-            raise ValueError(
-                f"projectId {v!r} must match {PROJECT_ID_PATTERN.pattern}"
-            )
+            raise ValueError(f"projectId {v!r} must match {PROJECT_ID_PATTERN.pattern}")
         return v
 
     @field_validator("domain")
@@ -643,22 +613,16 @@ class CircuitGraph(BaseModel):
     def _domain_known(cls, v: str) -> str:
         if v not in GRAPH_DOMAINS:
             raise ValueError(
-                f"domain {v!r} is not recognised; "
-                f"expected one of {sorted(GRAPH_DOMAINS)}"
+                f"domain {v!r} is not recognised; expected one of {sorted(GRAPH_DOMAINS)}"
             )
         return v
 
     @field_validator("components")
     @classmethod
-    def _component_keys_match_ids(
-        cls, v: dict[str, Component]
-    ) -> dict[str, Component]:
+    def _component_keys_match_ids(cls, v: dict[str, Component]) -> dict[str, Component]:
         for key, comp in v.items():
             if key != comp.id:
-                raise ValueError(
-                    f"components key {key!r} does not match "
-                    f"component id {comp.id!r}"
-                )
+                raise ValueError(f"components key {key!r} does not match component id {comp.id!r}")
         return v
 
     @field_validator("nets")
@@ -666,9 +630,7 @@ class CircuitGraph(BaseModel):
     def _net_keys_match_names(cls, v: dict[str, Net]) -> dict[str, Net]:
         for key, net in v.items():
             if key != net.name:
-                raise ValueError(
-                    f"nets key {key!r} does not match net name {net.name!r}"
-                )
+                raise ValueError(f"nets key {key!r} does not match net name {net.name!r}")
         return v
 
     @model_validator(mode="after")
@@ -677,14 +639,10 @@ class CircuitGraph(BaseModel):
         must be unique."""
         ground_nets = [n for n in self.nets.values() if n.type is NetType.GROUND]
         if len(ground_nets) > 1:
-            raise ValueError(
-                f"only one ground net is allowed; found {len(ground_nets)}"
-            )
+            raise ValueError(f"only one ground net is allowed; found {len(ground_nets)}")
         for net in ground_nets:
             if net.name != GROUND_NODE:
-                raise ValueError(
-                    f"ground net must be named {GROUND_NODE!r}, got {net.name!r}"
-                )
+                raise ValueError(f"ground net must be named {GROUND_NODE!r}, got {net.name!r}")
         return self
 
 

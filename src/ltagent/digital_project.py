@@ -95,8 +95,7 @@ def create_project(req: ProjectRequest) -> ProjectResult:
             project_dir.resolve().relative_to(projects_root)
         except ValueError as exc:
             raise ValueError(
-                f"project_dir {project_dir} is not under projects_root "
-                f"{projects_root}"
+                f"project_dir {project_dir} is not under projects_root {projects_root}"
             ) from exc
 
     project = generate_project(

@@ -176,9 +176,7 @@ def _ensure_positive(name: str, value: float) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def voltage_divider_vout(
-    vin: float, r1: float, r2: float
-) -> FormulaResult:
+def voltage_divider_vout(vin: float, r1: float, r2: float) -> FormulaResult:
     """``Vout = Vin * R2 / (R1 + R2)`` for a passive resistive divider.
 
     Args:
@@ -235,10 +233,7 @@ def voltage_divider_vout(
         result=result,
         ok=True,
         code=CODE_OK,
-        detail=(
-            f"Vout = {inputs['vin']} * {inputs['r2']} / "
-            f"({inputs['r1']} + {inputs['r2']})"
-        ),
+        detail=(f"Vout = {inputs['vin']} * {inputs['r2']} / ({inputs['r1']} + {inputs['r2']})"),
     )
 
 
@@ -289,9 +284,7 @@ def rc_lowpass_cutoff(r: float, c: float) -> FormulaResult:
         result=result,
         ok=True,
         code=CODE_OK,
-        detail=(
-            f"fc = 1 / (2 * pi * {inputs['r']} * {inputs['c']})"
-        ),
+        detail=(f"fc = 1 / (2 * pi * {inputs['r']} * {inputs['c']})"),
     )
 
 
@@ -329,9 +322,7 @@ def rc_lowpass_resistor(fc: float, c: float) -> FormulaResult:
         result=result,
         ok=True,
         code=CODE_OK,
-        detail=(
-            f"R = 1 / (2 * pi * {inputs['fc']} * {inputs['c']})"
-        ),
+        detail=(f"R = 1 / (2 * pi * {inputs['fc']} * {inputs['c']})"),
     )
 
 
@@ -379,9 +370,7 @@ def rc_highpass_cutoff(r: float, c: float) -> FormulaResult:
         result=result,
         ok=True,
         code=CODE_OK,
-        detail=(
-            f"fc = 1 / (2 * pi * {inputs['r']} * {inputs['c']})"
-        ),
+        detail=(f"fc = 1 / (2 * pi * {inputs['r']} * {inputs['c']})"),
     )
 
 
@@ -419,9 +408,7 @@ def rc_highpass_resistor(fc: float, c: float) -> FormulaResult:
         result=result,
         ok=True,
         code=CODE_OK,
-        detail=(
-            f"R = 1 / (2 * pi * {inputs['fc']} * {inputs['c']})"
-        ),
+        detail=(f"R = 1 / (2 * pi * {inputs['fc']} * {inputs['c']})"),
     )
 
 
@@ -603,9 +590,7 @@ def noninverting_opamp_feedback(gain: float, rg: float) -> FormulaResult:
 # ---------------------------------------------------------------------------
 
 
-def led_resistor(
-    v_supply: float, v_forward: float, i_led: float
-) -> FormulaResult:
+def led_resistor(v_supply: float, v_forward: float, i_led: float) -> FormulaResult:
     """``R = (Vs - Vf) / I`` for a simple LED current limiter.
 
     Args:
@@ -647,8 +632,7 @@ def led_resistor(
             ok=False,
             code=CODE_INVALID_INPUT,
             detail=(
-                f"v_supply ({inputs['v_supply']}) must exceed "
-                f"v_forward ({inputs['v_forward']})"
+                f"v_supply ({inputs['v_supply']}) must exceed v_forward ({inputs['v_forward']})"
             ),
         )
     result = headroom / inputs["i_led"]
@@ -660,10 +644,7 @@ def led_resistor(
         result=result,
         ok=True,
         code=CODE_OK,
-        detail=(
-            f"R = ({inputs['v_supply']} - {inputs['v_forward']}) / "
-            f"{inputs['i_led']}"
-        ),
+        detail=(f"R = ({inputs['v_supply']} - {inputs['v_forward']}) / {inputs['i_led']}"),
         extra={"p_dissipated": p_dissipated, "headroom": headroom},
     )
 
@@ -739,9 +720,7 @@ def buck_ideal(vin: float, vout: float, iout: float) -> BuckResult | FormulaResu
             result=None,
             ok=False,
             code=CODE_INVALID_INPUT,
-            detail=(
-                f"buck converter cannot step up: vout ({vout!r}) > vin ({vin!r})"
-            ),
+            detail=(f"buck converter cannot step up: vout ({vout!r}) > vin ({vin!r})"),
         )
     if not math.isfinite(inputs["iout"]) or inputs["iout"] <= 0:
         return FormulaResult(
@@ -764,9 +743,7 @@ def buck_ideal(vin: float, vout: float, iout: float) -> BuckResult | FormulaResu
     )
 
 
-def boost_ideal(
-    vin: float, vout: float, iout: float
-) -> BuckResult | FormulaResult:
+def boost_ideal(vin: float, vout: float, iout: float) -> BuckResult | FormulaResult:
     """Ideal boost converter: ``D = 1 - Vin / Vout``, ``R = Vout / Iout``.
 
     The result is a :class:`BuckResult` because the report shape is
@@ -808,9 +785,7 @@ def boost_ideal(
             result=None,
             ok=False,
             code=CODE_INVALID_INPUT,
-            detail=(
-                f"boost converter cannot step down: vout ({vout!r}) <= vin ({vin!r})"
-            ),
+            detail=(f"boost converter cannot step down: vout ({vout!r}) <= vin ({vin!r})"),
         )
     if not math.isfinite(inputs["iout"]) or inputs["iout"] <= 0:
         return FormulaResult(

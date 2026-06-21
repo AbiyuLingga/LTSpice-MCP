@@ -371,9 +371,7 @@ def create_live_project(
         ) from exc
 
     if project_dir.exists():
-        raise FileExistsError(
-            f"project directory {project_dir} already exists"
-        )
+        raise FileExistsError(f"project directory {project_dir} already exists")
     try:
         project_dir.mkdir(parents=False, exist_ok=False)
     except OSError as exc:
@@ -418,9 +416,7 @@ def open_live_project(
         :class:`LiveProjectError` with the original code.
     """
     try:
-        resolved = _resolve_project_path(
-            project_dir, projects_root=projects_root, must_exist=True
-        )
+        resolved = _resolve_project_path(project_dir, projects_root=projects_root, must_exist=True)
     except PathSafetyError as exc:
         raise LiveProjectError(exc.code, exc.message, data=exc.data) from exc
 
@@ -467,9 +463,7 @@ def write_graph(
             data={"type": type(graph).__name__},
         )
     paths = get_project_paths(
-        _resolve_project_path(
-            project_dir, projects_root=projects_root, must_exist=True
-        )
+        _resolve_project_path(project_dir, projects_root=projects_root, must_exist=True)
     )
     _write_json_atomic(paths.graph, dict(graph))
     return paths.graph
@@ -489,9 +483,7 @@ def read_graph(
         ``LIVE_GRAPH_INVALID_JSON`` if it cannot be parsed.
     """
     paths = get_project_paths(
-        _resolve_project_path(
-            project_dir, projects_root=projects_root, must_exist=True
-        )
+        _resolve_project_path(project_dir, projects_root=projects_root, must_exist=True)
     )
     if not paths.graph.exists():
         raise LiveProjectError(
@@ -554,9 +546,7 @@ def apply_operation(
     from .history import append_history, make_history_event, next_step
     from .snapshot import create_snapshot
 
-    resolved = _resolve_project_path(
-        project_dir, projects_root=projects_root, must_exist=True
-    )
+    resolved = _resolve_project_path(project_dir, projects_root=projects_root, must_exist=True)
     if not isinstance(operation, Mapping):
         return {
             "success": False,
@@ -570,7 +560,9 @@ def apply_operation(
     if not isinstance(op, str) or not op or not isinstance(args, Mapping):
         return {
             "success": False,
-            "errors": [{"code": "LIVE_OPERATION_INVALID", "detail": "op and object args are required"}],
+            "errors": [
+                {"code": "LIVE_OPERATION_INVALID", "detail": "op and object args are required"}
+            ],
             "warnings": [],
             "changes": [],
         }
@@ -586,9 +578,7 @@ def apply_operation(
             model=args.get("model"),
             role=args.get("role"),
         ),
-        "remove_component": lambda: remove_component(
-            graph, cast(str, args.get("componentId"))
-        ),
+        "remove_component": lambda: remove_component(graph, cast(str, args.get("componentId"))),
         "set_component_value": lambda: set_component_value(
             graph, cast(str, args.get("componentId")), cast(str, args.get("value"))
         ),
@@ -625,7 +615,9 @@ def apply_operation(
     if apply_edit is None:
         return {
             "success": False,
-            "errors": [{"code": "LIVE_OPERATION_UNKNOWN", "detail": f"unsupported operation {op!r}"}],
+            "errors": [
+                {"code": "LIVE_OPERATION_UNKNOWN", "detail": f"unsupported operation {op!r}"}
+            ],
             "warnings": [],
             "changes": [],
         }
@@ -693,7 +685,10 @@ def apply_operation(
             reason=reason if isinstance(reason, str) else None,
             target=str(args.get("componentId") or args.get("oldName") or "") or None,
             success=True,
-            extra={"snapshotId": snapshot_id, "changes": [change.to_dict() for change in edit_result.changes]},
+            extra={
+                "snapshotId": snapshot_id,
+                "changes": [change.to_dict() for change in edit_result.changes],
+            },
         ),
         projects_root=projects_root,
     )

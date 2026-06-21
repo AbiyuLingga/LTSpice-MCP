@@ -101,9 +101,7 @@ def test_build_project_id_rejects_name_with_no_safe_chars() -> None:
 # --- create_project: success path (no run) ---------------------------------
 
 
-def test_create_project_writes_all_required_artifacts(
-    tmp_path: Path, examples_dir: Path
-) -> None:
+def test_create_project_writes_all_required_artifacts(tmp_path: Path, examples_dir: Path) -> None:
     config = _default_config()
     tdir = _empty_templates_dir(tmp_path)
     target = tmp_path / "projects" / build_project_id("rc_lowpass_1khz", when=date(2026, 6, 18))
@@ -133,9 +131,7 @@ def test_create_project_writes_all_required_artifacts(
     assert res.run_status == "not_requested"
 
 
-def test_create_project_persists_validated_ir(
-    tmp_path: Path, examples_dir: Path
-) -> None:
+def test_create_project_persists_validated_ir(tmp_path: Path, examples_dir: Path) -> None:
     target = tmp_path / "p" / build_project_id("rc_lowpass_1khz", when=date(2026, 6, 18))
     res = create_project(
         ir=examples_dir / "rc_lowpass.ir.json",
@@ -188,9 +184,7 @@ def test_create_project_asc_contains_required_ltspice_lines(
     assert "FLAG" in asc
 
 
-def test_create_project_result_json_matches_contract(
-    tmp_path: Path, examples_dir: Path
-) -> None:
+def test_create_project_result_json_matches_contract(tmp_path: Path, examples_dir: Path) -> None:
     res = create_project(
         ir=examples_dir / "rc_lowpass.ir.json",
         target=tmp_path / "p" / "rc_lowpass_1khz",
@@ -231,9 +225,7 @@ def test_create_project_result_json_matches_contract(
     assert "simulation_finished" in assertion_names
 
 
-def test_create_project_metadata_json_matches_contract(
-    tmp_path: Path, examples_dir: Path
-) -> None:
+def test_create_project_metadata_json_matches_contract(tmp_path: Path, examples_dir: Path) -> None:
     res = create_project(
         ir=examples_dir / "rc_lowpass.ir.json",
         target=tmp_path / "p" / "rc_lowpass_1khz",
@@ -392,9 +384,7 @@ def test_create_project_with_run_but_no_ltspice_reports_failure(
 # --- create_project: template matching ------------------------------------
 
 
-def test_create_project_matches_seeded_template(
-    tmp_path: Path, examples_dir: Path
-) -> None:
+def test_create_project_matches_seeded_template(tmp_path: Path, examples_dir: Path) -> None:
     tdir = _seeded_templates_dir(tmp_path)
     res = create_project(
         ir=examples_dir / "rc_lowpass.ir.json",
@@ -429,9 +419,7 @@ def test_create_project_records_no_template_when_library_empty(
     assert PRJ_WARN_TEMPLATE_NOT_FOUND not in codes
 
 
-def test_create_project_accepts_circuit_ir_object(
-    tmp_path: Path, examples_dir: Path
-) -> None:
+def test_create_project_accepts_circuit_ir_object(tmp_path: Path, examples_dir: Path) -> None:
     """Passing a CircuitIR object directly must work as well as a path."""
     ir = load_ir(examples_dir / "rc_lowpass.ir.json")
     res = create_project(
@@ -446,9 +434,7 @@ def test_create_project_accepts_circuit_ir_object(
     assert res.project_id == build_project_id(ir.name, when=date(2026, 6, 18))
 
 
-def test_create_project_result_obj_has_layout_score(
-    tmp_path: Path, examples_dir: Path
-) -> None:
+def test_create_project_result_obj_has_layout_score(tmp_path: Path, examples_dir: Path) -> None:
     res = create_project(
         ir=examples_dir / "voltage_divider.ir.json",
         target=tmp_path / "p" / "voltage_divider",

@@ -50,9 +50,7 @@ def graph_to_ir(graph: CircuitGraph) -> CircuitIR:
         "probes": [],
         "directives": directives,
         "constraints": (
-            graph.constraints.model_dump(mode="json")
-            if graph.constraints is not None
-            else None
+            graph.constraints.model_dump(mode="json") if graph.constraints is not None else None
         ),
         "models": [],
         "subcircuits": [],

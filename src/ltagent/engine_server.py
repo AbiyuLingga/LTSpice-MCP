@@ -124,34 +124,50 @@ class EngineService:
                 )
             handler = self._handlers.get(method)
             if handler is None:
-                return None if is_notification else _error_response(
-                    request_id,
-                    -32601,
-                    "method not found",
-                    {"code": ERR_METHOD_NOT_FOUND, "method": method},
+                return (
+                    None
+                    if is_notification
+                    else _error_response(
+                        request_id,
+                        -32601,
+                        "method not found",
+                        {"code": ERR_METHOD_NOT_FOUND, "method": method},
+                    )
                 )
             result = handler(cast(Mapping[str, object], params))
             return None if is_notification else _result_response(request_id, result)
         except EngineRequestError as exc:
-            return None if is_notification else _error_response(
-                request_id,
-                -32602,
-                exc.message,
-                {"code": exc.code, **exc.data},
+            return (
+                None
+                if is_notification
+                else _error_response(
+                    request_id,
+                    -32602,
+                    exc.message,
+                    {"code": exc.code, **exc.data},
+                )
             )
         except WorkbenchError as exc:
-            return None if is_notification else _error_response(
-                request_id,
-                -32000,
-                exc.message,
-                {"code": exc.code, "details": exc.data},
+            return (
+                None
+                if is_notification
+                else _error_response(
+                    request_id,
+                    -32000,
+                    exc.message,
+                    {"code": exc.code, "details": exc.data},
+                )
             )
         except Exception:
-            return None if is_notification else _error_response(
-                request_id,
-                -32603,
-                "internal engine error",
-                {"code": ERR_INTERNAL},
+            return (
+                None
+                if is_notification
+                else _error_response(
+                    request_id,
+                    -32603,
+                    "internal engine error",
+                    {"code": ERR_INTERNAL},
+                )
             )
 
     def _engine_handshake(self, _params: Mapping[str, object]) -> dict[str, object]:
@@ -383,7 +399,12 @@ def _optional_byte_mapping(params: Mapping[str, object], field: str) -> dict[int
                 f"{field} keys must be byte values",
                 data={"field": field, "port": str(raw_port)},
             ) from exc
-        if not 0 <= port <= 0xFF or isinstance(raw_value, bool) or not isinstance(raw_value, int) or not 0 <= raw_value <= 0xFF:
+        if (
+            not 0 <= port <= 0xFF
+            or isinstance(raw_value, bool)
+            or not isinstance(raw_value, int)
+            or not 0 <= raw_value <= 0xFF
+        ):
             raise EngineRequestError(
                 ERR_PARAMS_INVALID,
                 f"{field} ports and values must be unsigned bytes",

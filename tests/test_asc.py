@@ -110,17 +110,13 @@ def test_example_asc_has_required_sections(example_name: str) -> None:
     assert ground_flags, f"{example_name}: expected at least one FLAG 0"
 
     # At least one TEXT line with a SPICE directive (starting with !).
-    assert any(
-        line.startswith("TEXT ") and "!" in line
-        for line in lines
-    ), f"{example_name}: expected at least one TEXT directive line"
+    assert any(line.startswith("TEXT ") and "!" in line for line in lines), (
+        f"{example_name}: expected at least one TEXT directive line"
+    )
 
     # All wires are axis-aligned (LTspice rejects diagonals).
-    for (x1, y1, x2, y2) in _wire_pairs(result.text):
-        assert (x1 == x2) or (y1 == y2), (
-            f"{example_name}: diagonal wire "
-            f"WIRE {x1} {y1} {x2} {y2}"
-        )
+    for x1, y1, x2, y2 in _wire_pairs(result.text):
+        assert (x1 == x2) or (y1 == y2), f"{example_name}: diagonal wire WIRE {x1} {y1} {x2} {y2}"
 
     # Generator footer banner.
     assert f"* End of {GENERATOR_NAME} output" in result.text
@@ -169,9 +165,7 @@ def test_rc_lowpass_text_line_carries_tran_directive() -> None:
 def test_rc_highpass_emits_both_tran_and_ac_text_directives() -> None:
     ir = load_ir(EXAMPLES_DIR / "rc_highpass.ir.json")
     result = render_asc(ir)
-    text_lines = [
-        line for line in result.text.splitlines() if line.startswith("TEXT ")
-    ]
+    text_lines = [line for line in result.text.splitlines() if line.startswith("TEXT ")]
     assert any("!.tran" in line for line in text_lines)
     assert any("!.ac" in line for line in text_lines)
 
@@ -340,9 +334,7 @@ def test_symbols_use_only_mvp_symbol_types() -> None:
         ir = load_ir(EXAMPLES_DIR / f"{name}.ir.json")
         result = render_asc(ir)
         for sym, *_ in _symbol_lines(result.text):
-            assert sym in {"res", "cap", "voltage"}, (
-                f"{name}: unexpected symbol {sym!r}"
-            )
+            assert sym in {"res", "cap", "voltage"}, f"{name}: unexpected symbol {sym!r}"
 
 
 # --- round-trip via the CLI ---------------------------------------------

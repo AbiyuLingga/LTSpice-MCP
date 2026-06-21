@@ -120,18 +120,14 @@ class RequirementSpec(BaseModel):
     @classmethod
     def _version(cls, v: str) -> str:
         if v != REQUIREMENT_SPEC_SCHEMA_VERSION:
-            raise ValueError(
-                f"RequirementSpec schemaVersion {v!r} is not supported"
-            )
+            raise ValueError(f"RequirementSpec schemaVersion {v!r} is not supported")
         return v
 
     @field_validator("capability")
     @classmethod
     def _capability_known(cls, v: str) -> str:
         if v not in SUPPORTED_CAPABILITIES and v != CAPABILITY_UNSUPPORTED:
-            raise ValueError(
-                f"capability {v!r} is not in the v1 allowlist"
-            )
+            raise ValueError(f"capability {v!r} is not in the v1 allowlist")
         return v
 
 
@@ -201,14 +197,18 @@ class CapabilityClassifier:
 
         if any(pat.search(text) for pat in _RC_HIGHPASS_PATTERNS):
             return ClassificationResult(
-                capability=CAPABILITY_RC_HIGHPASS, constraints=constraints, rationale="matched RC high-pass pattern"
+                capability=CAPABILITY_RC_HIGHPASS,
+                constraints=constraints,
+                rationale="matched RC high-pass pattern",
             )
         if any(pat.search(text) for pat in _RC_LOWPASS_PATTERNS):
             cutoff = self._extract_cutoff_hz(text)
             if cutoff is not None:
                 constraints["cutoffHz"] = cutoff
             return ClassificationResult(
-                capability=CAPABILITY_RC_LOWPASS, constraints=constraints, rationale="matched RC low-pass pattern"
+                capability=CAPABILITY_RC_LOWPASS,
+                constraints=constraints,
+                rationale="matched RC low-pass pattern",
             )
         if any(pat.search(text) for pat in _OPAMP_NONINVERTING_PATTERNS):
             return ClassificationResult(
@@ -345,7 +345,11 @@ def validate_proposal(
         is_valid=not issues,
         issues=tuple(issues),
         warnings=tuple(warnings),
-        impact={"documents": sorted(impact["documents"]), "components": sorted(impact["components"]), "nets": sorted(impact["nets"])},
+        impact={
+            "documents": sorted(impact["documents"]),
+            "components": sorted(impact["components"]),
+            "nets": sorted(impact["nets"]),
+        },
     )
 
 
@@ -415,7 +419,10 @@ class AIWorkflow:
             return RequirementSpec(
                 schemaVersion=REQUIREMENT_SPEC_SCHEMA_VERSION,
                 requestId=request_id,
-                domain="analog" if classification.capability.startswith("rc_") or classification.capability.startswith("opamp_") else "digital",
+                domain="analog"
+                if classification.capability.startswith("rc_")
+                or classification.capability.startswith("opamp_")
+                else "digital",
                 intent=classification.capability,
                 capability=classification.capability,
                 text=prompt,
@@ -535,9 +542,7 @@ class AIWorkflow:
         )
         repairs: list[RepairAttempt] = []
         try:
-            proposal = self.request_proposal(
-                requirement, manifest, body_override=body_override
-            )
+            proposal = self.request_proposal(requirement, manifest, body_override=body_override)
         except AIProviderError as exc:
             for attempt in range(1, self.max_repair_attempts + 1):
                 feedback = f"Provider error ({exc.code}): {exc.message}"
@@ -549,7 +554,9 @@ class AIWorkflow:
                         body_override=body_override,
                     )
                 except AIProviderError as repair_exc:
-                    repairs.append(RepairAttempt(attempt=attempt, feedback=str(repair_exc), proposal=None))
+                    repairs.append(
+                        RepairAttempt(attempt=attempt, feedback=str(repair_exc), proposal=None)
+                    )
                     continue
                 repairs.append(RepairAttempt(attempt=attempt, feedback=feedback, proposal=proposal))
                 break
@@ -570,9 +577,7 @@ class AIWorkflow:
             validation=validation,
             repairs=tuple(repairs),
             decision=(
-                ProposalDecision.PENDING
-                if validation.is_valid
-                else ProposalDecision.REJECTED
+                ProposalDecision.PENDING if validation.is_valid else ProposalDecision.REJECTED
             ),
         )
 
@@ -612,7 +617,9 @@ class AIWorkflow:
             }
         )
         try:
-            result = self.design_service.apply_change_set(project_id, change_set.model_dump(mode="json"))
+            result = self.design_service.apply_change_set(
+                project_id, change_set.model_dump(mode="json")
+            )
         except WorkbenchV2Error as exc:
             raise AIProviderError(
                 ERR_AI_REVISION_CONFLICT,

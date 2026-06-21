@@ -68,8 +68,7 @@ def test_measurements_have_valid_analysis_kinds() -> None:
         available = {a.kind for a in ir.analysis}
         for m in ir.measurements:
             assert m.analysis in available, (
-                f"{ex}: measurement {m.name} references {m.analysis} "
-                f"which is not in analysis list"
+                f"{ex}: measurement {m.name} references {m.analysis} which is not in analysis list"
             )
 
 

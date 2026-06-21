@@ -124,9 +124,7 @@ def validate_graph(graph: CircuitGraph) -> ValidationResult:
         If ``graph`` is not a :class:`CircuitGraph`.
     """
     if not isinstance(graph, CircuitGraph):
-        raise TypeError(
-            f"validate_graph expects CircuitGraph, got {type(graph).__name__}"
-        )
+        raise TypeError(f"validate_graph expects CircuitGraph, got {type(graph).__name__}")
     return _validate_graph_impl(graph)
 
 
@@ -149,9 +147,7 @@ def graph_to_dict(graph: CircuitGraph) -> dict[str, Any]:
         If ``graph`` is not a :class:`CircuitGraph`.
     """
     if not isinstance(graph, CircuitGraph):
-        raise TypeError(
-            f"graph_to_dict expects CircuitGraph, got {type(graph).__name__}"
-        )
+        raise TypeError(f"graph_to_dict expects CircuitGraph, got {type(graph).__name__}")
     return graph.model_dump(mode="python", by_alias=False)
 
 
@@ -171,9 +167,7 @@ def graph_from_dict(data: dict[str, Any]) -> CircuitGraph:
         fields, missing required keys, bad identifiers).
     """
     if not isinstance(data, dict):
-        raise TypeError(
-            f"graph_from_dict expects a dict, got {type(data).__name__}"
-        )
+        raise TypeError(f"graph_from_dict expects a dict, got {type(data).__name__}")
     return CircuitGraph.model_validate(data)
 
 
@@ -232,9 +226,7 @@ def list_components(graph: CircuitGraph) -> list[Component]:
         If ``graph`` is not a :class:`CircuitGraph`.
     """
     if not isinstance(graph, CircuitGraph):
-        raise TypeError(
-            f"list_components expects CircuitGraph, got {type(graph).__name__}"
-        )
+        raise TypeError(f"list_components expects CircuitGraph, got {type(graph).__name__}")
     return [graph.components[key] for key in sorted(graph.components.keys())]
 
 
@@ -252,9 +244,7 @@ def list_nets(graph: CircuitGraph) -> list[Net]:
         If ``graph`` is not a :class:`CircuitGraph`.
     """
     if not isinstance(graph, CircuitGraph):
-        raise TypeError(
-            f"list_nets expects CircuitGraph, got {type(graph).__name__}"
-        )
+        raise TypeError(f"list_nets expects CircuitGraph, got {type(graph).__name__}")
     nets = list(graph.nets.values())
 
     def _sort_key(net: Net) -> tuple[int, str]:

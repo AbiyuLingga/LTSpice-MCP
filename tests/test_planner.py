@@ -103,9 +103,7 @@ def test_detects_rc_highpass(prompt: str) -> None:
 def test_rc_lowpass_detected_before_voltage_divider() -> None:
     """A prompt with both keyword families must prefer the more specific
     RC pattern. The first match wins."""
-    result = plan_prompt(
-        "Voltage divider that is also a low-pass filter, cutoff 1kHz"
-    )
+    result = plan_prompt("Voltage divider that is also a low-pass filter, cutoff 1kHz")
     assert isinstance(result, CircuitIR)
     # Both keywords are present. The RC patterns appear first in the rule
     # table so RC wins. This is documented behaviour.
@@ -401,10 +399,14 @@ def test_planner_output_is_a_valid_circuit_ir() -> None:
     assert isinstance(ir, CircuitIR)
     assert ir.schemaVersion == SCHEMA_VERSION
     assert "0" in ir.nodes  # ground node required
-    assert all(c.spicePrefix == "V" if c.kind == ComponentKind.VOLTAGE_SOURCE
-               else c.spicePrefix == "R" if c.kind == ComponentKind.RESISTOR
-               else c.spicePrefix == "C"
-               for c in ir.components)
+    assert all(
+        c.spicePrefix == "V"
+        if c.kind == ComponentKind.VOLTAGE_SOURCE
+        else c.spicePrefix == "R"
+        if c.kind == ComponentKind.RESISTOR
+        else c.spicePrefix == "C"
+        for c in ir.components
+    )
 
 
 def test_planner_metadata_marks_source_as_planner() -> None:
@@ -464,9 +466,7 @@ def test_capacitance_unit_parsing(prompt: str, expected_cap: float) -> None:
         ("make voltage divider 5V to 1.8V", 5.0, 1.8),
     ],
 )
-def test_voltage_unit_parsing(
-    prompt: str, expected_vin: float, expected_vout: float
-) -> None:
+def test_voltage_unit_parsing(prompt: str, expected_vin: float, expected_vout: float) -> None:
     ir = plan_prompt(prompt)
     assert isinstance(ir, CircuitIR)
     assert ir.constraints is not None
@@ -511,9 +511,7 @@ def test_project_names_are_slug_safe() -> None:
     for p in prompts:
         ir = plan_prompt(p)
         assert isinstance(ir, CircuitIR)
-        assert PROJECT_NAME_PATTERN.match(ir.name), (
-            f"name {ir.name!r} from {p!r} is not a slug"
-        )
+        assert PROJECT_NAME_PATTERN.match(ir.name), f"name {ir.name!r} from {p!r} is not a slug"
 
 
 # ---------------------------------------------------------------------------

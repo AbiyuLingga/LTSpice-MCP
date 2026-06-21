@@ -120,9 +120,7 @@ def test_tool_plan_digital_system_clarification() -> None:
     assert res["data"]["needsClarification"] is True
 
 
-def test_tool_assemble_tiny8_program(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_tool_assemble_tiny8_program(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ltagent.mcp_server import tool_assemble_tiny8_program
 
     monkeypatch.chdir(tmp_path)
@@ -142,9 +140,7 @@ def test_tool_create_digital_project_from_prompt(
 
     monkeypatch.chdir(tmp_path)
     out = tmp_path / "myproj"
-    res = tool_create_digital_project(
-        "create tiny 8-bit CPU add 20 22 halt", out=str(out)
-    )
+    res = tool_create_digital_project("create tiny 8-bit CPU add 20 22 halt", out=str(out))
     assert res["success"] is True
     assert out.is_dir()
 
@@ -153,9 +149,7 @@ def test_tool_inspect_digital_project(tmp_path: Path) -> None:
     from ltagent.mcp_server import tool_create_digital_project, tool_inspect_digital_project
 
     out = tmp_path / "p"
-    res = tool_create_digital_project(
-        "create tiny 8-bit CPU add 20 22 halt", out=str(out)
-    )
+    res = tool_create_digital_project("create tiny 8-bit CPU add 20 22 halt", out=str(out))
     assert res["success"] is True
     insp = tool_inspect_digital_project(str(out))
     assert insp["success"] is True
@@ -173,9 +167,7 @@ def test_tool_simulate_hdl_project_missing_icarus(
     proj = tmp_path / "p"
     from ltagent.mcp_server import tool_create_digital_project
 
-    cr = tool_create_digital_project(
-        "create tiny 8-bit CPU add 20 22 halt", out=str(proj)
-    )
+    cr = tool_create_digital_project("create tiny 8-bit CPU add 20 22 halt", out=str(proj))
     assert cr["success"] is True
     res = tool_simulate_hdl_project(str(proj))
     # success may be True (skipped) or False (fail) depending on
@@ -231,9 +223,7 @@ def test_resource_digital_manifest_for_real_project(
 
     monkeypatch.chdir(tmp_path)
     proj = tmp_path / "p"
-    cr = tool_create_digital_project(
-        "create tiny 8-bit CPU add 20 22 halt", out=str(proj)
-    )
+    cr = tool_create_digital_project("create tiny 8-bit CPU add 20 22 halt", out=str(proj))
     assert cr["success"] is True
     project_id = cr["data"]["projectId"]
 
@@ -246,18 +236,21 @@ def test_resource_digital_manifest_for_real_project(
 def test_resource_digital_manifest_rejects_traversal() -> None:
     server = _make_server()
     with pytest.raises((ValueError, Exception)):
-        asyncio.run(
-            server.read_resource(
-                "ltagent://projects/..%2Fescape/digital-manifest"
-            )
-        )
+        asyncio.run(server.read_resource("ltagent://projects/..%2Fescape/digital-manifest"))
 
 
 def test_every_digital_tool_has_input_schema() -> None:
     server = _make_server()
     tools = asyncio.run(server.list_tools())
     digital_tools = [
-        t for t in tools if (t.name.startswith(("plan_", "create_", "assemble_", "simulate_", "synth_", "inspect_")) and "digital" in (t.description or "").lower()) or t.name in {
+        t
+        for t in tools
+        if (
+            t.name.startswith(("plan_", "create_", "assemble_", "simulate_", "synth_", "inspect_"))
+            and "digital" in (t.description or "").lower()
+        )
+        or t.name
+        in {
             "plan_digital_system",
             "create_digital_project",
             "assemble_tiny8_program",

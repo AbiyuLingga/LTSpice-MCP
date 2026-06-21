@@ -86,6 +86,7 @@ def _rc_ir(topology: str = "rc_lowpass", r1_value: str = "1.59k", c1_value: str 
     cannot contain ``.``. The helper builds a clean name from the
     caller-supplied values when needed.
     """
+
     def _clean(v: str) -> str:
         return v.replace(".", "p")
 
@@ -268,9 +269,7 @@ def test_evaluate_unknown_template_raises(seeded_templates: Path) -> None:
 
 def test_evaluate_falls_back_to_other_status(seeded_templates: Path) -> None:
     """If the requested status is wrong, the evaluator finds the template elsewhere."""
-    ev = evaluate_candidate(
-        seeded_templates, "rc_lowpass", status=TemplateStatus.CANDIDATE
-    )
+    ev = evaluate_candidate(seeded_templates, "rc_lowpass", status=TemplateStatus.CANDIDATE)
     assert ev.status == TemplateStatus.OFFICIAL  # found the actual location
 
 
@@ -404,6 +403,7 @@ def test_too_specific_template_triggers_penalty(seeded_templates: Path) -> None:
     assert on here).
     """
     import tempfile
+
     with tempfile.TemporaryDirectory() as td:
         root = Path(td) / "templates"
         root.mkdir()
@@ -414,12 +414,30 @@ def test_too_specific_template_triggers_penalty(seeded_templates: Path) -> None:
             "description": "irrelevant: only the manifest description matters",
             "nodes": ["in", "out", "0"],
             "components": [
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "DC 5", "role": "input_source"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "out"], "value": "1k", "role": "series_resistor"},
-                {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["out", "0"], "value": "1k", "role": "shunt_resistor"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "DC 5",
+                    "role": "input_source",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "out"],
+                    "value": "1k",
+                    "role": "series_resistor",
+                },
+                {
+                    "id": "R2",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["out", "0"],
+                    "value": "1k",
+                    "role": "shunt_resistor",
+                },
             ],
             "analysis": [{"kind": "op"}],
         }
@@ -444,12 +462,30 @@ def test_incomplete_metadata_triggers_penalty(seeded_templates: Path) -> None:
         "description": "",  # empty description
         "nodes": ["in", "out", "0"],
         "components": [
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "DC 5", "role": "input_source"},
-            {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["in", "out"], "value": "1k", "role": "series_resistor"},
-            {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["out", "0"], "value": "1k", "role": "shunt_resistor"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "DC 5",
+                "role": "input_source",
+            },
+            {
+                "id": "R1",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["in", "out"],
+                "value": "1k",
+                "role": "series_resistor",
+            },
+            {
+                "id": "R2",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["out", "0"],
+                "value": "1k",
+                "role": "shunt_resistor",
+            },
         ],
         "analysis": [{"kind": "op"}],
     }
@@ -534,7 +570,9 @@ def test_value_variant_with_different_topology_is_not_duplicate(seeded_templates
     assert ev.duplicate_of is None
 
 
-def test_value_variant_detection_holds_for_different_voltage_divider(seeded_templates: Path) -> None:
+def test_value_variant_detection_holds_for_different_voltage_divider(
+    seeded_templates: Path,
+) -> None:
     """Same topology but different R values: should be detected as duplicate."""
     ir = _rc_ir(topology="voltage_divider", r1_value="2.2k", c1_value="1k")
     m = create_candidate_from_ir(
@@ -621,7 +659,8 @@ def test_promote_refuses_value_variant_without_force(seeded_templates: Path) -> 
     assert exc.value.code == ERR_EVAL_PROMOTE_BLOCKED
     # The candidate must still be in candidates/, not official/.
     cand = next(
-        t for t in list_templates(seeded_templates, status=TemplateStatus.CANDIDATE)
+        t
+        for t in list_templates(seeded_templates, status=TemplateStatus.CANDIDATE)
         if t.templateId == m.templateId
     )
     assert cand.status == TemplateStatus.CANDIDATE
@@ -686,6 +725,7 @@ def test_promote_succeeds_for_healthy_candidate() -> None:
     without any official templates and put the candidate in there.
     """
     import tempfile
+
     with tempfile.TemporaryDirectory() as td:
         root = Path(td) / "templates"
         root.mkdir()
@@ -800,6 +840,7 @@ def test_evaluation_result_failed_gates_helper(seeded_templates: Path) -> None:
     that has no official counterpart.
     """
     import tempfile
+
     with tempfile.TemporaryDirectory() as td:
         root = Path(td) / "templates"
         root.mkdir()
@@ -841,9 +882,7 @@ def test_evaluation_result_decision_thresholds(seeded_templates: Path) -> None:
             status=TemplateStatus.CANDIDATE,
             description="save: high-quality reusable voltage divider",
             parameters={
-                "R1": TemplateParameter(
-                    description="series resistor", default="1k", editable=True
-                )
+                "R1": TemplateParameter(description="series resistor", default="1k", editable=True)
             },
             layoutScore=92,
             simulationVerified=True,
@@ -852,9 +891,7 @@ def test_evaluation_result_decision_thresholds(seeded_templates: Path) -> None:
 
         (root / "candidates" / "t_high").mkdir(parents=True)
         (root / "candidates" / "t_high" / "template.ir.json").write_text(
-            json.dumps(
-                _rc_ir(topology="voltage_divider", r1_value="1k", c1_value="1k")
-            ),
+            json.dumps(_rc_ir(topology="voltage_divider", r1_value="1k", c1_value="1k")),
             encoding="utf-8",
         )
         dump_manifest(manifest, _manifest_path(root, TemplateStatus.CANDIDATE, "t_high"))

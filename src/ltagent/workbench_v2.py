@@ -146,9 +146,7 @@ class HardwareProject(BaseModel):
     @classmethod
     def _project_id_matches(cls, v: str) -> str:
         if not PROJECT_ID_PATTERN.match(v):
-            raise ValueError(
-                f"projectId {v!r} must match {PROJECT_ID_PATTERN.pattern}"
-            )
+            raise ValueError(f"projectId {v!r} must match {PROJECT_ID_PATTERN.pattern}")
         return v
 
     @field_validator("displayName")
@@ -185,9 +183,7 @@ class Requirements(BaseModel):
     def _flat_constraints(cls, v: dict[str, Any]) -> dict[str, Any]:
         for key, value in v.items():
             if isinstance(value, (dict, list)):
-                raise ValueError(
-                    f"constraint {key!r} must be a scalar (str, int, float, bool)"
-                )
+                raise ValueError(f"constraint {key!r} must be a scalar (str, int, float, bool)")
         return v
 
     @field_validator("goals")
@@ -203,8 +199,7 @@ class Requirements(BaseModel):
     def _safety_class_known(cls, v: str | None) -> str | None:
         if v is not None and v not in SAFETY_CLASSES:
             raise ValueError(
-                f"safetyClass {v!r} is not recognised; expected one of "
-                f"{sorted(SAFETY_CLASSES)}"
+                f"safetyClass {v!r} is not recognised; expected one of {sorted(SAFETY_CLASSES)}"
             )
         return v
 
@@ -250,9 +245,7 @@ class SchematicSymbol(BaseModel):
     @classmethod
     def _rotation_multiple_of_90(cls, v: int) -> int:
         if v not in SCHEMATIC_ROTATION_VALUES:
-            raise ValueError(
-                f"rotation {v} must be one of {sorted(SCHEMATIC_ROTATION_VALUES)}"
-            )
+            raise ValueError(f"rotation {v} must be one of {sorted(SCHEMATIC_ROTATION_VALUES)}")
         return v
 
 
@@ -270,14 +263,10 @@ class SchematicWire(BaseModel):
     def _grid_points(cls, v: list[tuple[int, int]]) -> list[tuple[int, int]]:
         for index, point in enumerate(v):
             if not isinstance(point, tuple) or len(point) != 2:
-                raise ValueError(
-                    f"wire point {index!r} must be a (x, y) tuple"
-                )
+                raise ValueError(f"wire point {index!r} must be a (x, y) tuple")
             x, y = point
             if not isinstance(x, int) or not isinstance(y, int):
-                raise ValueError(
-                    f"wire point {index!r} must contain integers"
-                )
+                raise ValueError(f"wire point {index!r} must contain integers")
         return list(v)
 
 
@@ -315,9 +304,7 @@ class SchematicView(BaseModel):
         seen: set[str] = set()
         for symbol in self.symbols:
             if symbol.id in seen:
-                raise ValueError(
-                    f"schematic symbol id {symbol.id!r} is duplicated"
-                )
+                raise ValueError(f"schematic symbol id {symbol.id!r} is duplicated")
             seen.add(symbol.id)
         return self
 
@@ -377,9 +364,7 @@ class V2DocumentInconsistency(ValueError):
     response without re-parsing the message text.
     """
 
-    def __init__(
-        self, code: str, message: str, *, data: dict[str, Any] | None = None
-    ) -> None:
+    def __init__(self, code: str, message: str, *, data: dict[str, Any] | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message

@@ -109,32 +109,55 @@ def test_new_kind_round_trip_in_ir(kind: ComponentKind) -> None:
     }
     if kind is ComponentKind.OPAMP:
         payload["components"] = [
-            {"id": "U1", "kind": kind.value, "spicePrefix": "X",
-             "nodes": ["a", "b", "a", "b", "0"], "value": "UniversalOpamp"},
+            {
+                "id": "U1",
+                "kind": kind.value,
+                "spicePrefix": "X",
+                "nodes": ["a", "b", "a", "b", "0"],
+                "value": "UniversalOpamp",
+            },
         ]
         payload["subcircuits"] = [
-            {"name": "UniversalOpamp", "nodes": ["in+", "in-", "v+", "v-", "out"],
-             "body": list(UNIVERSAL_OPAMP_BODY)},
+            {
+                "name": "UniversalOpamp",
+                "nodes": ["in+", "in-", "v+", "v-", "out"],
+                "body": list(UNIVERSAL_OPAMP_BODY),
+            },
         ]
     elif kind in (ComponentKind.NPN, ComponentKind.PNP):
         # 3-terminal BJT.
         payload["components"] = [
-            {"id": "Q1", "kind": kind.value, "spicePrefix": "Q",
-             "nodes": ["a", "b", "0"], "value": "modelX"},
+            {
+                "id": "Q1",
+                "kind": kind.value,
+                "spicePrefix": "Q",
+                "nodes": ["a", "b", "0"],
+                "value": "modelX",
+            },
         ]
         payload["models"] = [{"name": "modelX", "type": "NPN"}]
     elif kind in (ComponentKind.NMOS, ComponentKind.PMOS):
         # 4-terminal MOSFET.
         payload["components"] = [
-            {"id": "M1", "kind": kind.value, "spicePrefix": "M",
-             "nodes": ["a", "b", "0", "0"], "value": "modelX"},
+            {
+                "id": "M1",
+                "kind": kind.value,
+                "spicePrefix": "M",
+                "nodes": ["a", "b", "0", "0"],
+                "value": "modelX",
+            },
         ]
         payload["models"] = [{"name": "modelX", "type": "NMOS"}]
     else:
         # 2-terminal kinds (diode).
         payload["components"] = [
-            {"id": "D1", "kind": kind.value, "spicePrefix": "D",
-             "nodes": ["a", "b"], "value": "modelX"},
+            {
+                "id": "D1",
+                "kind": kind.value,
+                "spicePrefix": "D",
+                "nodes": ["a", "b"],
+                "value": "modelX",
+            },
         ]
         payload["models"] = [{"name": "modelX", "type": "D"}]
     ir = CircuitIR.model_validate(payload)
@@ -188,15 +211,29 @@ def test_diode_ir_renders_valid_cir() -> None:
         topology="halfwave_rectifier",
         nodes=["in", "out", "0"],
         components=[
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
-            {"id": "D1", "kind": "diode", "spicePrefix": "D",
-             "nodes": ["in", "out"], "value": "1N4148"},
-            {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["out", "0"], "value": "1k"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "SINE(0 5 1k)",
+            },
+            {
+                "id": "D1",
+                "kind": "diode",
+                "spicePrefix": "D",
+                "nodes": ["in", "out"],
+                "value": "1N4148",
+            },
+            {
+                "id": "R1",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["out", "0"],
+                "value": "1k",
+            },
         ],
-        models=[SemiconductorModel(name="1N4148", type="D",
-                                    params=["IS=2.55e-9", "RS=0.5"])],
+        models=[SemiconductorModel(name="1N4148", type="D", params=["IS=2.55e-9", "RS=0.5"])],
         analysis=[{"kind": "tran", "stopTime": "5m"}],
     )
     res = render_netlist(ir)
@@ -214,19 +251,43 @@ def test_bjt_ir_renders_valid_cir() -> None:
         topology="transistor_switch",
         nodes=["in", "base", "vcc", "out", "0"],
         components=[
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "PULSE(0 5 0 1n 1n 1m 2m)"},
-            {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["vcc", "0"], "value": "DC 12"},
-            {"id": "Rb", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["in", "base"], "value": "10k"},
-            {"id": "Rl", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["vcc", "out"], "value": "1k"},
-            {"id": "Q1", "kind": "npn", "spicePrefix": "Q",
-             "nodes": ["out", "base", "0"], "value": "BC547"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "PULSE(0 5 0 1n 1n 1m 2m)",
+            },
+            {
+                "id": "Vcc",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["vcc", "0"],
+                "value": "DC 12",
+            },
+            {
+                "id": "Rb",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["in", "base"],
+                "value": "10k",
+            },
+            {
+                "id": "Rl",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["vcc", "out"],
+                "value": "1k",
+            },
+            {
+                "id": "Q1",
+                "kind": "npn",
+                "spicePrefix": "Q",
+                "nodes": ["out", "base", "0"],
+                "value": "BC547",
+            },
         ],
-        models=[SemiconductorModel(name="BC547", type="NPN",
-                                    params=["BF=400", "VAF=80"])],
+        models=[SemiconductorModel(name="BC547", type="NPN", params=["BF=400", "VAF=80"])],
         analysis=[{"kind": "tran", "stopTime": "5m"}],
     )
     res = render_netlist(ir)
@@ -242,22 +303,56 @@ def test_opamp_ir_renders_subckt_and_x_line() -> None:
         topology="inverting_opamp",
         nodes=["in", "out", "vfb", "vcc", "vee", "0"],
         components=[
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "SINE(0 0.5 1k)"},
-            {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["vcc", "0"], "value": "DC 12"},
-            {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["vee", "0"], "value": "DC -12"},
-            {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["in", "vfb"], "value": "10k"},
-            {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["vfb", "out"], "value": "100k"},
-            {"id": "U1", "kind": "opamp", "spicePrefix": "X",
-             "nodes": ["in", "vfb", "vcc", "vee", "out"], "value": "UniversalOpamp"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "SINE(0 0.5 1k)",
+            },
+            {
+                "id": "Vcc",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["vcc", "0"],
+                "value": "DC 12",
+            },
+            {
+                "id": "Vee",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["vee", "0"],
+                "value": "DC -12",
+            },
+            {
+                "id": "R1",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["in", "vfb"],
+                "value": "10k",
+            },
+            {
+                "id": "R2",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["vfb", "out"],
+                "value": "100k",
+            },
+            {
+                "id": "U1",
+                "kind": "opamp",
+                "spicePrefix": "X",
+                "nodes": ["in", "vfb", "vcc", "vee", "out"],
+                "value": "UniversalOpamp",
+            },
         ],
-        subcircuits=[Subcircuit(name="UniversalOpamp",
-                                  nodes=["in+", "in-", "v+", "v-", "out"],
-                                  body=list(UNIVERSAL_OPAMP_BODY))],
+        subcircuits=[
+            Subcircuit(
+                name="UniversalOpamp",
+                nodes=["in+", "in-", "v+", "v-", "out"],
+                body=list(UNIVERSAL_OPAMP_BODY),
+            )
+        ],
         analysis=[{"kind": "tran", "stopTime": "5m"}],
     )
     res = render_netlist(ir)
@@ -319,8 +414,11 @@ def test_new_template_seed_ir_loads_and_renders(
     assert layout.overlaps == 0
     assert layout.missing_ground is False
     # layoutScore must be at or above the official threshold (85).
-    m = next(mm for mm in list_templates(seeded_templates_dir, status=TemplateStatus.OFFICIAL)
-             if mm.templateId == template_id)
+    m = next(
+        mm
+        for mm in list_templates(seeded_templates_dir, status=TemplateStatus.OFFICIAL)
+        if mm.templateId == template_id
+    )
     assert m.layoutScore >= 85, (
         f"official template {template_id} has layoutScore {m.layoutScore} < 85"
     )
@@ -330,8 +428,11 @@ def test_new_template_seed_ir_loads_and_renders(
 def test_new_template_marked_simulation_verified(
     seeded_templates_dir: Path, template_id: str
 ) -> None:
-    m = next(mm for mm in list_templates(seeded_templates_dir, status=TemplateStatus.OFFICIAL)
-             if mm.templateId == template_id)
+    m = next(
+        mm
+        for mm in list_templates(seeded_templates_dir, status=TemplateStatus.OFFICIAL)
+        if mm.templateId == template_id
+    )
     assert m.simulationVerified is True
 
 
@@ -399,22 +500,56 @@ def _build_minimal_ir(topology: str) -> CircuitIR:
             topology=topology,
             nodes=["in", "out", "vfb", "vcc", "vee", "0"],
             components=[
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 0.5 1k)"},
-                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vcc", "0"], "value": "DC 12"},
-                {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vee", "0"], "value": "DC -12"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "vfb"], "value": "10k"},
-                {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["vfb", "out"], "value": "100k"},
-                {"id": "U1", "kind": "opamp", "spicePrefix": "X",
-                 "nodes": ["in", "vfb", "vcc", "vee", "out"], "value": "UniversalOpamp"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 0.5 1k)",
+                },
+                {
+                    "id": "Vcc",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vcc", "0"],
+                    "value": "DC 12",
+                },
+                {
+                    "id": "Vee",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vee", "0"],
+                    "value": "DC -12",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "vfb"],
+                    "value": "10k",
+                },
+                {
+                    "id": "R2",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["vfb", "out"],
+                    "value": "100k",
+                },
+                {
+                    "id": "U1",
+                    "kind": "opamp",
+                    "spicePrefix": "X",
+                    "nodes": ["in", "vfb", "vcc", "vee", "out"],
+                    "value": "UniversalOpamp",
+                },
             ],
-            subcircuits=[Subcircuit(name="UniversalOpamp",
-                                      nodes=["in+", "in-", "v+", "v-", "out"],
-                                      body=list(UNIVERSAL_OPAMP_BODY))],
+            subcircuits=[
+                Subcircuit(
+                    name="UniversalOpamp",
+                    nodes=["in+", "in-", "v+", "v-", "out"],
+                    body=list(UNIVERSAL_OPAMP_BODY),
+                )
+            ],
             analysis=[{"kind": "tran", "stopTime": "5m"}],
         )
     if topology == "noninv_opamp":
@@ -424,22 +559,56 @@ def _build_minimal_ir(topology: str) -> CircuitIR:
             topology=topology,
             nodes=["in", "out", "vfb", "vcc", "vee", "0"],
             components=[
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 0.5 1k)"},
-                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vcc", "0"], "value": "DC 12"},
-                {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vee", "0"], "value": "DC -12"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "vfb"], "value": "10k"},
-                {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["vfb", "0"], "value": "10k"},
-                {"id": "U1", "kind": "opamp", "spicePrefix": "X",
-                 "nodes": ["vfb", "0", "vcc", "vee", "out"], "value": "UniversalOpamp"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 0.5 1k)",
+                },
+                {
+                    "id": "Vcc",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vcc", "0"],
+                    "value": "DC 12",
+                },
+                {
+                    "id": "Vee",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vee", "0"],
+                    "value": "DC -12",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "vfb"],
+                    "value": "10k",
+                },
+                {
+                    "id": "R2",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["vfb", "0"],
+                    "value": "10k",
+                },
+                {
+                    "id": "U1",
+                    "kind": "opamp",
+                    "spicePrefix": "X",
+                    "nodes": ["vfb", "0", "vcc", "vee", "out"],
+                    "value": "UniversalOpamp",
+                },
             ],
-            subcircuits=[Subcircuit(name="UniversalOpamp",
-                                      nodes=["in+", "in-", "v+", "v-", "out"],
-                                      body=list(UNIVERSAL_OPAMP_BODY))],
+            subcircuits=[
+                Subcircuit(
+                    name="UniversalOpamp",
+                    nodes=["in+", "in-", "v+", "v-", "out"],
+                    body=list(UNIVERSAL_OPAMP_BODY),
+                )
+            ],
             analysis=[{"kind": "tran", "stopTime": "5m"}],
         )
     if topology == "comparator":
@@ -449,20 +618,49 @@ def _build_minimal_ir(topology: str) -> CircuitIR:
             topology=topology,
             nodes=["in", "out", "vcc", "vee", "0"],
             components=[
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 1 1k)"},
-                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vcc", "0"], "value": "DC 5"},
-                {"id": "Vee", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vee", "0"], "value": "DC 0"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "vcc"], "value": "1k"},
-                {"id": "U1", "kind": "opamp", "spicePrefix": "X",
-                 "nodes": ["vcc", "vee", "vcc", "vee", "out"], "value": "UniversalOpamp"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 1 1k)",
+                },
+                {
+                    "id": "Vcc",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vcc", "0"],
+                    "value": "DC 5",
+                },
+                {
+                    "id": "Vee",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vee", "0"],
+                    "value": "DC 0",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "vcc"],
+                    "value": "1k",
+                },
+                {
+                    "id": "U1",
+                    "kind": "opamp",
+                    "spicePrefix": "X",
+                    "nodes": ["vcc", "vee", "vcc", "vee", "out"],
+                    "value": "UniversalOpamp",
+                },
             ],
-            subcircuits=[Subcircuit(name="UniversalOpamp",
-                                      nodes=["in+", "in-", "v+", "v-", "out"],
-                                      body=list(UNIVERSAL_OPAMP_BODY))],
+            subcircuits=[
+                Subcircuit(
+                    name="UniversalOpamp",
+                    nodes=["in+", "in-", "v+", "v-", "out"],
+                    body=list(UNIVERSAL_OPAMP_BODY),
+                )
+            ],
             analysis=[{"kind": "tran", "stopTime": "5m"}],
         )
     if topology == "diode_clipper":
@@ -472,14 +670,34 @@ def _build_minimal_ir(topology: str) -> CircuitIR:
             topology=topology,
             nodes=["in", "out", "high", "low", "0"],
             components=[
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "out"], "value": "1k"},
-                {"id": "D1", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["out", "high"], "value": "1N4148"},
-                {"id": "D2", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["low", "out"], "value": "1N4148"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 5 1k)",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "out"],
+                    "value": "1k",
+                },
+                {
+                    "id": "D1",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["out", "high"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "D2",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["low", "out"],
+                    "value": "1N4148",
+                },
             ],
             models=[SemiconductorModel(name="1N4148", type="D")],
             analysis=[{"kind": "tran", "stopTime": "5m"}],
@@ -491,12 +709,27 @@ def _build_minimal_ir(topology: str) -> CircuitIR:
             topology=topology,
             nodes=["in", "out", "0"],
             components=[
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
-                {"id": "D1", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["in", "out"], "value": "1N4148"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["out", "0"], "value": "1k"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 5 1k)",
+                },
+                {
+                    "id": "D1",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["in", "out"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["out", "0"],
+                    "value": "1k",
+                },
             ],
             models=[SemiconductorModel(name="1N4148", type="D")],
             analysis=[{"kind": "tran", "stopTime": "5m"}],
@@ -508,18 +741,48 @@ def _build_minimal_ir(topology: str) -> CircuitIR:
             topology=topology,
             nodes=["in", "out", "0"],
             components=[
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "SINE(0 5 1k)"},
-                {"id": "D1", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["in", "out"], "value": "1N4148"},
-                {"id": "D2", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["out", "in"], "value": "1N4148"},
-                {"id": "D3", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["0", "out"], "value": "1N4148"},
-                {"id": "D4", "kind": "diode", "spicePrefix": "D",
-                 "nodes": ["out", "0"], "value": "1N4148"},
-                {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["out", "0"], "value": "1k"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "SINE(0 5 1k)",
+                },
+                {
+                    "id": "D1",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["in", "out"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "D2",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["out", "in"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "D3",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["0", "out"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "D4",
+                    "kind": "diode",
+                    "spicePrefix": "D",
+                    "nodes": ["out", "0"],
+                    "value": "1N4148",
+                },
+                {
+                    "id": "R1",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["out", "0"],
+                    "value": "1k",
+                },
             ],
             models=[SemiconductorModel(name="1N4148", type="D")],
             analysis=[{"kind": "tran", "stopTime": "5m"}],
@@ -531,19 +794,43 @@ def _build_minimal_ir(topology: str) -> CircuitIR:
             topology=topology,
             nodes=["in", "base", "vcc", "out", "0"],
             components=[
-                {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["in", "0"], "value": "PULSE(0 5 0 1n 1n 1m 2m)"},
-                {"id": "Vcc", "kind": "voltage_source", "spicePrefix": "V",
-                 "nodes": ["vcc", "0"], "value": "DC 12"},
-                {"id": "Rb", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["in", "base"], "value": "10k"},
-                {"id": "Rl", "kind": "resistor", "spicePrefix": "R",
-                 "nodes": ["vcc", "out"], "value": "1k"},
-                {"id": "Q1", "kind": "npn", "spicePrefix": "Q",
-                 "nodes": ["out", "base", "0"], "value": "BC547"},
+                {
+                    "id": "Vin",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["in", "0"],
+                    "value": "PULSE(0 5 0 1n 1n 1m 2m)",
+                },
+                {
+                    "id": "Vcc",
+                    "kind": "voltage_source",
+                    "spicePrefix": "V",
+                    "nodes": ["vcc", "0"],
+                    "value": "DC 12",
+                },
+                {
+                    "id": "Rb",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["in", "base"],
+                    "value": "10k",
+                },
+                {
+                    "id": "Rl",
+                    "kind": "resistor",
+                    "spicePrefix": "R",
+                    "nodes": ["vcc", "out"],
+                    "value": "1k",
+                },
+                {
+                    "id": "Q1",
+                    "kind": "npn",
+                    "spicePrefix": "Q",
+                    "nodes": ["out", "base", "0"],
+                    "value": "BC547",
+                },
             ],
-            models=[SemiconductorModel(name="BC547", type="NPN",
-                                        params=["BF=400"])],
+            models=[SemiconductorModel(name="BC547", type="NPN", params=["BF=400"])],
             analysis=[{"kind": "tran", "stopTime": "5m"}],
         )
     raise ValueError(f"unknown topology: {topology}")

@@ -113,9 +113,7 @@ class AIProviderError(RuntimeError):
     re-parsing the message text.
     """
 
-    def __init__(
-        self, code: str, message: str, *, data: Mapping[str, Any] | None = None
-    ) -> None:
+    def __init__(self, code: str, message: str, *, data: Mapping[str, Any] | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
@@ -179,14 +177,11 @@ class ProviderProfile:
 class Keychain(Protocol):
     """Minimal keyring contract used by the provider layer."""
 
-    def get(self, key_id: str) -> str | None:
-        ...
+    def get(self, key_id: str) -> str | None: ...
 
-    def set(self, key_id: str, secret: str) -> None:
-        ...
+    def set(self, key_id: str, secret: str) -> None: ...
 
-    def delete(self, key_id: str) -> None:
-        ...
+    def delete(self, key_id: str) -> None: ...
 
 
 class _InMemoryKeychain:

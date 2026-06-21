@@ -173,9 +173,7 @@ class Result:
 
     project_id: str
     files: FileMap = field(default_factory=FileMap)
-    run: RunInfo = field(
-        default_factory=lambda: RunInfo(attempted=False, success=False)
-    )
+    run: RunInfo = field(default_factory=lambda: RunInfo(attempted=False, success=False))
     measurements: dict[str, float] = field(default_factory=dict)
     assertions: list[AssertionResult] = field(default_factory=list)
     layout_score: int | None = None
@@ -263,17 +261,13 @@ def build_result_from_run(
                 else None
             ),
             exit_code=(
-                int(run_payload["exitCode"])
-                if run_payload.get("exitCode") is not None
-                else None
+                int(run_payload["exitCode"]) if run_payload.get("exitCode") is not None else None
             ),
         )
 
     # ---- measurements ---------------------------------------------------
     if parse_report is not None:
-        result.measurements = {
-            name: mr.value for name, mr in parse_report.measurements.items()
-        }
+        result.measurements = {name: mr.value for name, mr in parse_report.measurements.items()}
         # Surface parser findings into the result-level errors/warnings.
         for f in parse_report.errors:
             result.errors.append(
@@ -392,8 +386,7 @@ def assert_constraints(
                         name="cutoff_within_tolerance",
                         passed=True,
                         detail=(
-                            f"no fcut_meas measurement provided; target {target} Hz "
-                            "not validated"
+                            f"no fcut_meas measurement provided; target {target} Hz not validated"
                         ),
                         expected=float(target),
                         code=RES_ERR_UNSUPPORTED_CONSTRAINT,

@@ -217,9 +217,7 @@ def append_history(
         On validation failure, path traversal, or filesystem error.
     """
     paths = get_project_paths(
-        _resolve_project_path(
-            project_dir, projects_root=projects_root, must_exist=True
-        )
+        _resolve_project_path(project_dir, projects_root=projects_root, must_exist=True)
     )
     payload = event.to_dict() if isinstance(event, HistoryEvent) else event
     payload = _validate_event_payload(payload)
@@ -263,9 +261,7 @@ def read_history(
     drifted since the dataclass was last updated.
     """
     paths = get_project_paths(
-        _resolve_project_path(
-            project_dir, projects_root=projects_root, must_exist=True
-        )
+        _resolve_project_path(project_dir, projects_root=projects_root, must_exist=True)
     )
     if not paths.history.exists():
         return []

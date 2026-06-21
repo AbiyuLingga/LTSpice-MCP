@@ -66,7 +66,9 @@ def test_profile_round_trip_does_not_carry_secret(tmp_path: Path) -> None:
     registry = ProviderRegistry.open(tmp_path)
     profile = _profile()
     registry.save(profile, secret="sk-supersecret")
-    on_disk = json.loads((tmp_path / ".workbench" / "ai" / "providers" / "default.json").read_text())
+    on_disk = json.loads(
+        (tmp_path / ".workbench" / "ai" / "providers" / "default.json").read_text()
+    )
     assert "sk-supersecret" not in on_disk
     assert on_disk["vendor"] == "openai"
     assert on_disk["model"] == "gpt-4o-mini"
@@ -94,9 +96,7 @@ def test_profile_delete_removes_keyring_entry(tmp_path: Path) -> None:
     assert registry.keychain.get("default-key") is None
 
 
-def test_in_memory_keychain_fallback(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_in_memory_keychain_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(ENV_KEYRING_BACKEND, "memory")
     registry = ProviderRegistry.open(tmp_path)
     registry.save(_profile(key_id="k1"), secret="sk-fallback")
@@ -248,13 +248,7 @@ def test_create_response_rejects_malformed_json(tmp_path: Path) -> None:
     registry = ProviderRegistry.open(tmp_path)
     registry.save(_profile(), secret="sk-test")
     adapter = ProviderAdapter(registry.get("default"), registry.keychain)
-    body = json.dumps(
-        {
-            "output": [
-                {"content": [{"type": "text", "text": "not json"}]}
-            ]
-        }
-    )
+    body = json.dumps({"output": [{"content": [{"type": "text", "text": "not json"}]}]})
     with pytest.raises(AIProviderError) as captured:
         adapter.create_response(_manifest(), body_override=lambda: body)
     assert captured.value.code == ERR_PROVIDER_MALFORMED

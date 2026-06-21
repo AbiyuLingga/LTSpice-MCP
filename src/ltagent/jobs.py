@@ -35,7 +35,14 @@ class JobState(StrEnum):
 
 
 TERMINAL_JOB_STATES: Final[frozenset[JobState]] = frozenset(
-    {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED, JobState.TIMED_OUT, JobState.SKIPPED, JobState.UNSUPPORTED}
+    {
+        JobState.COMPLETED,
+        JobState.FAILED,
+        JobState.CANCELLED,
+        JobState.TIMED_OUT,
+        JobState.SKIPPED,
+        JobState.UNSUPPORTED,
+    }
 )
 
 

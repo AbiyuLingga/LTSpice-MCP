@@ -292,6 +292,7 @@ def test_voltage_divider_rejects_both_resistors_zero() -> None:
     # not have a structural guard. We simulate it by patching
     # ``_ensure_positive`` to be a no-op.
     import ltagent.math_core.formulas as f
+
     original = f._ensure_positive
 
     def always_ok(name: str, value: float) -> str | None:
@@ -412,7 +413,9 @@ def test_noninverting_opamp_report_gain_10_rg_1k() -> None:
 
 def test_led_resistor_report_5v_2v_10ma() -> None:
     report = build_led_resistor_report(
-        v_supply=5.0, v_forward=2.0, i_led=10e-3,
+        v_supply=5.0,
+        v_forward=2.0,
+        i_led=10e-3,
     )
     assert report.success
     assert report.ideal_values["R"].value == pytest.approx(300.0)
@@ -457,8 +460,16 @@ def test_report_json_dict_shape() -> None:
     payload = report.to_dict()
     # Stable keys for the JSON contract — agents and MCP tools switch on these.
     for key in (
-        "schemaVersion", "success", "topology", "formulas", "idealValues",
-        "selectedValues", "predicted", "errorPercent", "assumptions", "warnings",
+        "schemaVersion",
+        "success",
+        "topology",
+        "formulas",
+        "idealValues",
+        "selectedValues",
+        "predicted",
+        "errorPercent",
+        "assumptions",
+        "warnings",
     ):
         assert key in payload, f"missing {key!r} in report payload"
     assert payload["formulas"], "formulas block must not be empty"
@@ -470,8 +481,12 @@ def test_report_markdown_contains_required_sections() -> None:
     md = render_markdown(report)
     # Section headings are part of the contract.
     for section in (
-        "# Calculation Report", "## Formulas", "## Ideal Values",
-        "## Standard Value Selection", "## Predicted Result", "## Assumptions",
+        "# Calculation Report",
+        "## Formulas",
+        "## Ideal Values",
+        "## Standard Value Selection",
+        "## Predicted Result",
+        "## Assumptions",
     ):
         assert section in md, f"missing markdown section {section!r}"
     # The numeric values appear in the report body.

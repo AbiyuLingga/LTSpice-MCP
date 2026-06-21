@@ -57,15 +57,19 @@ from ltagent.live.edit_ops import (
 
 def _starter_graph() -> dict[str, Any]:
     return {
-        "schemaVersion": "0.2", "projectId": "rc_lowpass_1khz", "domain": "analog",
-        "topology": "rc_lowpass", "components": {},
+        "schemaVersion": "0.2",
+        "projectId": "rc_lowpass_1khz",
+        "domain": "analog",
+        "topology": "rc_lowpass",
+        "components": {},
         "nets": {
             "in": {"name": "in", "type": "signal"},
             "out": {"name": "out", "type": "signal"},
             GROUND_NODE: {"name": GROUND_NODE, "type": "ground"},
         },
         "analyses": [{"kind": "ac", "startFreq": "10", "stopFreq": "100k", "pointsPerDecade": 100}],
-        "measurements": [], "directives": [],
+        "measurements": [],
+        "directives": [],
     }
 
 
@@ -112,14 +116,22 @@ class TestEditResultShape:
         payload = result.to_dict()
         assert payload["success"] is False
         assert payload["graph"] == {"a": 1}
-        assert payload["errors"] == [{"code": "E", "path": "<root>", "detail": "detail", "data": {"k": 1}}]
-        assert payload["warnings"] == [{"code": "W", "path": "<root>", "detail": "heads up", "data": {"k": 2}}]
-        assert payload["changes"] == [{"op": "op", "target": "target", "before": "before", "after": "after", "data": {"k": 3}}]
+        assert payload["errors"] == [
+            {"code": "E", "path": "<root>", "detail": "detail", "data": {"k": 1}}
+        ]
+        assert payload["warnings"] == [
+            {"code": "W", "path": "<root>", "detail": "heads up", "data": {"k": 2}}
+        ]
+        assert payload["changes"] == [
+            {"op": "op", "target": "target", "before": "before", "after": "after", "data": {"k": 3}}
+        ]
 
     def test_to_dict_drops_empty_data_payloads(self) -> None:
         result = EditResult(graph={})
         result.add_warning("W", "<root>", "heads up")
-        assert result.to_dict()["warnings"] == [{"code": "W", "path": "<root>", "detail": "heads up"}]
+        assert result.to_dict()["warnings"] == [
+            {"code": "W", "path": "<root>", "detail": "heads up"}
+        ]
 
     def test_add_helpers_accept_none_data(self) -> None:
         result = EditResult(graph={})
@@ -203,7 +215,9 @@ class TestAddComponent:
         assert result.errors[0].code == ERR_COMPONENT_KIND_UNKNOWN
 
     def test_arity_mismatch_returns_error(self, graph: dict[str, Any]) -> None:
-        result = add_component(graph, "R1", "resistor", {"p1": "in", "p2": "out", "p3": "extra"}, value="1k")
+        result = add_component(
+            graph, "R1", "resistor", {"p1": "in", "p2": "out", "p3": "extra"}, value="1k"
+        )
         assert result.success is False
         assert result.errors[0].code == ERR_COMPONENT_ARITY
 
@@ -218,7 +232,9 @@ class TestAddComponent:
         assert result.errors[0].code == ERR_COMPONENT_VALUE_REQUIRED
 
     def test_voltage_source_with_value_succeeds(self, graph: dict[str, Any]) -> None:
-        result = add_component(graph, "Vin", "voltage_source", {"p1": "in", "p2": GROUND_NODE}, value="SINE(0 1 1k)")
+        result = add_component(
+            graph, "Vin", "voltage_source", {"p1": "in", "p2": GROUND_NODE}, value="SINE(0 1 1k)"
+        )
         assert result.success is True
 
     def test_passive_requires_value(self, graph: dict[str, Any]) -> None:
@@ -237,7 +253,9 @@ class TestAddComponent:
 
     def test_opamp_uses_value_as_subcircuit(self, graph: dict[str, Any]) -> None:
         result = add_component(
-            graph, "U1", "opamp",
+            graph,
+            "U1",
+            "opamp",
             {"ip": "in", "in": "fb", "vp": GROUND_NODE, "vn": GROUND_NODE, "out": "out"},
             value="UniversalOpamp",
         )
@@ -252,7 +270,9 @@ class TestAddComponent:
 
     def test_ground_is_always_registered(self, graph: dict[str, Any]) -> None:
         del graph["nets"][GROUND_NODE]
-        result = add_component(graph, "Vin", "voltage_source", {"p1": "in", "p2": GROUND_NODE}, value="SINE(0 1 1k)")
+        result = add_component(
+            graph, "Vin", "voltage_source", {"p1": "in", "p2": GROUND_NODE}, value="SINE(0 1 1k)"
+        )
         assert result.success is True
         assert GROUND_NODE in result.graph["nets"]
 
@@ -262,12 +282,16 @@ class TestAddComponent:
         assert result.errors[0].code == ERR_GRAPH_TYPE
 
     def test_non_mapping_graph_returns_structured_error(self) -> None:
-        result = add_component("not a mapping", "R1", "resistor", {"p1": "in", "p2": "out"}, value="1k")  # type: ignore[arg-type]
+        result = add_component(
+            "not a mapping", "R1", "resistor", {"p1": "in", "p2": "out"}, value="1k"
+        )  # type: ignore[arg-type]
         assert result.success is False
         assert result.errors[0].code == ERR_GRAPH_TYPE
 
     def test_role_is_preserved(self, graph: dict[str, Any]) -> None:
-        result = add_component(graph, "R1", "resistor", {"p1": "in", "p2": "out"}, value="1.6k", role="series_resistor")
+        result = add_component(
+            graph, "R1", "resistor", {"p1": "in", "p2": "out"}, value="1.6k", role="series_resistor"
+        )
         assert result.success is True
         assert result.graph["components"]["R1"]["role"] == "series_resistor"
 
@@ -494,7 +518,9 @@ class TestAddMeasurement:
     def test_add_measurement_succeeds(self, graph: dict[str, Any]) -> None:
         result = add_measurement(graph, "GAIN_1K", "ac", "FIND mag(V(out)/V(in)) AT=1k")
         assert result.success is True
-        assert result.graph["measurements"] == [{"name": "GAIN_1K", "analysis": "ac", "expression": "FIND mag(V(out)/V(in)) AT=1k"}]
+        assert result.graph["measurements"] == [
+            {"name": "GAIN_1K", "analysis": "ac", "expression": "FIND mag(V(out)/V(in)) AT=1k"}
+        ]
 
     def test_duplicate_measurement_returns_error(self, graph: dict[str, Any]) -> None:
         r1 = add_measurement(graph, "GAIN_1K", "ac", "FIND mag(V(out)/V(in)) AT=1k")
@@ -532,10 +558,15 @@ class TestAddMeasurement:
 class TestEndToEndScenarios:
     def test_full_edit_session(self) -> None:
         graph: dict[str, Any] = {
-            "schemaVersion": "0.2", "projectId": "rc_lowpass_1khz", "domain": "analog",
-            "topology": "rc_lowpass", "components": {},
+            "schemaVersion": "0.2",
+            "projectId": "rc_lowpass_1khz",
+            "domain": "analog",
+            "topology": "rc_lowpass",
+            "components": {},
             "nets": {GROUND_NODE: {"name": GROUND_NODE, "type": "ground"}},
-            "analyses": [], "measurements": [], "directives": [],
+            "analyses": [],
+            "measurements": [],
+            "directives": [],
         }
         r1 = add_component(graph, "R1", "resistor", {"p1": "in", "p2": "out"}, value="1k")
         assert r1.success
@@ -565,7 +596,9 @@ class TestEndToEndScenarios:
         assert get_component(graph, "C1") is None
         assert get_pin_net(graph, "R1", "p1") == "v_in"
         assert get_pin_net(graph, "R1", "p2") == "out"
-        assert graph["measurements"] == [{"name": "GAIN_1K", "analysis": "ac", "expression": "V(out)"}]
+        assert graph["measurements"] == [
+            {"name": "GAIN_1K", "analysis": "ac", "expression": "V(out)"}
+        ]
         assert graph["directives"] == [{"name": ".tran", "args": "1m 5m 1u"}]
 
 

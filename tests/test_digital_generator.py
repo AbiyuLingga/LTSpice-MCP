@@ -229,6 +229,7 @@ def test_program_mem_has_correct_word_count(tmp_path: Path) -> None:
     assert len(lines) == 256  # default rom size
     # First six lines encode LDI/STA/LDI/ADD/STA/HALT for the demo.
     from ltagent.digital_asm import OP_ADD, OP_HALT, OP_LDI, OP_STA, _encode
+
     assert lines[0] == f"{_encode(OP_LDI, 20):04x}"
     assert lines[1] == f"{_encode(OP_STA, 0x10):04x}"
     assert lines[2] == f"{_encode(OP_LDI, 22):04x}"
@@ -251,15 +252,14 @@ def test_generate_project_with_custom_program(tmp_path: Path) -> None:
     body = (project.project_dir / PATH_PROGRAM_MEM).read_text(encoding="utf-8")
     lines = [ln for ln in body.splitlines() if ln.strip()]
     from ltagent.digital_asm import OP_HALT, OP_LDI, _encode
+
     assert lines[0] == f"{_encode(OP_LDI, 1):04x}"
     assert lines[1] == f"{_encode(OP_HALT, 0):04x}"
 
 
 def test_generate_project_with_custom_asm_source(tmp_path: Path) -> None:
     src = "LDI 5\nHALT\n"
-    project = generate_project(
-        _minimal_ir(), tmp_path, program_source=src
-    )
+    project = generate_project(_minimal_ir(), tmp_path, program_source=src)
     body = (project.project_dir / PATH_PROGRAM_ASM).read_text(encoding="utf-8")
     assert "LDI 5" in body
 

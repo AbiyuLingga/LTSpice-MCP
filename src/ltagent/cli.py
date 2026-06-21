@@ -272,9 +272,7 @@ def cmd_init(args: argparse.Namespace) -> dict[str, Any]:
             + "\n",
             encoding="utf-8",
         )
-        (target / ".gitignore").write_text(
-            "*.raw\n*.log\n*.tmp\n.snapshots/\n", encoding="utf-8"
-        )
+        (target / ".gitignore").write_text("*.raw\n*.log\n*.tmp\n.snapshots/\n", encoding="utf-8")
     except OSError as exc:
         return _err(
             "init",
@@ -377,9 +375,7 @@ def cmd_ir_validate(args: argparse.Namespace) -> dict[str, Any]:
             "data": {
                 "path": str(path),
                 "errorCount": len(errs),
-                "errors": [
-                    {"code": e.code, "path": e.path, "detail": e.detail} for e in errs
-                ],
+                "errors": [{"code": e.code, "path": e.path, "detail": e.detail} for e in errs],
             },
             "warnings": [],
             "errors": [
@@ -420,13 +416,9 @@ def _load_ir_schema_text() -> tuple[str, str]:
     into a structured error.
     """
     try:
-        resource = importlib_resources.files("ltagent.resources").joinpath(
-            "circuit_ir.schema.json"
-        )
+        resource = importlib_resources.files("ltagent.resources").joinpath("circuit_ir.schema.json")
     except (ModuleNotFoundError, AttributeError) as exc:
-        raise FileNotFoundError(
-            "ltagent.resources package is not importable"
-        ) from exc
+        raise FileNotFoundError("ltagent.resources package is not importable") from exc
     text = resource.read_text(encoding="utf-8")
     return text, "ltagent.resources:circuit_ir.schema.json"
 
@@ -516,14 +508,11 @@ def cmd_netlist(args: argparse.Namespace) -> dict[str, Any]:
             "data": {
                 "path": str(src),
                 "errorCount": len(errs),
-                "errors": [
-                    {"code": e.code, "path": e.path, "detail": e.detail} for e in errs
-                ],
+                "errors": [{"code": e.code, "path": e.path, "detail": e.detail} for e in errs],
             },
             "warnings": [],
             "errors": [
-                {"code": e.code, "detail": e.detail, "data": {"path": e.path}}
-                for e in errs
+                {"code": e.code, "detail": e.detail, "data": {"path": e.path}} for e in errs
             ],
         }
     except NetlistError as exc:
@@ -568,7 +557,9 @@ def cmd_netlist(args: argparse.Namespace) -> dict[str, Any]:
         out_target = out_target.resolve()
 
     try:
-        result = write_netlist(ir, out_target, allow_unknown_directives=args.allow_unsafe_directives)
+        result = write_netlist(
+            ir, out_target, allow_unknown_directives=args.allow_unsafe_directives
+        )
     except OSError as exc:
         return _err(
             "netlist",
@@ -678,14 +669,11 @@ def cmd_asc(args: argparse.Namespace) -> dict[str, Any]:
             "data": {
                 "path": str(src),
                 "errorCount": len(errs),
-                "errors": [
-                    {"code": e.code, "path": e.path, "detail": e.detail} for e in errs
-                ],
+                "errors": [{"code": e.code, "path": e.path, "detail": e.detail} for e in errs],
             },
             "warnings": [],
             "errors": [
-                {"code": e.code, "detail": e.detail, "data": {"path": e.path}}
-                for e in errs
+                {"code": e.code, "detail": e.detail, "data": {"path": e.path}} for e in errs
             ],
         }
     except ASCError as exc:
@@ -803,11 +791,7 @@ def cmd_template_list(args: argparse.Namespace) -> dict[str, Any]:
         return _err("template.list", exc.detail, exc.code, exc.detail, exc.data)
     try:
         status_arg = getattr(args, "status", None)
-        status = (
-            None
-            if status_arg is None
-            else TemplateStatus.from_str(status_arg)
-        )
+        status = None if status_arg is None else TemplateStatus.from_str(status_arg)
         manifests = list_templates(templates_dir, status=status)
     except TemplateError as exc:
         return _err("template.list", exc.detail, exc.code, exc.detail, exc.data)
@@ -839,9 +823,7 @@ def cmd_template_show(args: argparse.Namespace) -> dict[str, Any]:
     try:
         status_arg = getattr(args, "status", None) or TemplateStatus.OFFICIAL
         status = TemplateStatus.from_str(status_arg)
-        manifest = show_template(
-            templates_dir, args.id, status=status
-        )
+        manifest = show_template(templates_dir, args.id, status=status)
     except TemplateError as exc:
         return _err("template.show", exc.detail, exc.code, exc.detail, exc.data)
 
@@ -954,8 +936,7 @@ def cmd_template_audit(args: argparse.Namespace) -> dict[str, Any]:
                 {
                     "code": "TEMPLATE_DUPLICATE_TOPOLOGY",
                     "detail": (
-                        f"topology {topo!r} is shared by {len(ids)} templates: "
-                        f"{', '.join(ids)}"
+                        f"topology {topo!r} is shared by {len(ids)} templates: {', '.join(ids)}"
                     ),
                     "data": {"topology": topo, "templateIds": list(ids)},
                 }
@@ -1055,8 +1036,7 @@ def cmd_template_evaluate(args: argparse.Namespace) -> dict[str, Any]:
 
     success = evaluation.decision != PromotionDecision.PROJECT
     message = (
-        f"{evaluation.template_id}: score={evaluation.score}, "
-        f"decision={evaluation.decision.value}"
+        f"{evaluation.template_id}: score={evaluation.score}, decision={evaluation.decision.value}"
     )
     if evaluation.duplicate_of:
         message += f" (value-variant of {evaluation.duplicate_of!r})"
@@ -1257,9 +1237,7 @@ def cmd_codex_install(args: argparse.Namespace) -> dict[str, Any]:
         command=args.server_command,
         dry_run=args.dry_run,
     )
-    message = (
-        "Codex config updated (dry-run)" if result.dryRun else "Codex config updated"
-    )
+    message = "Codex config updated (dry-run)" if result.dryRun else "Codex config updated"
     return _ok(
         "codex.install",
         message,
@@ -1280,9 +1258,7 @@ def cmd_codex_uninstall(args: argparse.Namespace) -> dict[str, Any]:
         config_path=Path(args.config).expanduser() if args.config else None,
         dry_run=args.dry_run,
     )
-    message = (
-        "Codex config cleaned (dry-run)" if info["dryRun"] else "Codex config cleaned"
-    )
+    message = "Codex config cleaned (dry-run)" if info["dryRun"] else "Codex config cleaned"
     return _ok("codex.uninstall", message, info)
 
 
@@ -1298,7 +1274,11 @@ def cmd_codex_doctor(args: argparse.Namespace) -> dict[str, Any]:
     message = (
         "ltagent is registered with Codex"
         if success
-        else ("ltagent is not registered with Codex" if not report.get("server") else "ltagent entry has issues")
+        else (
+            "ltagent is not registered with Codex"
+            if not report.get("server")
+            else "ltagent entry has issues"
+        )
     )
     payload = _ok("codex.doctor", message, report)
     if not success:
@@ -1369,9 +1349,7 @@ def cmd_parse_log(args: argparse.Namespace) -> dict[str, Any]:
         {
             "source": source,
             "report": report.to_dict(),
-            "measurements": {
-                k: v.to_dict() for k, v in report.measurements.items()
-            },
+            "measurements": {k: v.to_dict() for k, v in report.measurements.items()},
             "errors": [f.to_dict() for f in report.errors],
             "warnings": [f.to_dict() for f in report.warnings],
             "isSimulationSuccess": success,
@@ -1515,11 +1493,7 @@ def cmd_run(args: argparse.Namespace) -> dict[str, Any]:
     else:
         cir_path = cir_path.resolve()
 
-    workdir = (
-        Path(args.workdir).expanduser().resolve()
-        if args.workdir
-        else cir_path.parent
-    )
+    workdir = Path(args.workdir).expanduser().resolve() if args.workdir else cir_path.parent
 
     extra_args: tuple[str, ...] = tuple(args.ltspice_arg or ())
 
@@ -1596,9 +1570,7 @@ def cmd_create(args: argparse.Namespace) -> dict[str, Any]:
 
     # ---- bridge: --save-template (Phase 7 <-> Phase 9) -----------------
     if getattr(args, "save_template", False):
-        payload = _augment_create_with_template(
-            payload, pr.target, templates_dir, args
-        )
+        payload = _augment_create_with_template(payload, pr.target, templates_dir, args)
 
     return payload
 
@@ -1652,9 +1624,7 @@ def _augment_create_with_template(
                 "data": dict(exc.data),
             }
         )
-        payload.setdefault("data", {}).setdefault("templateBridge", {})["status"] = (
-            "skipped"
-        )
+        payload.setdefault("data", {}).setdefault("templateBridge", {})["status"] = "skipped"
         payload["data"]["templateBridge"]["reason"] = exc.code
         return payload
 
@@ -1899,9 +1869,7 @@ def _safe_extract_ir_name(ir_source: Any) -> str:
     return ""
 
 
-def _resolve_templates_dir_for_create(
-    args: argparse.Namespace, config: Config
-) -> Path:
+def _resolve_templates_dir_for_create(args: argparse.Namespace, config: Config) -> Path:
     """Return the templates root for a create invocation."""
     return _resolve_templates_dir(args, config)
 
@@ -1931,9 +1899,7 @@ def _create_payload(pr: ProjectResult, *, ir_kind: str) -> dict[str, Any]:
         "run": {
             "status": pr.run_status,
             "success": (
-                pr.result_obj.run.success
-                if pr.run_status == RUN_STATUS_ATTEMPTED
-                else None
+                pr.result_obj.run.success if pr.run_status == RUN_STATUS_ATTEMPTED else None
             ),
             "logPath": str(pr.log_path) if pr.log_path else None,
             "rawPath": str(pr.raw_path) if pr.raw_path else None,
@@ -1972,9 +1938,7 @@ def _create_payload(pr: ProjectResult, *, ir_kind: str) -> dict[str, Any]:
     # result.json. We do *not* flip success=False for them: the project
     # exists either way and the user asked for it.
     if pr.run_status == RUN_STATUS_ATTEMPTED and not pr.result_obj.run.success:
-        existing_codes = {
-            w.get("code") for w in payload.get("warnings", []) if isinstance(w, dict)
-        }
+        existing_codes = {w.get("code") for w in payload.get("warnings", []) if isinstance(w, dict)}
         # Surface the two distinct reasons separately so agents can
         # tell "no LTspice installed" from "LTspice ran but failed".
         if PRJ_WARN_LTSPICE_UNAVAILABLE not in existing_codes:
@@ -2165,8 +2129,7 @@ def cmd_plan(args: argparse.Namespace) -> dict[str, Any]:
             }
         payload["data"]["writtenTo"] = str(out_path)
         payload["message"] = (
-            f"Planned {re_built.topology} circuit '{re_built.name}' "
-            f"and wrote IR to {out_path}"
+            f"Planned {re_built.topology} circuit '{re_built.name}' and wrote IR to {out_path}"
         )
 
     return payload
@@ -2310,9 +2273,7 @@ def cmd_digital_plan(args: argparse.Namespace) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "success": True,
         "command": "digital.plan",
-        "message": (
-            f"Planned {rebuilt.kind} design '{rebuilt.name}'"
-        ),
+        "message": (f"Planned {rebuilt.kind} design '{rebuilt.name}'"),
         "data": {
             "prompt": prompt,
             "kind": rebuilt.kind,
@@ -2368,16 +2329,13 @@ def cmd_digital_plan(args: argparse.Namespace) -> dict[str, Any]:
             }
         payload["data"]["writtenTo"] = str(out_path)
         payload["message"] = (
-            f"Planned {rebuilt.kind} design '{rebuilt.name}' "
-            f"and wrote Design IR to {out_path}"
+            f"Planned {rebuilt.kind} design '{rebuilt.name}' and wrote Design IR to {out_path}"
         )
 
     return payload
 
 
-def _digital_not_implemented(
-    subcommand: str, args: argparse.Namespace
-) -> dict[str, Any]:
+def _digital_not_implemented(subcommand: str, args: argparse.Namespace) -> dict[str, Any]:
     """Return a structured 'not yet implemented' payload for the
     digital subcommands that ship in later phases.
 
@@ -2574,9 +2532,7 @@ def cmd_digital_create(args: argparse.Namespace) -> dict[str, Any]:
         projects_root = (Path.cwd() / "projects").resolve()
         from .digital_project import resolve_project_dir
 
-        _, project_dir = resolve_project_dir(
-            name=ir.name, projects_root=projects_root
-        )
+        _, project_dir = resolve_project_dir(name=ir.name, projects_root=projects_root)
 
         try:
             result = create_project(
@@ -2608,8 +2564,7 @@ def cmd_digital_create(args: argparse.Namespace) -> dict[str, Any]:
         "success": True,
         "command": "digital.create",
         "message": (
-            f"Created Tiny8 project '{result.project_id}' with "
-            f"{len(result.project.files)} files"
+            f"Created Tiny8 project '{result.project_id}' with {len(result.project.files)} files"
         ),
         "data": {
             "source": source,
@@ -2627,8 +2582,7 @@ def cmd_digital_create(args: argparse.Namespace) -> dict[str, Any]:
             ],
         },
         "warnings": [
-            {"code": "CREATE_WARNING", "detail": w, "data": {}}
-            for w in result.project.warnings
+            {"code": "CREATE_WARNING", "detail": w, "data": {}} for w in result.project.warnings
         ],
         "errors": [],
     }
@@ -2674,11 +2628,7 @@ def cmd_digital_assemble(args: argparse.Namespace) -> dict[str, Any]:
         }
 
     out_arg = getattr(args, "out", None)
-    out_path = (
-        Path(out_arg).expanduser().resolve()
-        if out_arg
-        else src_path.with_suffix(".mem")
-    )
+    out_path = Path(out_arg).expanduser().resolve() if out_arg else src_path.with_suffix(".mem")
 
     try:
         text = src_path.read_text(encoding="utf-8")
@@ -2693,8 +2643,7 @@ def cmd_digital_assemble(args: argparse.Namespace) -> dict[str, Any]:
                 "data": {"source": str(src_path)},
                 "warnings": [],
                 "errors": [
-                    {"code": e.code, "detail": e.detail, "data": {"line": e.line}}
-                    for e in errs
+                    {"code": e.code, "detail": e.detail, "data": {"line": e.line}} for e in errs
                 ],
             }
         return {
@@ -2909,9 +2858,7 @@ def cmd_digital_simulate(args: argparse.Namespace) -> dict[str, Any]:
     out_binary = src / "build" / "tiny8_top.vvp"
     out_binary.parent.mkdir(parents=True, exist_ok=True)
 
-    compile = compile_iverilog(
-        src_files=src_files, out_binary=out_binary, cwd=src
-    )
+    compile = compile_iverilog(src_files=src_files, out_binary=out_binary, cwd=src)
     if not compile.ok:
         sim = SimulationReport(
             status="fail",
@@ -2966,9 +2913,7 @@ def cmd_digital_simulate(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "success": passed,
         "command": "digital.simulate",
-        "message": (
-            f"Simulation {'passed' if passed else 'failed'} at cycle {cycles}"
-        ),
+        "message": (f"Simulation {'passed' if passed else 'failed'} at cycle {cycles}"),
         "data": {
             "projectDir": str(src),
             "report": "reports/sim.json",
@@ -3094,18 +3039,13 @@ def cmd_digital_synth_check(args: argparse.Namespace) -> dict[str, Any]:
         stdout_tail=res.stdout_tail,
         stderr_tail=res.stderr_tail,
     )
-    result = ProjectResult(
-        status="pass" if passed else "fail", synthesis=sreport
-    )
+    result = ProjectResult(status="pass" if passed else "fail", synthesis=sreport)
     write_synthesis_report(src, sreport)
     write_result_json(src, result)
     return {
         "success": passed,
         "command": "digital.synth-check",
-        "message": (
-            f"Synthesis {'passed' if passed else 'failed'} "
-            f"({res.duration_ms}ms)"
-        ),
+        "message": (f"Synthesis {'passed' if passed else 'failed'} ({res.duration_ms}ms)"),
         "data": {
             "projectDir": str(src),
             "report": "reports/synth.json",
@@ -3159,25 +3099,19 @@ def cmd_digital_inspect(args: argparse.Namespace) -> dict[str, Any]:
 
     if manifest_path.exists():
         try:
-            payload["manifest"] = json.loads(
-                manifest_path.read_text(encoding="utf-8")
-            )
+            payload["manifest"] = json.loads(manifest_path.read_text(encoding="utf-8"))
         except Exception as exc:
             payload["manifestError"] = str(exc)
 
     if result_path.exists():
         try:
-            payload["result"] = json.loads(
-                result_path.read_text(encoding="utf-8")
-            )
+            payload["result"] = json.loads(result_path.read_text(encoding="utf-8"))
         except Exception as exc:
             payload["resultError"] = str(exc)
 
     if design_path.exists():
         try:
-            payload["design"] = json.loads(
-                design_path.read_text(encoding="utf-8")
-            )
+            payload["design"] = json.loads(design_path.read_text(encoding="utf-8"))
         except Exception as exc:
             payload["designError"] = str(exc)
 
@@ -3298,9 +3232,7 @@ def build_parser() -> argparse.ArgumentParser:
         # different-signature) purpose. Subparsers that want to add a
         # custom --text later should set the ``_ltagent_skip_text_flag``
         # attribute on themselves *before* calling _add_output_flags.
-        if "--text" not in existing and not getattr(
-            p, "_ltagent_skip_text_flag", False
-        ):
+        if "--text" not in existing and not getattr(p, "_ltagent_skip_text_flag", False):
             p.add_argument(
                 "--text",
                 action="store_true",
@@ -3353,7 +3285,9 @@ def build_parser() -> argparse.ArgumentParser:
     config_sub = p_config.add_subparsers(dest="config_command", required=True, metavar="SUBCOMMAND")
     p_config_show = config_sub.add_parser("show", help="print the resolved config as JSON")
     _add_output_flags(p_config_show)
-    p_config_validate = config_sub.add_parser("validate", help="validate the config and report issues")
+    p_config_validate = config_sub.add_parser(
+        "validate", help="validate the config and report issues"
+    )
     _add_output_flags(p_config_validate)
 
     # --- Phase 1/2: ir and netlist subcommands -------------------------
@@ -3531,8 +3465,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="ID",
         default=None,
         help=(
-            "override the candidate's id (default: the IR's name); "
-            "only valid with --save-template"
+            "override the candidate's id (default: the IR's name); only valid with --save-template"
         ),
     )
     p_create.add_argument(
@@ -3571,10 +3504,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--out",
         metavar="PATH",
         default=None,
-        help=(
-            "optional path to also write the resulting IR JSON; "
-            "skipped on refusal"
-        ),
+        help=("optional path to also write the resulting IR JSON; skipped on refusal"),
     )
 
     # --- Phase 12: digital design (Tiny8 CPU) ---------------------------
@@ -3699,8 +3629,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "JSON object with the runner payload "
-            "(e.g. '{\"success\": true, \"exitCode\": 0, \"timeoutSeconds\": 30, "
-            "\"durationMs\": 812}'); merged into the result.json run block"
+            '(e.g. \'{"success": true, "exitCode": 0, "timeoutSeconds": 30, '
+            '"durationMs": 812}\'); merged into the result.json run block'
         ),
     )
     p_result.add_argument(
@@ -3777,9 +3707,7 @@ def build_parser() -> argparse.ArgumentParser:
             help=argparse.SUPPRESS,
         )
 
-    p_template_list = template_sub.add_parser(
-        "list", help="list templates (default status: all)"
-    )
+    p_template_list = template_sub.add_parser("list", help="list templates (default status: all)")
     _add_output_flags(p_template_list)
     _add_templates_dir_flag(p_template_list)
     p_template_list.add_argument(
@@ -3788,9 +3716,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="filter by status (default: all)",
     )
 
-    p_template_show = template_sub.add_parser(
-        "show", help="show one template by id"
-    )
+    p_template_show = template_sub.add_parser("show", help="show one template by id")
     _add_output_flags(p_template_show)
     _add_templates_dir_flag(p_template_show)
     p_template_show.add_argument("id", help="template id (e.g. rc_lowpass)")
@@ -3866,10 +3792,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_template_audit_promote = template_sub.add_parser(
         "audit-promotability",
-        help=(
-            "evaluate every candidate and report which are eligible "
-            "for promotion (Phase 9)"
-        ),
+        help=("evaluate every candidate and report which are eligible for promotion (Phase 9)"),
     )
     _add_output_flags(p_template_audit_promote)
     _add_templates_dir_flag(p_template_audit_promote)
@@ -3887,14 +3810,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_codex = subparsers.add_parser(
         "codex",
         help=(
-            "install, inspect, or remove the ltagent-mcp entry in the "
-            "local Codex config (Phase 9)"
+            "install, inspect, or remove the ltagent-mcp entry in the local Codex config (Phase 9)"
         ),
     )
     _add_output_flags(p_codex)
-    codex_sub = p_codex.add_subparsers(
-        dest="codex_command", required=True, metavar="SUBCOMMAND"
-    )
+    codex_sub = p_codex.add_subparsers(dest="codex_command", required=True, metavar="SUBCOMMAND")
     p_codex_install = codex_sub.add_parser(
         "install",
         help="add ltagent-mcp to the local Codex config (idempotent)",
@@ -3949,9 +3869,21 @@ def _resolve_output_mode(args: argparse.Namespace) -> bool:
     if args.text:
         return False
     return bool(
-        args.command in (
-            "init", "doctor", "config", "run", "create", "template", "ir",
-            "netlist", "asc", "parse-log", "result", "plan", "codex",
+        args.command
+        in (
+            "init",
+            "doctor",
+            "config",
+            "run",
+            "create",
+            "template",
+            "ir",
+            "netlist",
+            "asc",
+            "parse-log",
+            "result",
+            "plan",
+            "codex",
         )
         or getattr(args, "config_command", None)
         or getattr(args, "template_command", None)
@@ -4022,10 +3954,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             payload = cmd_template_evaluate(args)
         elif args.command == "template" and args.template_command == "promote":
             payload = cmd_template_promote(args)
-        elif (
-            args.command == "template"
-            and args.template_command == "audit-promotability"
-        ):
+        elif args.command == "template" and args.template_command == "audit-promotability":
             payload = cmd_template_promotability(args)
         elif args.command == "codex" and args.codex_command == "install":
             payload = cmd_codex_install(args)

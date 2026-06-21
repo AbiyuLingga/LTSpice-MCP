@@ -187,9 +187,7 @@ def tool_wb_v2_apply_change_set(
             {"code": exc.code, **exc.data},
         )
     try:
-        result = service.apply_change_set(
-            project_id, change_set_model.model_dump(mode="json")
-        )
+        result = service.apply_change_set(project_id, change_set_model.model_dump(mode="json"))
     except WorkbenchV2Error as exc:
         return _workbench_handler_result(
             command,

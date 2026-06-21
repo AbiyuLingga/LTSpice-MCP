@@ -154,9 +154,7 @@ def test_resource_uri_accepts_single_item() -> None:
 
 
 def test_resource_uri_accepts_item_subpath() -> None:
-    kind, ident, sub = parse_resource_uri(
-        "ltagent://projects/rc_lowpass_1khz/result"
-    )
+    kind, ident, sub = parse_resource_uri("ltagent://projects/rc_lowpass_1khz/result")
     assert kind == "projects"
     assert ident == "rc_lowpass_1khz"
     assert sub == "result"
@@ -196,9 +194,10 @@ def test_resource_uri_rejects_unknown_subpath_when_allowed_set_given() -> None:
 
 
 def test_resource_uri_allowed_subpath_set_is_pinned() -> None:
-    assert frozenset(
-        {"metadata", "result", "circuit-ir", "netlist", "log"}
-    ) == ALLOWED_PROJECT_RESOURCE_NAMES
+    assert (
+        frozenset({"metadata", "result", "circuit-ir", "netlist", "log"})
+        == ALLOWED_PROJECT_RESOURCE_NAMES
+    )
     assert frozenset({"metadata"}) == ALLOWED_TEMPLATE_RESOURCE_NAMES
 
 

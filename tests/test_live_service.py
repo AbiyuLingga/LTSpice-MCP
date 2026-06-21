@@ -168,4 +168,6 @@ def test_apply_operation_reports_renderer_failure_as_warning(
     assert called == [True]
     assert result["success"] is True
     assert "LIVE_GENERATION_NOT_RUN" in result["warnings"]
-    assert json.loads(paths.graph.read_text(encoding="utf-8"))["components"]["R1"]["value"] == "1.6k"
+    assert (
+        json.loads(paths.graph.read_text(encoding="utf-8"))["components"]["R1"]["value"] == "1.6k"
+    )

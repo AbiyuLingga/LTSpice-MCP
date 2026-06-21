@@ -78,7 +78,9 @@ def _seed_v2_project(tmp_path: Path, project_id: str = "rc_lab") -> Path:
     }
     (project_dir / FILE_MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
     (project_dir / FILE_REQUIREMENTS).write_text(
-        json.dumps({"schemaVersion": PROJECT_SCHEMA_VERSION, "text": "", "constraints": {}, "goals": []}),
+        json.dumps(
+            {"schemaVersion": PROJECT_SCHEMA_VERSION, "text": "", "constraints": {}, "goals": []}
+        ),
         encoding="utf-8",
     )
     graph = CircuitGraph(
@@ -98,9 +100,7 @@ def _seed_v2_project(tmp_path: Path, project_id: str = "rc_lab") -> Path:
             "0": GraphNet(name="0", type=NetType.GROUND),
         },
     )
-    (project_dir / FILE_ANALOG_GRAPH).write_text(
-        graph.model_dump_json(), encoding="utf-8"
-    )
+    (project_dir / FILE_ANALOG_GRAPH).write_text(graph.model_dump_json(), encoding="utf-8")
     (project_dir / FILE_SCHEMATIC_VIEW).write_text(
         SchematicView().model_dump_json(), encoding="utf-8"
     )
@@ -108,17 +108,20 @@ def _seed_v2_project(tmp_path: Path, project_id: str = "rc_lab") -> Path:
         json.dumps({"schemaVersion": PROJECT_SCHEMA_VERSION, "design": {}, "notes": ""}),
         encoding="utf-8",
     )
-    (project_dir / FILE_SYSTEM).write_text(
-        SystemSpec().model_dump_json(), encoding="utf-8"
-    )
+    (project_dir / FILE_SYSTEM).write_text(SystemSpec().model_dump_json(), encoding="utf-8")
     return project_dir
 
 
 def test_classifier_en_rc_lowpass() -> None:
     c = CapabilityClassifier()
-    assert c.classify("Make an RC low-pass filter with cutoff 1kHz.").capability == CAPABILITY_RC_LOWPASS
+    assert (
+        c.classify("Make an RC low-pass filter with cutoff 1kHz.").capability
+        == CAPABILITY_RC_LOWPASS
+    )
     assert c.classify("Build a lowpass with cutoff 800 Hz.").capability == CAPABILITY_RC_LOWPASS
-    assert c.classify("Buat filter RC lowpass dengan cutoff 1kHz.").capability == CAPABILITY_RC_LOWPASS
+    assert (
+        c.classify("Buat filter RC lowpass dengan cutoff 1kHz.").capability == CAPABILITY_RC_LOWPASS
+    )
 
 
 def test_classifier_en_rc_highpass() -> None:
@@ -173,15 +176,42 @@ def test_validate_proposal_rejects_empty_operations() -> None:
     (project_dir / "design" / "schematic").mkdir(parents=True, exist_ok=True)
     (project_dir / "design" / "digital").mkdir(parents=True, exist_ok=True)
     (project_dir / FILE_MANIFEST).write_text(
-        json.dumps({"schemaVersion": PROJECT_SCHEMA_VERSION, "projectId": "x", "displayName": "x", "revision": 0}),
+        json.dumps(
+            {
+                "schemaVersion": PROJECT_SCHEMA_VERSION,
+                "projectId": "x",
+                "displayName": "x",
+                "revision": 0,
+            }
+        ),
         encoding="utf-8",
     )
     (project_dir / FILE_ANALOG_GRAPH).write_text(
-        json.dumps({"schemaVersion": "0.2", "projectId": "x", "topology": "", "components": {}, "nets": {}, "analyses": [], "measurements": [], "directives": []}),
+        json.dumps(
+            {
+                "schemaVersion": "0.2",
+                "projectId": "x",
+                "topology": "",
+                "components": {},
+                "nets": {},
+                "analyses": [],
+                "measurements": [],
+                "directives": [],
+            }
+        ),
         encoding="utf-8",
     )
     (project_dir / FILE_SCHEMATIC_VIEW).write_text(
-        json.dumps({"schemaVersion": PROJECT_SCHEMA_VERSION, "gridSize": 16, "viewport": None, "symbols": [], "wires": [], "netLabels": []}),
+        json.dumps(
+            {
+                "schemaVersion": PROJECT_SCHEMA_VERSION,
+                "gridSize": 16,
+                "viewport": None,
+                "symbols": [],
+                "wires": [],
+                "netLabels": [],
+            }
+        ),
         encoding="utf-8",
     )
     (project_dir / FILE_DIGITAL).write_text(
@@ -193,7 +223,9 @@ def test_validate_proposal_rejects_empty_operations() -> None:
         encoding="utf-8",
     )
     (project_dir / FILE_REQUIREMENTS).write_text(
-        json.dumps({"schemaVersion": PROJECT_SCHEMA_VERSION, "text": "", "constraints": {}, "goals": []}),
+        json.dumps(
+            {"schemaVersion": PROJECT_SCHEMA_VERSION, "text": "", "constraints": {}, "goals": []}
+        ),
         encoding="utf-8",
     )
     svc = DesignService(projects_root=str(project_dir.parent))
@@ -223,7 +255,13 @@ def test_validate_proposal_rejects_unknown_document() -> None:
         proposalId="p1",
         baseRevision=0,
         requirement="x",
-        operations=[AIProposalOperation(document="evil", type="replace_document", payload={"type": "replace_document", "value": {}})],
+        operations=[
+            AIProposalOperation(
+                document="evil",
+                type="replace_document",
+                payload={"type": "replace_document", "value": {}},
+            )
+        ],
     )
     validation = validate_proposal(
         proposal,
@@ -252,9 +290,12 @@ def test_workflow_rejects_unsupported_capability(tmp_path: Path) -> None:
 def test_workflow_prompts_provider_and_validates(tmp_path: Path) -> None:
     _seed_v2_project(tmp_path)
     svc = DesignService(projects_root=str(tmp_path / "projects"))
-    registry = ProviderRegistry.open(tmp_path / "projects", keychain=__import__(
-        "ltagent.ai_provider", fromlist=["_InMemoryKeychain"]
-    )._InMemoryKeychain())
+    registry = ProviderRegistry.open(
+        tmp_path / "projects",
+        keychain=__import__(
+            "ltagent.ai_provider", fromlist=["_InMemoryKeychain"]
+        )._InMemoryKeychain(),
+    )
     registry.save(
         ProviderProfile(
             profileId="default",
@@ -325,9 +366,7 @@ def test_workflow_repair_loop_falls_back(tmp_path: Path) -> None:
     )
     profile = registry.get("default")
     adapter = ProviderAdapter(profile, in_memory)
-    workflow = AIWorkflow(
-        design_service=svc, provider=adapter, max_repair_attempts=2
-    )
+    workflow = AIWorkflow(design_service=svc, provider=adapter, max_repair_attempts=2)
 
     from ltagent.ai_provider import AIProviderError
 
@@ -448,7 +487,5 @@ def test_workflow_accept_applies_proposal(tmp_path: Path) -> None:
     assert result.validation.is_valid
     new_rev = workflow.accept(result, project_id="rc_lab")
     assert new_rev == 1
-    on_disk = json.loads(
-        (project_dir / FILE_ANALOG_GRAPH).read_text(encoding="utf-8")
-    )
+    on_disk = json.loads((project_dir / FILE_ANALOG_GRAPH).read_text(encoding="utf-8"))
     assert "R2" in on_disk["components"]

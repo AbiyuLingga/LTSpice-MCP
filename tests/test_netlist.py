@@ -81,9 +81,7 @@ def test_example_netlist_has_required_sections(example_name: str) -> None:
 
     # At least one analysis directive.
     analysis_lines = [line for line in lines if line.startswith(".")]
-    assert any(
-        line.startswith((".tran", ".op", ".dc", ".ac")) for line in analysis_lines
-    )
+    assert any(line.startswith((".tran", ".op", ".dc", ".ac")) for line in analysis_lines)
     assert result.analysis_count >= 1
 
     # Counters.
@@ -191,15 +189,31 @@ def test_tran_with_explicit_start_and_step_uses_three_arg_form() -> None:
         topology="rc_lowpass",
         nodes=["in", "out", "0"],
         components=[
-            Component(id="Vin", kind=ComponentKind.VOLTAGE_SOURCE, spicePrefix="V",
-                      nodes=["in", "0"], value="DC 1"),
-            Component(id="R1", kind=ComponentKind.RESISTOR, spicePrefix="R",
-                      nodes=["in", "out"], value="1k"),
-            Component(id="C1", kind=ComponentKind.CAPACITOR, spicePrefix="C",
-                      nodes=["out", "0"], value="100n"),
+            Component(
+                id="Vin",
+                kind=ComponentKind.VOLTAGE_SOURCE,
+                spicePrefix="V",
+                nodes=["in", "0"],
+                value="DC 1",
+            ),
+            Component(
+                id="R1",
+                kind=ComponentKind.RESISTOR,
+                spicePrefix="R",
+                nodes=["in", "out"],
+                value="1k",
+            ),
+            Component(
+                id="C1",
+                kind=ComponentKind.CAPACITOR,
+                spicePrefix="C",
+                nodes=["out", "0"],
+                value="100n",
+            ),
         ],
-        analysis=[Analysis(kind=AnalysisKind.TRAN, startTime="1m", stopTime="10m",
-                           stepTime="0.1m")],
+        analysis=[
+            Analysis(kind=AnalysisKind.TRAN, startTime="1m", stopTime="10m", stepTime="0.1m")
+        ],
     )
     text = render_netlist(ir).text
     assert ".tran 0.1m 1m 10m" in text
@@ -212,12 +226,27 @@ def test_tran_without_start_defaults_to_zero() -> None:
         topology="rc_lowpass",
         nodes=["in", "out", "0"],
         components=[
-            Component(id="Vin", kind=ComponentKind.VOLTAGE_SOURCE, spicePrefix="V",
-                      nodes=["in", "0"], value="DC 1"),
-            Component(id="R1", kind=ComponentKind.RESISTOR, spicePrefix="R",
-                      nodes=["in", "out"], value="1k"),
-            Component(id="C1", kind=ComponentKind.CAPACITOR, spicePrefix="C",
-                      nodes=["out", "0"], value="100n"),
+            Component(
+                id="Vin",
+                kind=ComponentKind.VOLTAGE_SOURCE,
+                spicePrefix="V",
+                nodes=["in", "0"],
+                value="DC 1",
+            ),
+            Component(
+                id="R1",
+                kind=ComponentKind.RESISTOR,
+                spicePrefix="R",
+                nodes=["in", "out"],
+                value="1k",
+            ),
+            Component(
+                id="C1",
+                kind=ComponentKind.CAPACITOR,
+                spicePrefix="C",
+                nodes=["out", "0"],
+                value="100n",
+            ),
         ],
         analysis=[Analysis(kind=AnalysisKind.TRAN, stopTime="5m")],
     )
@@ -238,12 +267,27 @@ def test_ac_includes_points_per_decade_and_stop_freq() -> None:
         topology="rc_lowpass",
         nodes=["in", "out", "0"],
         components=[
-            Component(id="Vin", kind=ComponentKind.VOLTAGE_SOURCE, spicePrefix="V",
-                      nodes=["in", "0"], value="AC 1"),
-            Component(id="R1", kind=ComponentKind.RESISTOR, spicePrefix="R",
-                      nodes=["in", "out"], value="1k"),
-            Component(id="C1", kind=ComponentKind.CAPACITOR, spicePrefix="C",
-                      nodes=["out", "0"], value="100n"),
+            Component(
+                id="Vin",
+                kind=ComponentKind.VOLTAGE_SOURCE,
+                spicePrefix="V",
+                nodes=["in", "0"],
+                value="AC 1",
+            ),
+            Component(
+                id="R1",
+                kind=ComponentKind.RESISTOR,
+                spicePrefix="R",
+                nodes=["in", "out"],
+                value="1k",
+            ),
+            Component(
+                id="C1",
+                kind=ComponentKind.CAPACITOR,
+                spicePrefix="C",
+                nodes=["out", "0"],
+                value="100n",
+            ),
         ],
         analysis=[Analysis(kind=AnalysisKind.AC, stopFreq="1Meg", pointsPerDecade=20)],
     )
@@ -258,20 +302,37 @@ def test_dc_emits_sweep_tokens() -> None:
         topology="rc_lowpass",
         nodes=["in", "out", "0"],
         components=[
-            Component(id="Vin", kind=ComponentKind.VOLTAGE_SOURCE, spicePrefix="V",
-                      nodes=["in", "0"], value="DC 0"),
-            Component(id="R1", kind=ComponentKind.RESISTOR, spicePrefix="R",
-                      nodes=["in", "out"], value="1k"),
-            Component(id="C1", kind=ComponentKind.CAPACITOR, spicePrefix="C",
-                      nodes=["out", "0"], value="100n"),
+            Component(
+                id="Vin",
+                kind=ComponentKind.VOLTAGE_SOURCE,
+                spicePrefix="V",
+                nodes=["in", "0"],
+                value="DC 0",
+            ),
+            Component(
+                id="R1",
+                kind=ComponentKind.RESISTOR,
+                spicePrefix="R",
+                nodes=["in", "out"],
+                value="1k",
+            ),
+            Component(
+                id="C1",
+                kind=ComponentKind.CAPACITOR,
+                spicePrefix="C",
+                nodes=["out", "0"],
+                value="100n",
+            ),
         ],
-        analysis=[Analysis(
-            kind=AnalysisKind.DC,
-            sweepVariable="Vin",
-            sweepStart="0",
-            sweepStop="5",
-            sweepStep="0.1",
-        )],
+        analysis=[
+            Analysis(
+                kind=AnalysisKind.DC,
+                sweepVariable="Vin",
+                sweepStart="0",
+                sweepStop="5",
+                sweepStep="0.1",
+            )
+        ],
     )
     text = render_netlist(ir).text
     assert ".dc Vin 0 5 0.1" in text

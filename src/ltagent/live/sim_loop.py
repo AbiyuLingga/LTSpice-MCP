@@ -287,17 +287,12 @@ def run_and_verify(
 
     if not isinstance(payload, RunPayload):
         raise TypeError(
-            "runner_adapter must return a RunPayload instance; "
-            f"got {type(payload).__name__}"
+            f"runner_adapter must return a RunPayload instance; got {type(payload).__name__}"
         )
 
     # ---- short-circuit when the run itself never produced a log ----
     if not payload.success:
-        reason = (
-            payload.error.get("code", CODE_RUN_FAILED)
-            if payload.error
-            else CODE_RUN_FAILED
-        )
+        reason = payload.error.get("code", CODE_RUN_FAILED) if payload.error else CODE_RUN_FAILED
         return _build_report(
             payload,
             parser=parser,
@@ -390,7 +385,9 @@ def run_project_and_verify(
             return {
                 "success": False,
                 "simulationAttempted": False,
-                "errors": [{"code": "VERIFY_CHECK_INVALID", "detail": "check name is required", "data": {}}],
+                "errors": [
+                    {"code": "VERIFY_CHECK_INVALID", "detail": "check name is required", "data": {}}
+                ],
                 "warnings": [],
             }
         if kind == "near_target":
@@ -403,18 +400,20 @@ def run_project_and_verify(
                 )
             )
         elif kind == "max":
-            checks.append(
-                check_max(None, cast(float | int | str, spec.get("bound")), name=name)
-            )
+            checks.append(check_max(None, cast(float | int | str, spec.get("bound")), name=name))
         elif kind == "min":
-            checks.append(
-                check_min(None, cast(float | int | str, spec.get("bound")), name=name)
-            )
+            checks.append(check_min(None, cast(float | int | str, spec.get("bound")), name=name))
         else:
             return {
                 "success": False,
                 "simulationAttempted": False,
-                "errors": [{"code": "VERIFY_CHECK_INVALID", "detail": f"unknown check kind {kind!r}", "data": {"name": name}}],
+                "errors": [
+                    {
+                        "code": "VERIFY_CHECK_INVALID",
+                        "detail": f"unknown check kind {kind!r}",
+                        "data": {"name": name},
+                    }
+                ],
                 "warnings": [],
             }
 
@@ -450,14 +449,18 @@ def run_project_and_verify(
     payload = report.to_dict()
     payload["success"] = report.result.overall_passed
     payload["simulationAttempted"] = True
-    payload["errors"] = [] if report.result.overall_passed else [
-        {
-            "code": code,
-            "detail": "simulation or verification did not pass",
-            "data": {},
-        }
-        for code in report.reason_codes or report.result.reason_codes
-    ]
+    payload["errors"] = (
+        []
+        if report.result.overall_passed
+        else [
+            {
+                "code": code,
+                "detail": "simulation or verification did not pass",
+                "data": {},
+            }
+            for code in report.reason_codes or report.result.reason_codes
+        ]
+    )
     payload["warnings"] = []
     tmp_path = paths.verification.with_suffix(".json.tmp")
     tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -513,6 +516,7 @@ def fake_runner_raising(exc: BaseException) -> RunnerAdapter:
     Used to test the ``SIM_LOOP_RUNNER_RAISED`` branch without
     needing to monkey-patch ``subprocess.run`` or similar.
     """
+
     def _adapter(project: Mapping[str, Any]) -> RunPayload:
         raise exc
 
@@ -534,9 +538,7 @@ def _default_log_parser(log_path: str) -> LogParseOutcome:
     )
 
 
-def _parse_payload_log(
-    payload: RunPayload, parser: LogParser
-) -> LogParseOutcome:
+def _parse_payload_log(payload: RunPayload, parser: LogParser) -> LogParseOutcome:
     """Resolve a payload to a :class:`LogParseOutcome`.
 
     Inline ``log_text`` takes priority over ``log_path`` so tests
@@ -544,9 +546,7 @@ def _parse_payload_log(
     we use :mod:`tempfile` to materialise the inline text.
     """
     if payload.log_text is not None:
-        with NamedTemporaryFile(
-            mode="w", suffix=".log", delete=False, encoding="utf-8"
-        ) as f:
+        with NamedTemporaryFile(mode="w", suffix=".log", delete=False, encoding="utf-8") as f:
             f.write(payload.log_text)
             tmp_path = f.name
         try:
@@ -558,9 +558,7 @@ def _parse_payload_log(
                 Path(tmp_path).unlink(missing_ok=True)
     if payload.log_path is not None:
         return parser(payload.log_path)
-    raise SimLoopError(
-        "RunPayload has neither log_text nor log_path; cannot parse"
-    )
+    raise SimLoopError("RunPayload has neither log_text nor log_path; cannot parse")
 
 
 def _bind_checks_to_measurements(

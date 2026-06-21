@@ -127,9 +127,9 @@ def test_parse_value_whitespace_is_trimmed() -> None:
         "",
         "   ",
         "abc",
-        "k",          # no mantissa
-        "1kk",        # double prefix
-        "1kxyz",      # unknown unit letter
+        "k",  # no mantissa
+        "1kk",  # double prefix
+        "1kxyz",  # unknown unit letter
     ],
 )
 def test_parse_value_returns_unit_error(raw: str) -> None:

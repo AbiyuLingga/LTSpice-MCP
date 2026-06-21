@@ -79,7 +79,9 @@ def run_ngspice(request: NgspiceRequest) -> NgspiceResult:
     """Run ngspice when available, otherwise emit a structured skipped result."""
     argv = build_ngspice_argv(request)
     workspace = _workspace(request.workspace)
-    log_path, raw_path = _artifact_paths(_under_workspace(request.netlist, workspace, must_exist=True), workspace)
+    log_path, raw_path = _artifact_paths(
+        _under_workspace(request.netlist, workspace, must_exist=True), workspace
+    )
     if shutil.which("ngspice") is None:
         return NgspiceResult(
             status="skipped",
@@ -97,9 +99,7 @@ def run_ngspice(request: NgspiceRequest) -> NgspiceResult:
             f"cannot create ngspice run directory: {exc}",
             data={"path": str(log_path.parent)},
         ) from exc
-    process_result = run(
-        RunRequest(argv=argv, cwd=workspace, timeout_s=max(5, request.timeout_s))
-    )
+    process_result = run(RunRequest(argv=argv, cwd=workspace, timeout_s=max(5, request.timeout_s)))
     if process_result.timed_out:
         status, code = "failed", ERR_TIMEOUT
     elif process_result.ok:

@@ -98,9 +98,7 @@ def test_supported_kinds_match_doc() -> None:
 def test_run_simulation_skipped_when_iverilog_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(
-        "ltagent.digital_workbench.discover_tool", lambda tool_id: None
-    )
+    monkeypatch.setattr("ltagent.digital_workbench.discover_tool", lambda tool_id: None)
     project_dir = tmp_path / "proj"
     project_dir.mkdir()
     result = run_simulation("proj", project_dir, _counter_design())
@@ -114,19 +112,19 @@ def test_run_simulation_with_user_supplied_tool(
 ) -> None:
     fake_tool = tmp_path / "fake_iverilog.sh"
     fake_tool.write_text(
-        "#!/bin/sh\n"
-        "touch \"$3\"\n"
-        "exit 0\n",
+        '#!/bin/sh\ntouch "$3"\nexit 0\n',
         encoding="utf-8",
     )
     fake_tool.chmod(0o755)
     monkeypatch.setattr(
         "ltagent.digital_workbench.discover_tool",
-        lambda tool_id: __import__("ltagent.digital_workbench", fromlist=["DigitalToolInfo"]).DigitalToolInfo(
-            toolId=tool_id, executable=fake_tool, version="fake"
-        )
-        if tool_id == IVERILOG_TOOL_ID
-        else None,
+        lambda tool_id: (
+            __import__("ltagent.digital_workbench", fromlist=["DigitalToolInfo"]).DigitalToolInfo(
+                toolId=tool_id, executable=fake_tool, version="fake"
+            )
+            if tool_id == IVERILOG_TOOL_ID
+            else None
+        ),
     )
     project_dir = tmp_path / "proj"
     project_dir.mkdir()
@@ -140,26 +138,22 @@ def test_run_simulation_with_user_supplied_tool(
 def test_run_synthesis_skipped_when_yosys_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(
-        "ltagent.digital_workbench.discover_tool", lambda tool_id: None
-    )
+    monkeypatch.setattr("ltagent.digital_workbench.discover_tool", lambda tool_id: None)
     project_dir = tmp_path / "proj"
     project_dir.mkdir()
     result = run_synthesis("proj", project_dir, _counter_design())
     assert result.bundle.status == "skipped"
 
 
-def test_run_simulation_with_failing_tool(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_simulation_with_failing_tool(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake_tool = tmp_path / "fail.sh"
     fake_tool.write_text("#!/bin/sh\necho broken 1>&2\nexit 7\n", encoding="utf-8")
     fake_tool.chmod(0o755)
     monkeypatch.setattr(
         "ltagent.digital_workbench.discover_tool",
-        lambda tool_id: __import__("ltagent.digital_workbench", fromlist=["DigitalToolInfo"]).DigitalToolInfo(
-            toolId=tool_id, executable=fake_tool, version="fake"
-        ),
+        lambda tool_id: __import__(
+            "ltagent.digital_workbench", fromlist=["DigitalToolInfo"]
+        ).DigitalToolInfo(toolId=tool_id, executable=fake_tool, version="fake"),
     )
     project_dir = tmp_path / "proj"
     project_dir.mkdir()

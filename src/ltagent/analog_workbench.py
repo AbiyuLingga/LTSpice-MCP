@@ -103,9 +103,7 @@ UNIVERSAL_OPAMP_SUBCKT: Final[str] = (
 class AnalogWorkbenchError(ValueError):
     """Structured error from the analog workbench."""
 
-    def __init__(
-        self, code: str, message: str, *, data: Mapping[str, Any] | None = None
-    ) -> None:
+    def __init__(self, code: str, message: str, *, data: Mapping[str, Any] | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
@@ -408,7 +406,9 @@ def run_analog_simulation(
             measurements=measurements,
             errors=[],
         )
-        return AnalogRunResult(bundle=bundle, manifest=manifest_started, project_id=project_id, tool=tool)
+        return AnalogRunResult(
+            bundle=bundle, manifest=manifest_started, project_id=project_id, tool=tool
+        )
     last_stderr = ""
     if completed.stderr:
         last_stderr = completed.stderr.strip().splitlines()[-1]
@@ -418,9 +418,7 @@ def run_analog_simulation(
         finishedAt=finished,
         runId=f"run_{initial_manifest.jobId}",
         errorCode=ERR_ANALOG_SIMULATE_FAILED,
-        errorMessage=(
-            f"tool exited with code {completed.returncode}: {last_stderr}"
-        ),
+        errorMessage=(f"tool exited with code {completed.returncode}: {last_stderr}"),
     )
     bundle = ResultBundle(
         status="failed",
@@ -439,16 +437,16 @@ def run_analog_simulation(
         measurements=measurements,
         errors=[manifest_started.errorMessage or "tool failed"],
     )
-    return AnalogRunResult(bundle=bundle, manifest=manifest_started, project_id=project_id, tool=tool)
+    return AnalogRunResult(
+        bundle=bundle, manifest=manifest_started, project_id=project_id, tool=tool
+    )
 
 
 def manifest_id(project_id: str, stamp: str) -> str:
     return f"{project_id}_{stamp.replace(':', '').replace('-', '').replace('.', '')}"
 
 
-def _update_manifest(
-    manifest: JobManifest, **changes: Any
-) -> JobManifest:
+def _update_manifest(manifest: JobManifest, **changes: Any) -> JobManifest:
     """Return a new :class:`JobManifest` with the given field overrides.
 
     The manifest is frozen; this helper builds the replacement
@@ -616,8 +614,6 @@ def bundle_waveform(
         ),
         waveform=waveform_payload,
     )
-
-
 
 
 __all__ = [

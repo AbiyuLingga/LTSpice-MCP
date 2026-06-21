@@ -70,10 +70,9 @@ def main() -> int:
     for path in (repo_path, pkg_path):
         _write(path, schema)
 
-    assert (
-        repo_path.read_text(encoding="utf-8")
-        == pkg_path.read_text(encoding="utf-8")
-    ), "repo schema and packaged resource diverged"
+    assert repo_path.read_text(encoding="utf-8") == pkg_path.read_text(encoding="utf-8"), (
+        "repo schema and packaged resource diverged"
+    )
 
     print(f"wrote {repo_path} ({repo_path.stat().st_size} bytes)")
     print(f"wrote {pkg_path} ({pkg_path.stat().st_size} bytes)")

@@ -53,8 +53,30 @@ def test_e24_has_twenty_four_values_per_decade() -> None:
     decade_values = [v for v in ladder if 1 <= v < 10]
     assert len(decade_values) == 24
     expected = {
-        1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0,
-        3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1,
+        1.0,
+        1.1,
+        1.2,
+        1.3,
+        1.5,
+        1.6,
+        1.8,
+        2.0,
+        2.2,
+        2.4,
+        2.7,
+        3.0,
+        3.3,
+        3.6,
+        3.9,
+        4.3,
+        4.7,
+        5.1,
+        5.6,
+        6.2,
+        6.8,
+        7.5,
+        8.2,
+        9.1,
     }
     assert {round(v, 6) for v in decade_values} == expected
 

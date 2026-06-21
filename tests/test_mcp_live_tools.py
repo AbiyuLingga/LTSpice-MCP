@@ -184,9 +184,7 @@ def test_no_dangerous_keywords_in_module() -> None:
         sig = inspect.signature(fn)
         params = list(sig.parameters.keys())
         for forbidden in ("run_shell", "execute_python", "allow_outside_workspace"):
-            assert forbidden not in params, (
-                f"{name} exposes forbidden parameter {forbidden!r}"
-            )
+            assert forbidden not in params, f"{name} exposes forbidden parameter {forbidden!r}"
 
 
 def test_no_subprocess_or_shell_invocation_in_module() -> None:
@@ -610,9 +608,7 @@ def test_apply_edit_propagates_value_error_from_live(
 
 
 def test_calculate_circuit_rc_lowpass_solves_r(workspace: Path) -> None:
-    result = ml.tool_calculate_circuit(
-        "rc_lowpass", {"fc": 1000, "C": "100nF"}
-    )
+    result = ml.tool_calculate_circuit("rc_lowpass", {"fc": 1000, "C": "100nF"})
     _ok_payload(result)
     r = result["data"]["idealValues"]["R"]
     expected = 1.0 / (2.0 * math.pi * 1000.0 * 1e-7)
@@ -623,9 +619,7 @@ def test_calculate_circuit_rc_lowpass_solves_r(workspace: Path) -> None:
 
 
 def test_calculate_circuit_rc_lowpass_solves_fc(workspace: Path) -> None:
-    result = ml.tool_calculate_circuit(
-        "rc_lowpass", {"R": 1600, "C": "100nF"}
-    )
+    result = ml.tool_calculate_circuit("rc_lowpass", {"R": 1600, "C": "100nF"})
     _ok_payload(result)
     fc = result["data"]["idealValues"]["fc"]
     expected = 1.0 / (2.0 * math.pi * 1600.0 * 1e-7)
@@ -634,9 +628,7 @@ def test_calculate_circuit_rc_lowpass_solves_fc(workspace: Path) -> None:
 
 
 def test_calculate_circuit_rc_highpass_solves_r(workspace: Path) -> None:
-    result = ml.tool_calculate_circuit(
-        "rc_highpass", {"fc": 500, "C": "1uF"}
-    )
+    result = ml.tool_calculate_circuit("rc_highpass", {"fc": 500, "C": "1uF"})
     _ok_payload(result)
     r = result["data"]["idealValues"]["R"]
     expected = 1.0 / (2.0 * math.pi * 500.0 * 1e-6)
@@ -645,9 +637,7 @@ def test_calculate_circuit_rc_highpass_solves_r(workspace: Path) -> None:
 
 
 def test_calculate_circuit_voltage_divider(workspace: Path) -> None:
-    result = ml.tool_calculate_circuit(
-        "voltage_divider", {"vin": 12, "vout": 5, "r2": 1000}
-    )
+    result = ml.tool_calculate_circuit("voltage_divider", {"vin": 12, "vout": 5, "r2": 1000})
     _ok_payload(result)
     r1 = result["data"]["idealValues"]["r1"]
     # R1 = R2 * (Vin - Vout) / Vout = 1000 * 7 / 5 = 1400
@@ -656,9 +646,7 @@ def test_calculate_circuit_voltage_divider(workspace: Path) -> None:
 
 
 def test_calculate_circuit_noninv_opamp(workspace: Path) -> None:
-    result = ml.tool_calculate_circuit(
-        "noninv_opamp", {"gain": 10, "rg": 1000}
-    )
+    result = ml.tool_calculate_circuit("noninv_opamp", {"gain": 10, "rg": 1000})
     _ok_payload(result)
     rf = result["data"]["idealValues"]["rf"]
     # Rf = (Av - 1) * Rg = 9 * 1000 = 9000
@@ -667,9 +655,7 @@ def test_calculate_circuit_noninv_opamp(workspace: Path) -> None:
 
 
 def test_calculate_circuit_inverting_opamp(workspace: Path) -> None:
-    result = ml.tool_calculate_circuit(
-        "inverting_opamp", {"gain": -5, "rin": 1000}
-    )
+    result = ml.tool_calculate_circuit("inverting_opamp", {"gain": -5, "rin": 1000})
     _ok_payload(result)
     rf = result["data"]["idealValues"]["rf"]
     # Rf = |Av| * Rin = 5 * 1000 = 5000
@@ -678,9 +664,7 @@ def test_calculate_circuit_inverting_opamp(workspace: Path) -> None:
 
 
 def test_calculate_circuit_led_resistor(workspace: Path) -> None:
-    result = ml.tool_calculate_circuit(
-        "led_resistor", {"vsupply": 5, "vf": 2, "iled": "20mA"}
-    )
+    result = ml.tool_calculate_circuit("led_resistor", {"vsupply": 5, "vf": 2, "iled": "20mA"})
     _ok_payload(result)
     r = result["data"]["idealValues"]["R"]
     p = result["data"]["idealValues"]["P_R"]
@@ -699,17 +683,13 @@ def test_calculate_circuit_insufficient_parameters(workspace: Path) -> None:
 
 def test_calculate_circuit_physical_constraint_violated(workspace: Path) -> None:
     # noninv_opamp gain must be > 1
-    result = ml.tool_calculate_circuit(
-        "noninv_opamp", {"gain": 0.5, "rg": 1000}
-    )
+    result = ml.tool_calculate_circuit("noninv_opamp", {"gain": 0.5, "rg": 1000})
     _err_payload(result, code="CALCULATION_FAILED")
     assert "gain > 1" in result["errors"][0]["detail"]
     _assert_jsonable(result)
 
 
-def test_calculate_circuit_uses_math_core_when_available(
-    workspace: Path, math_core_mock
-) -> None:
+def test_calculate_circuit_uses_math_core_when_available(workspace: Path, math_core_mock) -> None:
     result = ml.tool_calculate_circuit("rc_lowpass", {"fc": 1000, "C": "100nF"})
     _ok_payload(result)
     assert result["data"]["source"] == "math_core"
@@ -748,9 +728,7 @@ def test_explain_calculation_unknown_topology(workspace: Path) -> None:
     _assert_jsonable(result)
 
 
-def test_explain_calculation_uses_math_core_when_available(
-    workspace: Path, math_core_mock
-) -> None:
+def test_explain_calculation_uses_math_core_when_available(workspace: Path, math_core_mock) -> None:
     result = ml.tool_explain_calculation("rc_lowpass")
     _ok_payload(result)
     assert result["data"]["source"] == "math_core"
@@ -788,9 +766,7 @@ def test_math_core_available_returns_bool() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_open_then_calculate_with_project_id(
-    workspace: Path, math_core_mock
-) -> None:
+def test_open_then_calculate_with_project_id(workspace: Path, math_core_mock) -> None:
     proj = workspace / "projects" / "rc1k"
     proj.mkdir()
     (proj / "metadata.json").write_text(
@@ -801,9 +777,7 @@ def test_open_then_calculate_with_project_id(
     open_result = ml.tool_live_open_project("rc1k")
     _ok_payload(open_result)
     # 2. calculate, with project_id set (still a pure-math call)
-    calc = ml.tool_calculate_circuit(
-        "rc_lowpass", {"fc": 1000, "C": "100nF"}, project_id="rc1k"
-    )
+    calc = ml.tool_calculate_circuit("rc_lowpass", {"fc": 1000, "C": "100nF"}, project_id="rc1k")
     _ok_payload(calc)
     # math_core is the mock, which ignores the inputs
     assert calc["data"]["source"] == "math_core"

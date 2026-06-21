@@ -12,9 +12,7 @@ PLAN_PATH = REPO_ROOT / "docs" / "digital" / "plan-tiny8-agent.md"
 
 
 def test_roadmap_doc_exists() -> None:
-    assert ROADMAP_PATH.exists(), (
-        f"roadmap doc not found at {ROADMAP_PATH}"
-    )
+    assert ROADMAP_PATH.exists(), f"roadmap doc not found at {ROADMAP_PATH}"
 
 
 def test_roadmap_doc_is_marked_future() -> None:

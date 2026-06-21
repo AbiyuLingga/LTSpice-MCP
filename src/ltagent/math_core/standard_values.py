@@ -53,16 +53,55 @@ from math import log10
 #: when :func:`nearest_standard_value` is called.
 _E6_MANTISSAS: tuple[float, ...] = (1.0, 1.5, 2.2, 3.3, 4.7, 6.8)
 _E12_MANTISSAS: tuple[float, ...] = (
-    1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2,
+    1.0,
+    1.2,
+    1.5,
+    1.8,
+    2.2,
+    2.7,
+    3.3,
+    3.9,
+    4.7,
+    5.6,
+    6.8,
+    8.2,
 )
 _E24_MANTISSAS: tuple[float, ...] = (
-    1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0,
-    3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1,
+    1.0,
+    1.1,
+    1.2,
+    1.3,
+    1.5,
+    1.6,
+    1.8,
+    2.0,
+    2.2,
+    2.4,
+    2.7,
+    3.0,
+    3.3,
+    3.6,
+    3.9,
+    4.3,
+    4.7,
+    5.1,
+    5.6,
+    6.2,
+    6.8,
+    7.5,
+    8.2,
+    9.1,
 )
 #: Common capacitor decades used in audio / decoupling designs. They
 #: are a superset of the E24 mantissas and add a few popular values.
 _CAPACITOR_MANTISSAS: tuple[float, ...] = (
-    1.0, 1.5, 2.2, 3.3, 4.7, 6.8, 10.0,
+    1.0,
+    1.5,
+    2.2,
+    3.3,
+    4.7,
+    6.8,
+    10.0,
 )
 
 _SERIES_TABLES: dict[str, tuple[float, ...]] = {
@@ -93,7 +132,7 @@ def series_values(series: str) -> tuple[float, ...]:
         ) from exc
     out: list[float] = []
     for decade in range(-15, 16):  # 1e-15 .. 1e15
-        factor = 10.0 ** decade
+        factor = 10.0**decade
         for m in mantissas:
             out.append(m * factor)
     return tuple(sorted(set(out)))
@@ -153,9 +192,7 @@ def calculate_error_percent(ideal: float, selected: float) -> float:
         raise ValueError("calculate_error_percent requires finite numeric inputs")
     for name, value in (("ideal", ideal), ("selected", selected)):
         if isinstance(value, float) and not _math.isfinite(value):
-            raise ValueError(
-                f"calculate_error_percent requires finite inputs; {name}={value!r}"
-            )
+            raise ValueError(f"calculate_error_percent requires finite inputs; {name}={value!r}")
     return _error_percent(ideal, selected)
 
 
@@ -180,9 +217,7 @@ def nearest_standard_value(value: float, series: str) -> StandardValueSelection:
             return — math-core callers validate inputs before calling.)
     """
     if value is None or value <= 0:
-        raise ValueError(
-            f"nearest_standard_value requires a positive value, got {value!r}"
-        )
+        raise ValueError(f"nearest_standard_value requires a positive value, got {value!r}")
     if series not in _SERIES_TABLES:
         raise ValueError(
             f"unsupported series {series!r}; expected one of {sorted(SUPPORTED_SERIES)}"

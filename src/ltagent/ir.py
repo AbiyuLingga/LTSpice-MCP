@@ -270,9 +270,7 @@ class Component(BaseModel):
     @classmethod
     def _id_must_match_pattern(cls, v: str) -> str:
         if not IDENTIFIER_PATTERN.match(v):
-            raise ValueError(
-                f"id {v!r} must match {IDENTIFIER_PATTERN.pattern}"
-            )
+            raise ValueError(f"id {v!r} must match {IDENTIFIER_PATTERN.pattern}")
         return v
 
     @field_validator("nodes")
@@ -294,8 +292,7 @@ class Component(BaseModel):
             raise ValueError(f"unknown component kind: {kind!r}")
         if v != expected:
             raise ValueError(
-                f"spicePrefix {v!r} does not match kind {kind.value!r}; "
-                f"expected {expected!r}"
+                f"spicePrefix {v!r} does not match kind {kind.value!r}; expected {expected!r}"
             )
         return v
 
@@ -312,9 +309,7 @@ class Component(BaseModel):
         if self.kind in (ComponentKind.VOLTAGE_SOURCE, ComponentKind.CURRENT_SOURCE) and (
             not self.value or not self.value.strip()
         ):
-            raise ValueError(
-                f"source {self.id!r} requires a non-empty value"
-            )
+            raise ValueError(f"source {self.id!r} requires a non-empty value")
         # Phase 11: diode / BJT / MOSFET need a model name (either via
         # `model` or `value`); opamp needs a subcircuit name via `value`.
         semicon_kinds = (
@@ -339,8 +334,7 @@ class Component(BaseModel):
         if self.kind == ComponentKind.OPAMP:
             if not self.value or not self.value.strip():
                 raise ValueError(
-                    f"opamp {self.id!r} requires a non-empty subcircuit "
-                    "name in `value`"
+                    f"opamp {self.id!r} requires a non-empty subcircuit name in `value`"
                 )
             if not SEMICON_MODEL_PATTERN.match(self.value.strip()):
                 raise ValueError(
@@ -382,9 +376,7 @@ class Analysis(BaseModel):
         if self.kind == AnalysisKind.TRAN and not self.stopTime:
             raise ValueError("analysis kind 'tran' requires stopTime")
         if self.kind == AnalysisKind.AC and not (self.stopFreq or self.pointsPerDecade):
-            raise ValueError(
-                "analysis kind 'ac' requires stopFreq or pointsPerDecade"
-            )
+            raise ValueError("analysis kind 'ac' requires stopFreq or pointsPerDecade")
         if self.kind == AnalysisKind.DC and not self.sweepVariable:
             raise ValueError("analysis kind 'dc' requires sweepVariable")
         return self
@@ -403,9 +395,7 @@ class Measurement(BaseModel):
     @classmethod
     def _safe_name(cls, v: str) -> str:
         if not IDENTIFIER_PATTERN.match(v):
-            raise ValueError(
-                f"measurement name {v!r} must match {IDENTIFIER_PATTERN.pattern}"
-            )
+            raise ValueError(f"measurement name {v!r} must match {IDENTIFIER_PATTERN.pattern}")
         return v
 
 
@@ -424,9 +414,7 @@ class Constraints(BaseModel):
     @classmethod
     def _flat_only(cls, v: Any) -> Any:
         if isinstance(v, (dict, list)):
-            raise ValueError(
-                "constraints values must be scalars (str, int, float, bool)"
-            )
+            raise ValueError("constraints values must be scalars (str, int, float, bool)")
         return v
 
 
@@ -439,9 +427,7 @@ class Metadata(BaseModel):
     @classmethod
     def _flat_only(cls, v: Any) -> Any:
         if isinstance(v, (dict, list)):
-            raise ValueError(
-                "metadata values must be scalars (str, int, float, bool)"
-            )
+            raise ValueError("metadata values must be scalars (str, int, float, bool)")
         return v
 
 
@@ -469,18 +455,14 @@ class SemiconductorModel(BaseModel):
     @classmethod
     def _name_matches(cls, v: str) -> str:
         if not SEMICON_MODEL_PATTERN.match(v):
-            raise ValueError(
-                f"model name {v!r} must match {SEMICON_MODEL_PATTERN.pattern}"
-            )
+            raise ValueError(f"model name {v!r} must match {SEMICON_MODEL_PATTERN.pattern}")
         return v
 
     @field_validator("type")
     @classmethod
     def _type_matches(cls, v: str) -> str:
         if not SEMICON_MODEL_PATTERN.match(v):
-            raise ValueError(
-                f"model type {v!r} must match {SEMICON_MODEL_PATTERN.pattern}"
-            )
+            raise ValueError(f"model type {v!r} must match {SEMICON_MODEL_PATTERN.pattern}")
         return v
 
 
@@ -506,9 +488,7 @@ class Subcircuit(BaseModel):
     @classmethod
     def _name_matches(cls, v: str) -> str:
         if not SEMICON_MODEL_PATTERN.match(v):
-            raise ValueError(
-                f"subcircuit name {v!r} must match {SEMICON_MODEL_PATTERN.pattern}"
-            )
+            raise ValueError(f"subcircuit name {v!r} must match {SEMICON_MODEL_PATTERN.pattern}")
         return v
 
 
@@ -543,18 +523,14 @@ class CircuitIR(BaseModel):
     @classmethod
     def _schema_version_supported(cls, v: str) -> str:
         if v != SCHEMA_VERSION:
-            raise ValueError(
-                f"schemaVersion {v!r} not supported; expected {SCHEMA_VERSION!r}"
-            )
+            raise ValueError(f"schemaVersion {v!r} not supported; expected {SCHEMA_VERSION!r}")
         return v
 
     @field_validator("name")
     @classmethod
     def _name_is_safe_path(cls, v: str) -> str:
         if not PROJECT_NAME_PATTERN.match(v):
-            raise ValueError(
-                f"name {v!r} must match {PROJECT_NAME_PATTERN.pattern}"
-            )
+            raise ValueError(f"name {v!r} must match {PROJECT_NAME_PATTERN.pattern}")
         return v
 
     @field_validator("topology")
@@ -562,8 +538,7 @@ class CircuitIR(BaseModel):
     def _topology_supported(cls, v: str) -> str:
         if v not in MVP_TOPOLOGIES:
             raise ValueError(
-                f"topology {v!r} not supported in MVP; "
-                f"allowed: {sorted(MVP_TOPOLOGIES)}"
+                f"topology {v!r} not supported in MVP; allowed: {sorted(MVP_TOPOLOGIES)}"
             )
         return v
 
@@ -596,9 +571,7 @@ class CircuitIR(BaseModel):
     def _probe_well_formed(cls, v: list[str]) -> list[str]:
         for p in v:
             if not PROBE_PATTERN.match(p):
-                raise ValueError(
-                    f"probe {p!r} must be V(<node>) or I(<component_id>)"
-                )
+                raise ValueError(f"probe {p!r} must be V(<node>) or I(<component_id>)")
         return v
 
     @field_validator("directives")
@@ -612,8 +585,7 @@ class CircuitIR(BaseModel):
         for d in v:
             if d.strip() not in DIRECTIVE_ALLOWLIST:
                 raise ValueError(
-                    f"directive {d!r} is not in allowlist "
-                    f"(allowed: {sorted(DIRECTIVE_ALLOWLIST)})"
+                    f"directive {d!r} is not in allowlist (allowed: {sorted(DIRECTIVE_ALLOWLIST)})"
                 )
         return v
 
@@ -621,17 +593,13 @@ class CircuitIR(BaseModel):
     def _ground_required_and_nodes_consistent(self) -> CircuitIR:
         # 1. Ground node "0" must exist.
         if GROUND_NODE not in self.nodes:
-            raise ValueError(
-                f"ground node {GROUND_NODE!r} must be present in nodes"
-            )
+            raise ValueError(f"ground node {GROUND_NODE!r} must be present in nodes")
         # 2. Every node referenced by a component must exist.
         node_set = set(self.nodes)
         for comp in self.components:
             for n in comp.nodes:
                 if n not in node_set:
-                    raise ValueError(
-                        f"component {comp.id!r} references unknown node {n!r}"
-                    )
+                    raise ValueError(f"component {comp.id!r} references unknown node {n!r}")
         # 3. Every measurement's analysis must exist in this IR's analyses.
         analysis_kinds = {a.kind for a in self.analysis}
         for meas in self.measurements:

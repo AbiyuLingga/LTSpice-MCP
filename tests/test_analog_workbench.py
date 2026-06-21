@@ -76,9 +76,7 @@ def _sample_graph() -> CircuitGraph:
         },
         analyses=[
             Analysis(kind=AnalysisKind.OP),
-            Analysis(
-                kind=AnalysisKind.TRAN, startTime="0", stopTime="1m", stepTime="1u"
-            ),
+            Analysis(kind=AnalysisKind.TRAN, startTime="0", stopTime="1m", stepTime="1u"),
         ],
     )
 
@@ -97,7 +95,9 @@ def test_validate_topology_rejects_missing_ground() -> None:
         projectId="x",
         components={
             "R1": Component(
-                id="R1", kind=ComponentKind.RESISTOR, value="1k",
+                id="R1",
+                kind=ComponentKind.RESISTOR,
+                value="1k",
                 pins=PinMap(pins={"p1": "vin", "p2": "vout"}),
             )
         },
@@ -120,15 +120,9 @@ def test_run_simulation_skipped_when_ngspice_missing(
     paths.graph.parent.mkdir(parents=True, exist_ok=True)
     paths.graph.write_text(_sample_graph().model_dump_json(), encoding="utf-8")
     # Force the resolver to fail.
-    monkeypatch.setattr(
-        "ltagent.analog_workbench._resolve_tool", lambda *_: None
-    )
-    monkeypatch.setattr(
-        "ltagent.analog_workbench.discover_analog_tool", lambda: None
-    )
-    result = run_analog_simulation(
-        "rc_lab", projects_root, _sample_graph()
-    )
+    monkeypatch.setattr("ltagent.analog_workbench._resolve_tool", lambda *_: None)
+    monkeypatch.setattr("ltagent.analog_workbench.discover_analog_tool", lambda: None)
+    result = run_analog_simulation("rc_lab", projects_root, _sample_graph())
     assert result.skipped_reason is not None
     assert result.bundle.status == "skipped"
     assert result.bundle.errors == ["ngspice binary not found"]
@@ -151,15 +145,11 @@ def test_run_simulation_with_user_supplied_tool(
     # 4th arg (index 3) is the netlist and the 3rd is the log path.
     fake_tool = tmp_path / "fake_tool.sh"
     fake_tool.write_text(
-        "#!/bin/sh\n"
-        "echo 'vout_max = 1.234' > \"$3\"\n"
-        "exit 0\n",
+        "#!/bin/sh\necho 'vout_max = 1.234' > \"$3\"\nexit 0\n",
         encoding="utf-8",
     )
     fake_tool.chmod(0o755)
-    result = run_analog_simulation(
-        "rc_lab", projects_root, graph, tool_executable=fake_tool
-    )
+    result = run_analog_simulation("rc_lab", projects_root, graph, tool_executable=fake_tool)
     assert result.bundle.status == "success"
     assert result.manifest.state == JobState.COMPLETED
     assert any(m["name"] == "vout_max" for m in result.bundle.measurements)

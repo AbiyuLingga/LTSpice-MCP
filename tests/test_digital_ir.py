@@ -206,9 +206,7 @@ def test_program_source_must_be_relative_asm() -> None:
 
 def test_program_entry_negative_rejected() -> None:
     with pytest.raises(ValidationError) as exc:
-        validate_dict(
-            _minimal_ir(program={"source": "demo.asm", "entry": -1})
-        )
+        validate_dict(_minimal_ir(program={"source": "demo.asm", "entry": -1}))
     errors = format_errors(exc.value)
     assert any(e.code == "DESIGN_PROG_ENTRY" for e in errors)
 
@@ -231,11 +229,7 @@ def test_program_halt_cycles_bounded() -> None:
 def test_verification_acc_bounded() -> None:
     with pytest.raises(ValidationError) as exc:
         validate_dict(
-            _minimal_ir(
-                verification={
-                    "expected": {"halted": True, "acc": 256, "memory": {}}
-                }
-            )
+            _minimal_ir(verification={"expected": {"halted": True, "acc": 256, "memory": {}}})
         )
     errors = format_errors(exc.value)
     assert any(e.code == "DESIGN_VERIFY_ACC_RANGE" for e in errors)
@@ -286,9 +280,7 @@ def test_io_port_duplicate_rejected() -> None:
 def test_io_port_bad_name_rejected() -> None:
     with pytest.raises(ValidationError):
         validate_dict(
-            _minimal_ir(
-                io={"ports": [{"name": "0_bad", "direction": "output", "width": 8}]}
-            )
+            _minimal_ir(io={"ports": [{"name": "0_bad", "direction": "output", "width": 8}]})
         )
 
 

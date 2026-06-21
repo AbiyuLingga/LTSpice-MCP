@@ -288,9 +288,7 @@ _FREQ_RE: Final[re.Pattern[str]] = re.compile(r"\b" + _FREQ_PATTERN + r"\b", re.
 # Capacitance: F, mF, uF, nF, pF (also spelled microfarad, nanofarad, etc.).
 # We accept the SPICE suffix form (``u``, ``n``, ``p``, ``m``) directly in
 # addition to the long forms.
-_CAP_UNIT_PATTERN: Final[str] = (
-    r"(?:milli|micro|nano|pico|u|n|p|m)?f(?:arad)?s?"
-)
+_CAP_UNIT_PATTERN: Final[str] = r"(?:milli|micro|nano|pico|u|n|p|m)?f(?:arad)?s?"
 _CAP_PATTERN: Final[str] = rf"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>{_CAP_UNIT_PATTERN})"
 _CAP_RE: Final[re.Pattern[str]] = re.compile(r"\b" + _CAP_PATTERN + r"\b", re.IGNORECASE)
 
@@ -573,9 +571,7 @@ def _plan_voltage_divider(text: str) -> CircuitIR | PlannerRefusal:
             code=REFUSAL_INVALID_VALUE,
             message="Could not parse one of the voltage values",
             supported_topologies=_TOPOLOGY_ORDER,
-            next_step=(
-                "Use a numeric voltage with a unit, e.g. '12V', '5V', '3.3V'."
-            ),
+            next_step=("Use a numeric voltage with a unit, e.g. '12V', '5V', '3.3V'."),
             data={"prompt": text, "vinRaw": vin_match.group(0)},
         )
     if vin <= 0:
@@ -666,14 +662,9 @@ def _plan_rc(text: str, topology: str) -> CircuitIR | PlannerRefusal:
     if fc is None:
         return PlannerRefusal(
             code=REFUSAL_MISSING_PARAM,
-            message=(
-                "RC filter requires a cutoff frequency, "
-                "e.g. 'cutoff 1kHz' or 'fc 500Hz'."
-            ),
+            message=("RC filter requires a cutoff frequency, e.g. 'cutoff 1kHz' or 'fc 500Hz'."),
             supported_topologies=_TOPOLOGY_ORDER,
-            next_step=(
-                "Add a cutoff frequency, e.g. 'buat RC low-pass cutoff 1kHz'."
-            ),
+            next_step=("Add a cutoff frequency, e.g. 'buat RC low-pass cutoff 1kHz'."),
             data={"prompt": text, "topology": topology},
         )
     if fc <= 0:
@@ -887,8 +878,7 @@ def _unsupported_refusal(text: str) -> PlannerRefusal:
     return PlannerRefusal(
         code=REFUSAL_UNSUPPORTED_PROMPT,
         message=(
-            "Prompt not recognized. Supported topologies: voltage_divider, "
-            "rc_lowpass, rc_highpass."
+            "Prompt not recognized. Supported topologies: voltage_divider, rc_lowpass, rc_highpass."
         ),
         supported_topologies=_TOPOLOGY_ORDER,
         next_step=(

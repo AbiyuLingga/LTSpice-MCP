@@ -101,9 +101,7 @@ DOCUMENT_FILE_PATHS: Final[dict[str, str]] = {
 class WorkbenchV2Error(ValueError):
     """Structured error from the v2 design service."""
 
-    def __init__(
-        self, code: str, message: str, *, data: Mapping[str, Any] | None = None
-    ) -> None:
+    def __init__(self, code: str, message: str, *, data: Mapping[str, Any] | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
@@ -125,9 +123,7 @@ class _BaseOp(BaseModel):
     @classmethod
     def _document_known(cls, v: str) -> str:
         if v not in DOCUMENT_NAMES:
-            raise ValueError(
-                f"document {v!r} is not supported; allowed: {sorted(DOCUMENT_NAMES)}"
-            )
+            raise ValueError(f"document {v!r} is not supported; allowed: {sorted(DOCUMENT_NAMES)}")
         return v
 
 
@@ -213,9 +209,7 @@ class PlaceNodeOp(_BaseOp):
     @classmethod
     def _kind_known(cls, v: str) -> str:
         if v not in SCHEMATIC_SYMBOL_KINDS:
-            raise ValueError(
-                f"schematic symbol kind {v!r} is not supported"
-            )
+            raise ValueError(f"schematic symbol kind {v!r} is not supported")
         return v
 
 
@@ -235,9 +229,7 @@ class RotateNodeOp(_BaseOp):
     @classmethod
     def _rotation_ok(cls, v: int) -> int:
         if v not in SCHEMATIC_ROTATION_VALUES:
-            raise ValueError(
-                f"rotation {v} must be one of {sorted(SCHEMATIC_ROTATION_VALUES)}"
-            )
+            raise ValueError(f"rotation {v} must be one of {sorted(SCHEMATIC_ROTATION_VALUES)}")
         return v
 
 
@@ -494,9 +486,7 @@ def _op_add_component(state: dict[str, Any], op: AddComponentOp) -> None:
     for net_name in component.pins.pins.values():
         if net_name not in new_nets:
             new_nets[net_name] = _net_for(net_name)
-    new_graph = graph.model_copy(
-        update={"components": new_components, "nets": new_nets}
-    )
+    new_graph = graph.model_copy(update={"components": new_components, "nets": new_nets})
     state["analog"] = new_graph.model_dump(mode="json", exclude_none=True)
 
 
@@ -515,9 +505,9 @@ def _op_remove_component(state: dict[str, Any], op: RemoveComponentOp) -> None:
             data={"componentId": op.componentId},
         )
     new_components = {k: v for k, v in graph.components.items() if k != op.componentId}
-    state["analog"] = graph.model_copy(
-        update={"components": new_components}
-    ).model_dump(mode="json", exclude_none=True)
+    state["analog"] = graph.model_copy(update={"components": new_components}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_set_component_value(state: dict[str, Any], op: SetComponentValueOp) -> None:
@@ -531,9 +521,9 @@ def _op_set_component_value(state: dict[str, Any], op: SetComponentValueOp) -> N
     new_components = dict(graph.components)
     comp = new_components[op.componentId]
     new_components[op.componentId] = comp.model_copy(update={"value": op.value})
-    state["analog"] = graph.model_copy(
-        update={"components": new_components}
-    ).model_dump(mode="json", exclude_none=True)
+    state["analog"] = graph.model_copy(update={"components": new_components}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_rename_component(state: dict[str, Any], op: RenameComponentOp) -> None:
@@ -552,12 +542,13 @@ def _op_rename_component(state: dict[str, Any], op: RenameComponentOp) -> None:
         )
     new_components = {op.newId if k == op.oldId else k: v for k, v in graph.components.items()}
     new_components[op.newId] = new_components.pop(op.oldId)
-    new_components = {op.newId: new_components.pop(op.oldId), **{
-        k: v for k, v in new_components.items() if k != op.newId
-    }}
-    state["analog"] = graph.model_copy(
-        update={"components": new_components}
-    ).model_dump(mode="json", exclude_none=True)
+    new_components = {
+        op.newId: new_components.pop(op.oldId),
+        **{k: v for k, v in new_components.items() if k != op.newId},
+    }
+    state["analog"] = graph.model_copy(update={"components": new_components}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_connect_pin(state: dict[str, Any], op: ConnectPinOp) -> None:
@@ -572,9 +563,7 @@ def _op_connect_pin(state: dict[str, Any], op: ConnectPinOp) -> None:
     new_pins = dict(component.pins.pins)
     new_pins[op.pin] = op.net
     new_components = dict(graph.components)
-    new_components[op.componentId] = component.model_copy(
-        update={"pins": PinMap(pins=new_pins)}
-    )
+    new_components[op.componentId] = component.model_copy(update={"pins": PinMap(pins=new_pins)})
     new_nets = dict(graph.nets)
     if op.net not in new_nets:
         new_nets[op.net] = _net_for(op.net)
@@ -594,12 +583,10 @@ def _op_disconnect_pin(state: dict[str, Any], op: DisconnectPinOp) -> None:
     component = graph.components[op.componentId]
     new_pins = {k: v for k, v in component.pins.pins.items() if k != op.pin}
     new_components = dict(graph.components)
-    new_components[op.componentId] = component.model_copy(
-        update={"pins": PinMap(pins=new_pins)}
+    new_components[op.componentId] = component.model_copy(update={"pins": PinMap(pins=new_pins)})
+    state["analog"] = graph.model_copy(update={"components": new_components}).model_dump(
+        mode="json", exclude_none=True
     )
-    state["analog"] = graph.model_copy(
-        update={"components": new_components}
-    ).model_dump(mode="json", exclude_none=True)
 
 
 def _op_rename_net(state: dict[str, Any], op: RenameNetOp) -> None:
@@ -610,15 +597,11 @@ def _op_rename_net(state: dict[str, Any], op: RenameNetOp) -> None:
             f"net {op.oldName!r} does not exist",
             data={"oldName": op.oldName},
         )
-    new_nets = {
-        op.newName if k == op.oldName else k: v for k, v in graph.nets.items()
-    }
+    new_nets = {op.newName if k == op.oldName else k: v for k, v in graph.nets.items()}
     new_components: dict[str, Component] = {}
     for cid, comp in graph.components.items():
         remapped = {op.newName if n == op.oldName else n: n for n in comp.pins.pins.values()}
-        new_components[cid] = comp.model_copy(
-            update={"pins": PinMap(pins=remapped)}
-        )
+        new_components[cid] = comp.model_copy(update={"pins": PinMap(pins=remapped)})
     state["analog"] = graph.model_copy(
         update={"nets": new_nets, "components": new_components}
     ).model_dump(mode="json", exclude_none=True)
@@ -631,9 +614,9 @@ def _op_add_directive(state: dict[str, Any], op: AddDirectiveOp) -> None:
     graph = _validate_analog(state["analog"])
     payload = {"name": op.name, "args": op.args}
     new_directives = [*list(graph.directives), payload]
-    state["analog"] = graph.model_copy(
-        update={"directives": new_directives}
-    ).model_dump(mode="json", exclude_none=True)
+    state["analog"] = graph.model_copy(update={"directives": new_directives}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_add_measurement(state: dict[str, Any], op: AddMeasurementOp) -> None:
@@ -653,9 +636,9 @@ def _op_add_measurement(state: dict[str, Any], op: AddMeasurementOp) -> None:
         expression=op.expression,
     )
     new_measurements = [*list(graph.measurements), measurement]
-    state["analog"] = graph.model_copy(
-        update={"measurements": new_measurements}
-    ).model_dump(mode="json", exclude_none=True)
+    state["analog"] = graph.model_copy(update={"measurements": new_measurements}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_place_node(state: dict[str, Any], op: PlaceNodeOp) -> None:
@@ -693,9 +676,7 @@ def _op_move_node(state: dict[str, Any], op: MoveNodeOp) -> None:
     moved = False
     for symbol in view.symbols:
         if symbol.id == op.symbolId:
-            new_symbols.append(
-                symbol.model_copy(update={"x": op.x, "y": op.y})
-            )
+            new_symbols.append(symbol.model_copy(update={"x": op.x, "y": op.y}))
             moved = True
         else:
             new_symbols.append(symbol)
@@ -705,9 +686,9 @@ def _op_move_node(state: dict[str, Any], op: MoveNodeOp) -> None:
             f"schematic symbol {op.symbolId!r} does not exist",
             data={"symbolId": op.symbolId},
         )
-    state["schematic"] = view.model_copy(
-        update={"symbols": new_symbols}
-    ).model_dump(mode="json", exclude_none=True)
+    state["schematic"] = view.model_copy(update={"symbols": new_symbols}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_rotate_node(state: dict[str, Any], op: RotateNodeOp) -> None:
@@ -726,9 +707,9 @@ def _op_rotate_node(state: dict[str, Any], op: RotateNodeOp) -> None:
             f"schematic symbol {op.symbolId!r} does not exist",
             data={"symbolId": op.symbolId},
         )
-    state["schematic"] = view.model_copy(
-        update={"symbols": new_symbols}
-    ).model_dump(mode="json", exclude_none=True)
+    state["schematic"] = view.model_copy(update={"symbols": new_symbols}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_set_wire_route(state: dict[str, Any], op: SetWireRouteOp) -> None:
@@ -746,9 +727,9 @@ def _op_set_wire_route(state: dict[str, Any], op: SetWireRouteOp) -> None:
             new_wires.append(existing)
     if not replaced:
         new_wires.append(wire)
-    state["schematic"] = view.model_copy(
-        update={"wires": new_wires}
-    ).model_dump(mode="json", exclude_none=True)
+    state["schematic"] = view.model_copy(update={"wires": new_wires}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_set_net_label(state: dict[str, Any], op: SetNetLabelOp) -> None:
@@ -764,16 +745,16 @@ def _op_set_net_label(state: dict[str, Any], op: SetNetLabelOp) -> None:
             new_labels.append(existing)
     if not replaced:
         new_labels.append(label)
-    state["schematic"] = view.model_copy(
-        update={"netLabels": new_labels}
-    ).model_dump(mode="json", exclude_none=True)
+    state["schematic"] = view.model_copy(update={"netLabels": new_labels}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_set_grid_size(state: dict[str, Any], op: SetGridSizeOp) -> None:
     view = _validate_schematic(state["schematic"])
-    state["schematic"] = view.model_copy(
-        update={"gridSize": op.gridSize}
-    ).model_dump(mode="json", exclude_none=True)
+    state["schematic"] = view.model_copy(update={"gridSize": op.gridSize}).model_dump(
+        mode="json", exclude_none=True
+    )
 
 
 def _op_replace_document(state: dict[str, Any], op: ReplaceDocumentOp) -> None:
@@ -919,9 +900,7 @@ class DesignService:
             },
         }
 
-    def apply_change_set(
-        self, project_id: str, change_set: Mapping[str, Any]
-    ) -> ChangeSetResult:
+    def apply_change_set(self, project_id: str, change_set: Mapping[str, Any]) -> ChangeSetResult:
         try:
             cs = ChangeSet.model_validate(dict(change_set))
         except ValidationError as exc:
@@ -1029,9 +1008,7 @@ class DesignService:
         )
         try:
             for document in sorted(changed_documents):
-                _write_json_atomic(
-                    project_dir / DOCUMENT_FILE_PATHS[document], state[document]
-                )
+                _write_json_atomic(project_dir / DOCUMENT_FILE_PATHS[document], state[document])
             _write_json_atomic(
                 project_dir / FILE_MANIFEST,
                 new_manifest.model_dump(mode="json"),
@@ -1107,9 +1084,7 @@ class DesignService:
         self._undo.setdefault(project_id, []).append(next_result)
         return self._rewind_to_revision(project_dir, next_result.revision)
 
-    def _rewind_to_revision(
-        self, project_dir: Any, target_revision: int
-    ) -> ChangeSetResult:
+    def _rewind_to_revision(self, project_dir: Any, target_revision: int) -> ChangeSetResult:
         """Re-apply every change-set line up to ``target_revision``.
 
         Used by :meth:`undo` and :meth:`redo`. Each line carries a
@@ -1165,9 +1140,7 @@ class DesignService:
                         break
 
         for document in DOCUMENT_NAMES:
-            _write_json_atomic(
-                project_dir / DOCUMENT_FILE_PATHS[document], state[document]
-            )
+            _write_json_atomic(project_dir / DOCUMENT_FILE_PATHS[document], state[document])
         new_manifest = HardwareProject(
             schemaVersion=PROJECT_SCHEMA_VERSION_LITERAL,
             projectId=project_dir.name,
@@ -1176,9 +1149,7 @@ class DesignService:
             createdAt=self.open_project(project_dir.name).createdAt or "",
             updatedAt=datetime.now(UTC).isoformat(),
         )
-        _write_json_atomic(
-            project_dir / FILE_MANIFEST, new_manifest.model_dump(mode="json")
-        )
+        _write_json_atomic(project_dir / FILE_MANIFEST, new_manifest.model_dump(mode="json"))
         return ChangeSetResult(
             revision=target_revision,
             changed_documents=tuple(sorted(final_documents)),

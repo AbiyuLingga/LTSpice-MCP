@@ -47,8 +47,10 @@ class EditChange:
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
-            "op": self.op, "target": self.target,
-            "before": to_jsonable(self.before), "after": to_jsonable(self.after),
+            "op": self.op,
+            "target": self.target,
+            "before": to_jsonable(self.before),
+            "after": to_jsonable(self.after),
         }
         if self.data:
             out["data"] = to_jsonable(self.data)
@@ -66,14 +68,22 @@ class EditResult:
     def success(self) -> bool:
         return not self.errors
 
-    def add_error(self, code: str, path: str, detail: str, data: dict[str, Any] | None = None) -> None:
+    def add_error(
+        self, code: str, path: str, detail: str, data: dict[str, Any] | None = None
+    ) -> None:
         self.errors.append(EditError(code=code, path=path, detail=detail, data=data or {}))
 
-    def add_warning(self, code: str, path: str, detail: str, data: dict[str, Any] | None = None) -> None:
+    def add_warning(
+        self, code: str, path: str, detail: str, data: dict[str, Any] | None = None
+    ) -> None:
         self.warnings.append(EditWarning(code=code, path=path, detail=detail, data=data or {}))
 
-    def add_change(self, op: str, target: str, before: Any, after: Any, data: dict[str, Any] | None = None) -> None:
-        self.changes.append(EditChange(op=op, target=target, before=before, after=after, data=data or {}))
+    def add_change(
+        self, op: str, target: str, before: Any, after: Any, data: dict[str, Any] | None = None
+    ) -> None:
+        self.changes.append(
+            EditChange(op=op, target=target, before=before, after=after, data=data or {})
+        )
 
     def extend(self, other: EditResult) -> None:
         self.errors.extend(other.errors)
@@ -92,13 +102,19 @@ class EditResult:
 
     @classmethod
     def from_graph(
-        cls, graph: Mapping[str, Any] | Any,
-        *, errors: Iterable[EditError] = (), warnings: Iterable[EditWarning] = (),
+        cls,
+        graph: Mapping[str, Any] | Any,
+        *,
+        errors: Iterable[EditError] = (),
+        warnings: Iterable[EditWarning] = (),
         changes: Iterable[EditChange] = (),
     ) -> EditResult:
         from .edit_ops import clone_graph
+
         cloned = clone_graph(graph)
-        return cls(graph=cloned, errors=list(errors), warnings=list(warnings), changes=list(changes))
+        return cls(
+            graph=cloned, errors=list(errors), warnings=list(warnings), changes=list(changes)
+        )
 
 
 def _graph_to_dict(graph: Any) -> Any:

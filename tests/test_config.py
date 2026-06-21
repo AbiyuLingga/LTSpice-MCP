@@ -49,11 +49,13 @@ def test_load_reads_project_local_config(workspace_root: Path) -> None:
     assert cfg.ltspice.executable == "/tmp/lt.exe"
 
 
-def test_load_reads_user_level_config(workspace_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_reads_user_level_config(
+    workspace_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     xdg = workspace_root / "xdg"
     (xdg / "ltagent").mkdir(parents=True)
     (xdg / "ltagent" / "config.toml").write_text(
-        '[runner]\ntimeout_seconds = 5\n', encoding="utf-8"
+        "[runner]\ntimeout_seconds = 5\n", encoding="utf-8"
     )
     monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
     cfg = load_config()
@@ -66,11 +68,11 @@ def test_project_local_overrides_user_config(
     xdg = workspace_root / "xdg"
     (xdg / "ltagent").mkdir(parents=True)
     (xdg / "ltagent" / "config.toml").write_text(
-        '[runner]\ntimeout_seconds = 5\n', encoding="utf-8"
+        "[runner]\ntimeout_seconds = 5\n", encoding="utf-8"
     )
     monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
     (workspace_root / "config.toml").write_text(
-        '[runner]\ntimeout_seconds = 60\n', encoding="utf-8"
+        "[runner]\ntimeout_seconds = 60\n", encoding="utf-8"
     )
     cfg = load_config()
     assert cfg.runner.timeout_seconds == 60
@@ -83,9 +85,7 @@ def test_load_rejects_malformed_toml(workspace_root: Path) -> None:
 
 
 def test_load_rejects_invalid_mode(workspace_root: Path) -> None:
-    (workspace_root / "config.toml").write_text(
-        '[ltspice]\nmode = "wsl"\n', encoding="utf-8"
-    )
+    (workspace_root / "config.toml").write_text('[ltspice]\nmode = "wsl"\n', encoding="utf-8")
     with pytest.raises(ConfigError):
         load_config()
 
@@ -100,9 +100,7 @@ def test_load_rejects_type_errors_but_does_not_crash(workspace_root: Path) -> No
 
 
 def test_load_rejects_unknown_keys(workspace_root: Path) -> None:
-    (workspace_root / "config.toml").write_text(
-        "[runner]\ntypo_key = 1\n", encoding="utf-8"
-    )
+    (workspace_root / "config.toml").write_text("[runner]\ntypo_key = 1\n", encoding="utf-8")
     with pytest.raises(ConfigError) as exc:
         load_config()
     assert "typo_key" in str(exc.value)
@@ -110,7 +108,7 @@ def test_load_rejects_unknown_keys(workspace_root: Path) -> None:
 
 def test_load_rejects_bool_for_int_field(workspace_root: Path) -> None:
     (workspace_root / "config.toml").write_text(
-        '[runner]\ntimeout_seconds = true\n', encoding="utf-8"
+        "[runner]\ntimeout_seconds = true\n", encoding="utf-8"
     )
     with pytest.raises(ConfigError) as exc:
         load_config()

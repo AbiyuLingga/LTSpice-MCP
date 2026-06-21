@@ -267,7 +267,9 @@ def test_ensure_completes_partial_library(templates_root: Path) -> None:
         d = templates_root / seed.status.value / seed.templateId
         d.mkdir(parents=True, exist_ok=True)
         (d / "template.ir.json").write_text(
-            json.dumps({"schemaVersion": "0.1", "name": seed.templateId, "topology": seed.topology}),
+            json.dumps(
+                {"schemaVersion": "0.1", "name": seed.templateId, "topology": seed.topology}
+            ),
             encoding="utf-8",
         )
         dump_manifest(seed, d / "manifest.json")
@@ -685,9 +687,7 @@ def test_move_candidate_to_official(seeded_templates: Path) -> None:
         "analysis": [{"kind": "op"}],
     }
     create_candidate_from_ir(seeded_templates, data)
-    moved = move_template(
-        seeded_templates, "promote_me", to_status=TemplateStatus.OFFICIAL
-    )
+    moved = move_template(seeded_templates, "promote_me", to_status=TemplateStatus.OFFICIAL)
     assert moved.status == TemplateStatus.OFFICIAL
     assert not (seeded_templates / "candidates" / "promote_me").exists()
     assert (seeded_templates / "official" / "promote_me").is_dir()
@@ -697,9 +697,7 @@ def test_move_candidate_to_official(seeded_templates: Path) -> None:
 
 
 def test_move_official_to_rejected(seeded_templates: Path) -> None:
-    moved = move_template(
-        seeded_templates, "rc_lowpass", to_status=TemplateStatus.REJECTED
-    )
+    moved = move_template(seeded_templates, "rc_lowpass", to_status=TemplateStatus.REJECTED)
     assert moved.status == TemplateStatus.REJECTED
     assert not (seeded_templates / "official" / "rc_lowpass").exists()
     assert (seeded_templates / "rejected" / "rc_lowpass").is_dir()
@@ -904,9 +902,7 @@ def test_audit_detects_within_status_duplicate(seeded_templates: Path) -> None:
     move_template(seeded_templates, "rc_lowpass_dup", to_status=TemplateStatus.OFFICIAL)
     report = audit_templates(seeded_templates)
     d = report.to_dict()
-    assert any(
-        dup["topology"] == "rc_lowpass" for dup in d["duplicates"]
-    )
+    assert any(dup["topology"] == "rc_lowpass" for dup in d["duplicates"])
 
 
 def test_audit_surfaces_broken_manifest(seeded_templates: Path) -> None:
@@ -1018,9 +1014,7 @@ def _write_project(
     * ``result.json`` with ``run.success`` and ``layoutScore``
     """
     project_dir.mkdir(parents=True, exist_ok=True)
-    (project_dir / "circuit.ir.json").write_text(
-        json.dumps(ir, indent=2) + "\n", encoding="utf-8"
-    )
+    (project_dir / "circuit.ir.json").write_text(json.dumps(ir, indent=2) + "\n", encoding="utf-8")
     result = {
         "schemaVersion": "0.1",
         "projectId": project_dir.name,
@@ -1034,15 +1028,15 @@ def _write_project(
         },
         "measurements": {},
         "assertions": [],
-        "layout": {"score": layout_score, "warnings": []} if layout_score is not None else {"warnings": []},
+        "layout": {"score": layout_score, "warnings": []}
+        if layout_score is not None
+        else {"warnings": []},
         "warnings": [],
         "errors": [],
     }
     if layout_score is not None:
         result["layoutScore"] = layout_score
-    (project_dir / "result.json").write_text(
-        json.dumps(result, indent=2) + "\n", encoding="utf-8"
-    )
+    (project_dir / "result.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
 
 
 def test_create_candidate_from_project_succeeds(tmp_path: Path) -> None:
@@ -1059,12 +1053,30 @@ def test_create_candidate_from_project_succeeds(tmp_path: Path) -> None:
         "description": "Reusable voltage divider",
         "nodes": ["in", "out", "0"],
         "components": [
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "DC 12", "role": "input_source"},
-            {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["in", "out"], "value": "1k", "role": "series_resistor"},
-            {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["out", "0"], "value": "1k", "role": "shunt_resistor"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "DC 12",
+                "role": "input_source",
+            },
+            {
+                "id": "R1",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["in", "out"],
+                "value": "1k",
+                "role": "series_resistor",
+            },
+            {
+                "id": "R2",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["out", "0"],
+                "value": "1k",
+                "role": "shunt_resistor",
+            },
         ],
         "analysis": [{"kind": "op"}],
     }
@@ -1123,12 +1135,30 @@ def test_create_candidate_from_project_rejects_sim_failure(tmp_path: Path) -> No
         "topology": "voltage_divider",
         "nodes": ["in", "out", "0"],
         "components": [
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "DC 12", "role": "input_source"},
-            {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["in", "out"], "value": "1k", "role": "series_resistor"},
-            {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["out", "0"], "value": "1k", "role": "shunt_resistor"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "DC 12",
+                "role": "input_source",
+            },
+            {
+                "id": "R1",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["in", "out"],
+                "value": "1k",
+                "role": "series_resistor",
+            },
+            {
+                "id": "R2",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["out", "0"],
+                "value": "1k",
+                "role": "shunt_resistor",
+            },
         ],
         "analysis": [{"kind": "op"}],
     }
@@ -1152,12 +1182,30 @@ def test_create_candidate_from_project_rejects_missing_layout(tmp_path: Path) ->
         "topology": "voltage_divider",
         "nodes": ["in", "out", "0"],
         "components": [
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "DC 12", "role": "input_source"},
-            {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["in", "out"], "value": "1k", "role": "series_resistor"},
-            {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["out", "0"], "value": "1k", "role": "shunt_resistor"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "DC 12",
+                "role": "input_source",
+            },
+            {
+                "id": "R1",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["in", "out"],
+                "value": "1k",
+                "role": "series_resistor",
+            },
+            {
+                "id": "R2",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["out", "0"],
+                "value": "1k",
+                "role": "shunt_resistor",
+            },
         ],
         "analysis": [{"kind": "op"}],
     }
@@ -1183,12 +1231,30 @@ def test_create_candidate_from_project_rejects_duplicate_id(tmp_path: Path) -> N
         "topology": "voltage_divider",
         "nodes": ["in", "out", "0"],
         "components": [
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "DC 12", "role": "input_source"},
-            {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["in", "out"], "value": "1k", "role": "series_resistor"},
-            {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["out", "0"], "value": "1k", "role": "shunt_resistor"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "DC 12",
+                "role": "input_source",
+            },
+            {
+                "id": "R1",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["in", "out"],
+                "value": "1k",
+                "role": "series_resistor",
+            },
+            {
+                "id": "R2",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["out", "0"],
+                "value": "1k",
+                "role": "shunt_resistor",
+            },
         ],
         "analysis": [{"kind": "op"}],
     }
@@ -1206,9 +1272,7 @@ def test_create_candidate_from_project_rejects_missing_dir(tmp_path: Path) -> No
     )
 
     with pytest.raises(TemplateError) as exc:
-        create_candidate_from_project(
-            tmp_path / "does_not_exist", tmp_path / "templates"
-        )
+        create_candidate_from_project(tmp_path / "does_not_exist", tmp_path / "templates")
     assert exc.value.code == ERR_TEMPLATE_PROJECT_INVALID
 
 
@@ -1230,23 +1294,37 @@ def test_create_candidate_from_project_evaluates_cleanly(tmp_path: Path) -> None
         "description": "Reusable voltage divider",
         "nodes": ["in", "out", "0"],
         "components": [
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "DC 12", "role": "input_source"},
-            {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["in", "out"], "value": "1k", "role": "series_resistor"},
-            {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["out", "0"], "value": "1k", "role": "shunt_resistor"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "DC 12",
+                "role": "input_source",
+            },
+            {
+                "id": "R1",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["in", "out"],
+                "value": "1k",
+                "role": "series_resistor",
+            },
+            {
+                "id": "R2",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["out", "0"],
+                "value": "1k",
+                "role": "shunt_resistor",
+            },
         ],
         "analysis": [{"kind": "op"}],
     }
     _write_project(project_dir, ir=ir, layout_score=92)
     # Use the user-requested tag so the candidate picks up the +3 score.
-    manifest = create_candidate_from_project(
-        project_dir, templates_dir, tags=("user-requested",)
-    )
-    ev = evaluate_candidate(
-        templates_dir, manifest.templateId, status=TemplateStatus.CANDIDATE
-    )
+    manifest = create_candidate_from_project(project_dir, templates_dir, tags=("user-requested",))
+    ev = evaluate_candidate(templates_dir, manifest.templateId, status=TemplateStatus.CANDIDATE)
     # No official exists for this topology in the empty templates
     # dir, so the candidate earns the full +2 NO_SIMILAR bonus plus
     # the topology bonus and the simulation/layout bonuses.

@@ -187,8 +187,8 @@ def test_wire_crossing_drops_score() -> None:
     text = (
         "Version 4\n"
         "SHEET 1 880 680\n"
-        "WIRE 0 50 200 50\n"      # horizontal across x=0..200 at y=50
-        "WIRE 100 0 100 100\n"    # vertical across y=0..100 at x=100
+        "WIRE 0 50 200 50\n"  # horizontal across x=0..200 at y=50
+        "WIRE 100 0 100 100\n"  # vertical across y=0..100 at x=100
         "FLAG 80 352 0\n"
     )
     result = _asc_result(text)
@@ -200,13 +200,7 @@ def test_wire_crossing_drops_score() -> None:
 
 
 def test_orthogonal_wires_with_shared_endpoint_dont_cross() -> None:
-    text = (
-        "Version 4\n"
-        "SHEET 1 880 680\n"
-        "WIRE 0 0 100 0\n"
-        "WIRE 100 0 100 100\n"
-        "FLAG 80 352 0\n"
-    )
+    text = "Version 4\nSHEET 1 880 680\nWIRE 0 0 100 0\nWIRE 100 0 100 100\nFLAG 80 352 0\n"
     result = _asc_result(text)
     scored = score_layout(result)
     assert scored.wire_crossings == 0
@@ -217,12 +211,7 @@ def test_orthogonal_wires_with_shared_endpoint_dont_cross() -> None:
 
 def test_long_wire_drops_score() -> None:
     # A wire longer than LONG_WIRE_LIMIT units.
-    text = (
-        "Version 4\n"
-        "SHEET 1 880 680\n"
-        f"WIRE 0 0 {LONG_WIRE_LIMIT + 100} 0\n"
-        "FLAG 80 352 0\n"
-    )
+    text = f"Version 4\nSHEET 1 880 680\nWIRE 0 0 {LONG_WIRE_LIMIT + 100} 0\nFLAG 80 352 0\n"
     result = _asc_result(text)
     scored = score_layout(result)
     assert scored.long_wires == 1
@@ -254,9 +243,7 @@ def test_label_collision_drops_score() -> None:
 def test_score_clamped_to_zero() -> None:
     """Many overlapping symbols should still produce a score of 0,
     not a negative number."""
-    placements = [
-        _placement("voltage", 80, 144, f"V{i}") for i in range(10)
-    ]
+    placements = [_placement("voltage", 80, 144, f"V{i}") for i in range(10)]
     text_lines = ["Version 4", "SHEET 1 880 680", "FLAG 80 352 0"]
     for i in range(10):
         text_lines.append("SYMBOL voltage 80 144 R0")
@@ -274,12 +261,7 @@ def test_score_clamped_to_zero() -> None:
 def test_multiple_penalties_stack() -> None:
     """A layout with a wire crossing and a missing ground node
     accumulates both penalties."""
-    text = (
-        "Version 4\n"
-        "SHEET 1 880 680\n"
-        "WIRE 0 50 200 50\n"
-        "WIRE 100 0 100 100\n"
-    )
+    text = "Version 4\nSHEET 1 880 680\nWIRE 0 50 200 50\nWIRE 100 0 100 100\n"
     result = _asc_result(text)
     scored = score_layout(result)
     expected = 100 - WEIGHT_CROSSING - WEIGHT_MISSING_GROUND

@@ -119,11 +119,7 @@ def test_migration_converts_schematic_nodes_to_symbols(tmp_path: Path) -> None:
     )
     migrate_workbench_project_to_v2(project_dir)
     v2_schematic = SchematicView.model_validate(
-        json.loads(
-            (project_dir / "design/schematic/main.view.json").read_text(
-                encoding="utf-8"
-            )
-        )
+        json.loads((project_dir / "design/schematic/main.view.json").read_text(encoding="utf-8"))
     )
     assert len(v2_schematic.symbols) == 2
     assert v2_schematic.symbols[0].id == "r1"
@@ -138,18 +134,14 @@ def test_migration_round_trip_back_to_v1(tmp_path: Path) -> None:
     original_manifest = json.loads(
         (project_dir / "hardware.project.json").read_text(encoding="utf-8")
     )
-    original_requirements = (project_dir / "design/requirements.json").read_text(
-        encoding="utf-8"
-    )
+    original_requirements = (project_dir / "design/requirements.json").read_text(encoding="utf-8")
     result = migrate_workbench_project_to_v2(project_dir)
     rollback_workbench_project_to_v1(project_dir, result.backup_dir)
     restored = open_workbench_project(project_dir)
     assert restored.revision == 0
     # The v1 surface still recognises the project.
     assert restored.project_id == "analog_lab"
-    manifest = json.loads(
-        (project_dir / "hardware.project.json").read_text(encoding="utf-8")
-    )
+    manifest = json.loads((project_dir / "hardware.project.json").read_text(encoding="utf-8"))
     assert manifest["schemaVersion"] == V1_PROJECT_SCHEMA_VERSION
     assert manifest == original_manifest
     assert (project_dir / "design/requirements.json").read_text(
@@ -212,9 +204,7 @@ def test_migration_writes_v2_requirements(tmp_path: Path) -> None:
     )
     migrate_workbench_project_to_v2(project_dir)
     v2_requirements = Requirements.model_validate(
-        json.loads(
-            (project_dir / "design/requirements.json").read_text(encoding="utf-8")
-        )
+        json.loads((project_dir / "design/requirements.json").read_text(encoding="utf-8"))
     )
     assert v2_requirements.text == "make RC low-pass 1kHz"
     assert v2_requirements.constraints["cutoffHz"] == 1000
@@ -258,9 +248,7 @@ def test_migration_persists_digital_and_system_documents(tmp_path: Path) -> None
     digital = json.loads(
         (project_dir / "design/digital/main.digital.json").read_text(encoding="utf-8")
     )
-    system = json.loads(
-        (project_dir / "design/system.json").read_text(encoding="utf-8")
-    )
+    system = json.loads((project_dir / "design/system.json").read_text(encoding="utf-8"))
     assert digital["schemaVersion"] == V2_PROJECT_SCHEMA_VERSION
     assert system["schemaVersion"] == V2_PROJECT_SCHEMA_VERSION
     assert digital["design"]["modules"] == [{"name": "m1"}]

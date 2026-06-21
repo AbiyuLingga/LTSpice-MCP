@@ -47,9 +47,7 @@ CONTRACTS: tuple[tuple[str, type], ...] = (
 
 def _build_schema(name: str, model: type) -> dict:
     schema = model.model_json_schema()
-    schema["$id"] = (
-        f"https://ltspice-ai-agent.local/schemas/workbench_v2/{name}.schema.json"
-    )
+    schema["$id"] = f"https://ltspice-ai-agent.local/schemas/workbench_v2/{name}.schema.json"
     schema["title"] = name
     schema["description"] = (
         f"Workbench v2 contract for {name}. Generated from the Pydantic "
@@ -76,10 +74,9 @@ def main() -> int:
         pkg_path = pkg_dir / f"{name}.schema.json"
         for path in (repo_path, pkg_path):
             _write(path, schema)
-        assert (
-            repo_path.read_text(encoding="utf-8")
-            == pkg_path.read_text(encoding="utf-8")
-        ), f"repo and packaged schema diverged for {name}"
+        assert repo_path.read_text(encoding="utf-8") == pkg_path.read_text(encoding="utf-8"), (
+            f"repo and packaged schema diverged for {name}"
+        )
         total_bytes += len(rendered)
         print(f"wrote {name}: {repo_path} + {pkg_path} ({len(rendered)} bytes)")
     print(f"total: {len(CONTRACTS)} contracts, {total_bytes} bytes")

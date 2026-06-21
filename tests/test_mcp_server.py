@@ -62,6 +62,7 @@ from ltagent.security import (
 def test_create_project_does_not_expose_workspace_escape_hatch() -> None:
     assert "allow_outside_workspace" not in inspect.signature(tool_create_project).parameters
 
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = REPO_ROOT / "examples"
 
@@ -372,9 +373,7 @@ def test_tool_create_project_matches_cli(workspace: Path, ir_file: Path) -> None
     assert target.is_dir()
 
     # CLI path (direct call into the same core function)
-    cfg = Config(
-        workspace=WorkspaceConfig(projects_dir="projects", templates_dir="templates")
-    )
+    cfg = Config(workspace=WorkspaceConfig(projects_dir="projects", templates_dir="templates"))
     create_project(ir_file, cli_target, templates_dir=workspace / "templates", config=cfg)
     assert cli_target.is_dir()
 
@@ -476,7 +475,9 @@ def test_tool_promote_template_rejects_traversal(workspace: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_sdk_missing_emits_structured_error(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_sdk_missing_emits_structured_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Force the SDK import to fail and assert the fallback exit code + payload."""
     import ltagent.mcp_server as srv
 
@@ -491,7 +492,9 @@ def test_sdk_missing_emits_structured_error(monkeypatch: pytest.MonkeyPatch, cap
     assert "pip install" in payload["data"]["installHint"]
 
 
-def test_sdk_missing_in_check_flag(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_sdk_missing_in_check_flag(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     import ltagent.mcp_server as srv
 
     monkeypatch.setattr(srv, "_FastMCP", None)

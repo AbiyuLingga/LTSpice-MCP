@@ -222,9 +222,7 @@ def test_pinmap_accepts_permissive_pin_shapes() -> None:
     assert p1.net_for("1") == "in"
     p2 = PinMap(pins={"+": "in", "-": GROUND_NODE})
     assert p2.net_for("-") == GROUND_NODE
-    p3 = PinMap(
-        pins={"in+": "inp", "in-": "inn", "v+": "vp", "v-": "vn", "out": "out"}
-    )
+    p3 = PinMap(pins={"in+": "inp", "in-": "inn", "v+": "vp", "v-": "vn", "out": "out"})
     assert p3.net_for("out") == "out"
     assert p3.nets() == sorted({"inp", "inn", "vp", "vn", "out"})
 
@@ -331,10 +329,7 @@ def test_duplicate_component_id_detected() -> None:
     )
     result = validate_graph(g)
     assert result.ok is False
-    assert any(
-        issue.code == CODE_COMPONENT_ID_DUPLICATE
-        for issue in result.errors
-    )
+    assert any(issue.code == CODE_COMPONENT_ID_DUPLICATE for issue in result.errors)
 
 
 def test_floating_or_missing_net_detected() -> None:
@@ -343,9 +338,7 @@ def test_floating_or_missing_net_detected() -> None:
     g.nets["in"] = Net(name="in")
     result = validate_graph(g)
     assert result.ok is False
-    assert any(
-        issue.code == CODE_COMPONENT_PIN_UNKNOWN_NET for issue in result.errors
-    )
+    assert any(issue.code == CODE_COMPONENT_PIN_UNKNOWN_NET for issue in result.errors)
 
 
 def test_floating_declared_net_emits_warning() -> None:
@@ -357,8 +350,7 @@ def test_floating_declared_net_emits_warning() -> None:
     result = validate_graph(g)
     assert result.ok is True
     assert any(
-        issue.code == CODE_NET_FLOATING and issue.target == "unused"
-        for issue in result.warnings
+        issue.code == CODE_NET_FLOATING and issue.target == "unused" for issue in result.warnings
     )
 
 
@@ -389,9 +381,7 @@ def test_semiconductor_component_missing_model() -> None:
     g.nets[GROUND_NODE] = Net(name=GROUND_NODE, type=NetType.GROUND)
     result = validate_graph(g)
     assert result.ok is False
-    assert any(
-        issue.code == CODE_COMPONENT_MISSING_MODEL for issue in result.errors
-    )
+    assert any(issue.code == CODE_COMPONENT_MISSING_MODEL for issue in result.errors)
 
 
 def test_opamp_with_subckt_value_passes() -> None:
@@ -430,9 +420,7 @@ def test_opamp_with_insufficient_pins() -> None:
     g.nets["inn"] = Net(name="inn")
     result = validate_graph(g)
     assert result.ok is False
-    assert any(
-        issue.code == CODE_COMPONENT_INSUFFICIENT_PINS for issue in result.errors
-    )
+    assert any(issue.code == CODE_COMPONENT_INSUFFICIENT_PINS for issue in result.errors)
 
 
 def test_measurement_referencing_unknown_analysis() -> None:
@@ -446,9 +434,7 @@ def test_measurement_referencing_unknown_analysis() -> None:
     )
     result = validate_graph(g)
     assert result.ok is False
-    assert any(
-        issue.code == CODE_MEAS_UNKNOWN_ANALYSIS for issue in result.errors
-    )
+    assert any(issue.code == CODE_MEAS_UNKNOWN_ANALYSIS for issue in result.errors)
 
 
 def test_measurement_with_declared_analysis_passes() -> None:
@@ -469,9 +455,7 @@ def test_invalid_directive_flagged() -> None:
     g = _make_grounded_rc()
     g.directives.append(Directive.model_construct(name=".include", args="x"))
     result = validate_graph(g)
-    assert any(
-        issue.code == CODE_DIRECTIVE_DISALLOWED for issue in result.errors
-    )
+    assert any(issue.code == CODE_DIRECTIVE_DISALLOWED for issue in result.errors)
 
 
 # ---------------------------------------------------------------------------
@@ -590,9 +574,7 @@ def test_rc_lowpass_end_to_end() -> None:
             expression="MAX V(out)",
         )
     )
-    g.layoutHints = LayoutHint(
-        flow="left_to_right", inputNode="in", outputNode="out"
-    )
+    g.layoutHints = LayoutHint(flow="left_to_right", inputNode="in", outputNode="out")
     g.constraints = Constraints.model_validate({"targetCutoffHz": 1000})
 
     result = validate_graph(g)
@@ -627,6 +609,7 @@ def test_constants_exposed() -> None:
 
 
 def test_component_kinds_requiring_model_is_stable() -> None:
-    assert frozenset(
-        {"diode", "npn", "pnp", "nmos", "pmos", "opamp"}
-    ) == COMPONENT_KINDS_REQUIRING_MODEL
+    assert (
+        frozenset({"diode", "npn", "pnp", "nmos", "pmos", "opamp"})
+        == COMPONENT_KINDS_REQUIRING_MODEL
+    )

@@ -99,14 +99,12 @@ def _placement(symbol_type: str, x: int, y: int) -> SymbolPlacement:
 
 def test_plus_pin_returns_offset_position() -> None:
     p = _placement("voltage", 100, 200)
-    assert plus_pin(p) == Point(100 + VOLTAGE_PLUS_OFFSET[0],
-                                200 + VOLTAGE_PLUS_OFFSET[1])
+    assert plus_pin(p) == Point(100 + VOLTAGE_PLUS_OFFSET[0], 200 + VOLTAGE_PLUS_OFFSET[1])
 
 
 def test_minus_pin_returns_offset_position() -> None:
     p = _placement("voltage", 100, 200)
-    assert minus_pin(p) == Point(100 + VOLTAGE_MINUS_OFFSET[0],
-                                 200 + VOLTAGE_MINUS_OFFSET[1])
+    assert minus_pin(p) == Point(100 + VOLTAGE_MINUS_OFFSET[0], 200 + VOLTAGE_MINUS_OFFSET[1])
 
 
 def test_plus_pin_rejects_non_voltage() -> None:

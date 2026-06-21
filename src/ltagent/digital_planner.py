@@ -425,9 +425,7 @@ def _plan_tiny8_cpu(raw_prompt: str, text: str) -> PlannerResult:
                 "intent detected. The default program is "
                 "'add 20 + 22 and halt'."
             ),
-            question=(
-                "Which demo program should the generated CPU run?"
-            ),
+            question=("Which demo program should the generated CPU run?"),
             options=(
                 "add 20 and 22 and halt (default)",
                 "I'll provide a custom .asm",
@@ -481,10 +479,7 @@ def _plan_tiny8_soc(raw_prompt: str, text: str) -> PlannerResult:
     """Tiny8 SoC is reserved for Phase 12+1; v1 returns a roadmap."""
     return RoadmapSuggestion(
         code="ROADMAP_TINY8_SOC",
-        message=(
-            "Tiny8 SoC (CPU + memory-mapped IO) is on the roadmap "
-            "but not in v1."
-        ),
+        message=("Tiny8 SoC (CPU + memory-mapped IO) is on the roadmap but not in v1."),
         category=_CATEGORY_TINY8_SOC,
         why_not_v1=(
             "v1 ships only the bare CPU. Memory-mapped IO, "
@@ -496,8 +491,7 @@ def _plan_tiny8_soc(raw_prompt: str, text: str) -> PlannerResult:
             "phase-12.2: simple bus + interrupt controller",
         ),
         next_step=(
-            "For now, ask for a Tiny8 CPU instead, e.g. "
-            "'buat mini processor 8-bit sederhana'."
+            "For now, ask for a Tiny8 CPU instead, e.g. 'buat mini processor 8-bit sederhana'."
         ),
     )
 
@@ -538,9 +532,7 @@ def _category_for_keyword(kw: str) -> str:
 _ROADMAP_TABLE: Final[Mapping[str, RoadmapSuggestion]] = {
     kw: RoadmapSuggestion(
         code=f"ROADMAP_{kw.upper().replace(' ', '_').replace('-', '_')}",
-        message=(
-            f"'{kw}' is a valid direction but not in the v1 Tiny8 scope."
-        ),
+        message=(f"'{kw}' is a valid direction but not in the v1 Tiny8 scope."),
         category=_category_for_keyword(kw),
         why_not_v1=_WHY_NOT_V1,
         proposed_phases=_PROPOSED_PHASES,
@@ -555,9 +547,7 @@ _ROADMAP_TABLE: Final[Mapping[str, RoadmapSuggestion]] = {
 }
 
 
-def _build_roadmap(
-    keyword: str, raw_prompt: str, text: str
-) -> RoadmapSuggestion:
+def _build_roadmap(keyword: str, raw_prompt: str, text: str) -> RoadmapSuggestion:
     # Use the precomputed template; this gives every keyword the
     # same structured shape. Future per-keyword specialisation goes
     # here (e.g. different ``proposed_phases`` for RISC-V vs. full

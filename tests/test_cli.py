@@ -96,7 +96,7 @@ def test_doctor_reports_missing_executable(tmp_path: Path) -> None:
     # guaranteed-missing executable.
     (tmp_path / "work").mkdir()
     (tmp_path / "work" / "config.toml").write_text(
-        '[ltspice]\n'
+        "[ltspice]\n"
         'executable = "/tmp/this_path_does_not_exist_xyz_123.exe"\n'
         'wine_command = "/tmp/no_wine_here_xyz_123"\n',
         encoding="utf-8",
@@ -166,14 +166,10 @@ def test_create_save_template_skipped_when_project_missing(
         template_description="from create",
         template_tag=None,
     )
-    out = _augment_create_with_template(
-        payload, tmp_path / "does_not_exist", templates_dir, args
-    )
+    out = _augment_create_with_template(payload, tmp_path / "does_not_exist", templates_dir, args)
     assert out["success"] is True
     assert out["data"]["templateBridge"]["status"] == "skipped"
-    assert any(
-        w["code"] == "TEMPLATE_PROJECT_INVALID" for w in out["warnings"]
-    )
+    assert any(w["code"] == "TEMPLATE_PROJECT_INVALID" for w in out["warnings"])
 
 
 def test_create_save_template_creates_candidate(tmp_path: Path) -> None:
@@ -195,18 +191,34 @@ def test_create_save_template_creates_candidate(tmp_path: Path) -> None:
         "description": "Reusable voltage divider",
         "nodes": ["in", "out", "0"],
         "components": [
-            {"id": "Vin", "kind": "voltage_source", "spicePrefix": "V",
-             "nodes": ["in", "0"], "value": "DC 12", "role": "input_source"},
-            {"id": "R1", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["in", "out"], "value": "1k", "role": "series_resistor"},
-            {"id": "R2", "kind": "resistor", "spicePrefix": "R",
-             "nodes": ["out", "0"], "value": "1k", "role": "shunt_resistor"},
+            {
+                "id": "Vin",
+                "kind": "voltage_source",
+                "spicePrefix": "V",
+                "nodes": ["in", "0"],
+                "value": "DC 12",
+                "role": "input_source",
+            },
+            {
+                "id": "R1",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["in", "out"],
+                "value": "1k",
+                "role": "series_resistor",
+            },
+            {
+                "id": "R2",
+                "kind": "resistor",
+                "spicePrefix": "R",
+                "nodes": ["out", "0"],
+                "value": "1k",
+                "role": "shunt_resistor",
+            },
         ],
         "analysis": [{"kind": "op"}],
     }
-    (project_dir / "circuit.ir.json").write_text(
-        _json.dumps(ir, indent=2), encoding="utf-8"
-    )
+    (project_dir / "circuit.ir.json").write_text(_json.dumps(ir, indent=2), encoding="utf-8")
     (project_dir / "result.json").write_text(
         _json.dumps(
             {
@@ -796,9 +808,7 @@ def test_asc_main_dispatch_in_process(tmp_path: Path) -> None:
         "transistor_switch",
     ],
 )
-def test_asc_json_serialisable_for_every_example(
-    example_name: str, tmp_path: Path
-) -> None:
+def test_asc_json_serialisable_for_every_example(example_name: str, tmp_path: Path) -> None:
     """The asc --json payload must be JSON-serialisable for every
     supported example, including the Phase 11 analog topologies that
     put :class:`Point` instances inside layout-warning ``data``

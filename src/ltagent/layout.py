@@ -215,36 +215,28 @@ def plus_pin(placement: SymbolPlacement) -> Point:
         ValueError: if the placement is not a voltage source.
     """
     if placement.symbol_type != "voltage":
-        raise ValueError(
-            f"plus_pin() requires a voltage source, got {placement.symbol_type!r}"
-        )
+        raise ValueError(f"plus_pin() requires a voltage source, got {placement.symbol_type!r}")
     return placement.pin(VOLTAGE_PLUS_OFFSET)
 
 
 def minus_pin(placement: SymbolPlacement) -> Point:
     """Return the - pin of a voltage source placement."""
     if placement.symbol_type != "voltage":
-        raise ValueError(
-            f"minus_pin() requires a voltage source, got {placement.symbol_type!r}"
-        )
+        raise ValueError(f"minus_pin() requires a voltage source, got {placement.symbol_type!r}")
     return placement.pin(VOLTAGE_MINUS_OFFSET)
 
 
 def resistor_pins(placement: SymbolPlacement) -> tuple[Point, Point]:
     """Return ``(pin_a, pin_b)`` of a resistor placement."""
     if placement.symbol_type != "res":
-        raise ValueError(
-            f"resistor_pins() requires a resistor, got {placement.symbol_type!r}"
-        )
+        raise ValueError(f"resistor_pins() requires a resistor, got {placement.symbol_type!r}")
     return placement.pin(RESISTOR_A_OFFSET), placement.pin(RESISTOR_B_OFFSET)
 
 
 def capacitor_pins(placement: SymbolPlacement) -> tuple[Point, Point]:
     """Return ``(pin_a, pin_b)`` of a capacitor placement."""
     if placement.symbol_type != "cap":
-        raise ValueError(
-            f"capacitor_pins() requires a capacitor, got {placement.symbol_type!r}"
-        )
+        raise ValueError(f"capacitor_pins() requires a capacitor, got {placement.symbol_type!r}")
     return placement.pin(CAPACITOR_A_OFFSET), placement.pin(CAPACITOR_B_OFFSET)
 
 
@@ -254,18 +246,14 @@ def capacitor_pins(placement: SymbolPlacement) -> tuple[Point, Point]:
 def diode_pins(placement: SymbolPlacement) -> tuple[Point, Point]:
     """Return ``(anode, cathode)`` of a diode placement."""
     if placement.symbol_type != "diode":
-        raise ValueError(
-            f"diode_pins() requires a diode, got {placement.symbol_type!r}"
-        )
+        raise ValueError(f"diode_pins() requires a diode, got {placement.symbol_type!r}")
     return placement.pin(DIODE_A_OFFSET), placement.pin(DIODE_K_OFFSET)
 
 
 def bjt_pins(placement: SymbolPlacement) -> tuple[Point, Point, Point]:
     """Return ``(collector, base, emitter)`` of an NPN/PNP placement."""
     if placement.symbol_type not in {"npn", "pnp"}:
-        raise ValueError(
-            f"bjt_pins() requires npn/pnp, got {placement.symbol_type!r}"
-        )
+        raise ValueError(f"bjt_pins() requires npn/pnp, got {placement.symbol_type!r}")
     return (
         placement.pin(NPN_COLLECTOR_OFFSET),
         placement.pin(NPN_BASE_OFFSET),
@@ -281,9 +269,7 @@ def mosfet_pins(placement: SymbolPlacement) -> tuple[Point, Point, Point]:
     ignores it.
     """
     if placement.symbol_type not in {"nmos", "pmos"}:
-        raise ValueError(
-            f"mosfet_pins() requires nmos/pmos, got {placement.symbol_type!r}"
-        )
+        raise ValueError(f"mosfet_pins() requires nmos/pmos, got {placement.symbol_type!r}")
     return (
         placement.pin(NMOS_DRAIN_OFFSET),
         placement.pin(NMOS_GATE_OFFSET),
@@ -298,9 +284,7 @@ def opamp_pins(placement: SymbolPlacement) -> tuple[Point, Point, Point, Point, 
     placement order matches the IR convention: ``nodes = [in+, in-, v+, v-, out]``.
     """
     if placement.symbol_type != "opamp":
-        raise ValueError(
-            f"opamp_pins() requires opamp, got {placement.symbol_type!r}"
-        )
+        raise ValueError(f"opamp_pins() requires opamp, got {placement.symbol_type!r}")
     return (
         placement.pin(OPAMP_IN_PLUS_OFFSET),
         placement.pin(OPAMP_IN_MINUS_OFFSET),
@@ -331,10 +315,7 @@ def rect_overlaps(
     bx1, by1 = b_anchor.x, b_anchor.y
     bx2, by2 = bx1 + b_size[0], by1 + b_size[1]
     return not (
-        ax2 + padding <= bx1
-        or bx2 + padding <= ax1
-        or ay2 + padding <= by1
-        or by2 + padding <= ay1
+        ax2 + padding <= bx1 or bx2 + padding <= ax1 or ay2 + padding <= by1 or by2 + padding <= ay1
     )
 
 
@@ -411,10 +392,7 @@ def wire_crosses(a: tuple[Point, Point], b: tuple[Point, Point]) -> bool:
     if a1.y == a2.y:  # a horizontal
         hx_lo, hx_hi = sorted((a1.x, a2.x))
         vy_lo, vy_hi = sorted((b1.y, b2.y))
-        return (
-            hx_lo < b1.x < hx_hi
-            and vy_lo < a1.y < vy_hi
-        )
+        return hx_lo < b1.x < hx_hi and vy_lo < a1.y < vy_hi
     # b horizontal, a vertical.
     hx_lo, hx_hi = sorted((b1.x, b2.x))
     vy_lo, vy_hi = sorted((a1.y, a2.y))

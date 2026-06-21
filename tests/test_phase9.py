@@ -78,9 +78,7 @@ def _seed_v2_project(project_dir: Path, project_id: str) -> None:
         "measurements": [],
         "directives": [],
     }
-    (project_dir / FILE_ANALOG_GRAPH).write_text(
-        json.dumps(graph), encoding="utf-8"
-    )
+    (project_dir / FILE_ANALOG_GRAPH).write_text(json.dumps(graph), encoding="utf-8")
     (project_dir / FILE_SCHEMATIC_VIEW).write_text(
         SchematicView().model_dump_json(), encoding="utf-8"
     )
@@ -103,7 +101,7 @@ def test_codex_install_writes_section(tmp_path: Path) -> None:
     assert result.dryRun is False
     text = config.read_text(encoding="utf-8")
     assert "[mcp_servers.ltagent]" in text
-    assert "command = \"ltagent-mcp\"" in text
+    assert 'command = "ltagent-mcp"' in text
 
 
 def test_codex_install_is_idempotent(tmp_path: Path) -> None:
@@ -184,26 +182,20 @@ def test_codex_doctor_reports_missing(tmp_path: Path) -> None:
 def test_cli_codex_install_uninstall_round_trip(tmp_path: Path, capsys) -> None:
     config = tmp_path / "codex.toml"
 
-    rc = cli.main(
-        ["--json", "codex", "install", "--config", str(config)]
-    )
+    rc = cli.main(["--json", "codex", "install", "--config", str(config)])
     assert rc == 0
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
     assert payload["success"] is True
     assert config.is_file()
 
-    rc = cli.main(
-        ["--json", "codex", "doctor", "--config", str(config)]
-    )
+    rc = cli.main(["--json", "codex", "doctor", "--config", str(config)])
     assert rc == 0
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
     assert payload["success"] is True
 
-    rc = cli.main(
-        ["--json", "codex", "uninstall", "--config", str(config)]
-    )
+    rc = cli.main(["--json", "codex", "uninstall", "--config", str(config)])
     assert rc == 0
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
@@ -227,9 +219,7 @@ def test_mcp_server_includes_workbench_v2_tools() -> None:
     assert "wb_v2_apply_change_set" in _TOOL_NAMES
     assert "wb_v2_propose_ai_design" in _TOOL_NAMES
     assert "ltagent://workbench/v2/capabilities" in _RESOURCE_URIS
-    assert (
-        "ltagent://workbench/v2/projects/{project_id}/manifest" in _RESOURCE_URIS
-    )
+    assert "ltagent://workbench/v2/projects/{project_id}/manifest" in _RESOURCE_URIS
 
 
 def test_workbench_v2_capabilities_resource_is_json() -> None:
@@ -255,17 +245,13 @@ def test_wb_v2_inspect_project_round_trip(tmp_path: Path) -> None:
 
 
 def test_wb_v2_inspect_project_missing(tmp_path: Path) -> None:
-    result = tool_wb_v2_inspect_project(
-        "missing", projects_root=str(tmp_path / "projects")
-    )
+    result = tool_wb_v2_inspect_project("missing", projects_root=str(tmp_path / "projects"))
     assert result["success"] is False
     assert result["data"]["code"] == "WB_PROJECT_NOT_FOUND"
 
 
 def test_wb_v2_inspect_project_rejects_traversal(tmp_path: Path) -> None:
-    result = tool_wb_v2_inspect_project(
-        "../escape", projects_root=str(tmp_path / "projects")
-    )
+    result = tool_wb_v2_inspect_project("../escape", projects_root=str(tmp_path / "projects"))
     assert result["success"] is False
     assert result["data"]["code"] == "WB_PROJECT_ID_INVALID"
 
@@ -291,15 +277,11 @@ def test_wb_v2_apply_change_set_replaces_manifest(tmp_path: Path) -> None:
             }
         ],
     }
-    result = tool_wb_v2_apply_change_set(
-        project_id, change_set, projects_root=str(projects_root)
-    )
+    result = tool_wb_v2_apply_change_set(project_id, change_set, projects_root=str(projects_root))
     assert result["success"] is True, result
     assert result["data"]["revision"] == 1
     assert result["data"]["previousRevision"] == 0
-    on_disk = json.loads(
-        (project_dir / FILE_ANALOG_GRAPH).read_text(encoding="utf-8")
-    )
+    on_disk = json.loads((project_dir / FILE_ANALOG_GRAPH).read_text(encoding="utf-8"))
     assert "R1" in on_disk["components"]
 
 
@@ -358,9 +340,7 @@ def test_wb_v2_propose_ai_design_rejects_empty_prompt(tmp_path: Path) -> None:
     projects_root = tmp_path / "projects"
     project_dir = projects_root / project_id
     _seed_v2_project(project_dir, project_id)
-    result = tool_wb_v2_propose_ai_design(
-        project_id, "  ", projects_root=str(projects_root)
-    )
+    result = tool_wb_v2_propose_ai_design(project_id, "  ", projects_root=str(projects_root))
     assert result["success"] is False
     assert result["data"]["code"] == "WB_PROMPT_EMPTY"
 
@@ -415,11 +395,7 @@ def test_workbench_v2_round_trip_through_design_service(tmp_path: Path) -> None:
     )
     assert result["success"] is True, result
     assert result["data"]["revision"] == 1
-    inspect = tool_wb_v2_inspect_project(
-        project_id, projects_root=str(projects_root)
-    )
+    inspect = tool_wb_v2_inspect_project(project_id, projects_root=str(projects_root))
     assert inspect["success"] is True
     assert "R1" in inspect["data"]["documents"]["analog"]["components"]
-    assert (
-        inspect["data"]["documents"]["manifest"]["revision"] == 1
-    )
+    assert inspect["data"]["documents"]["manifest"]["revision"] == 1

@@ -30,18 +30,14 @@ def test_schema_self_validates_via_jsonschema() -> None:
     Draft202012Validator.check_schema(schema)
 
 
-def test_packaged_schema_resource_matches_repo_schema(
-    schema_path, json_schema
-) -> None:
+def test_packaged_schema_resource_matches_repo_schema(schema_path, json_schema) -> None:
     """The package resource must mirror the repo-rooted schema.
 
     ``ltagent ir schema`` reads from the package resource so a wheel
     install works. The two copies are written together by
     ``tools/generate_schema.py`` and must stay in sync.
     """
-    resource = importlib_resources.files("ltagent.resources").joinpath(
-        "circuit_ir.schema.json"
-    )
+    resource = importlib_resources.files("ltagent.resources").joinpath("circuit_ir.schema.json")
     packaged_text = resource.read_text(encoding="utf-8")
     packaged = json.loads(packaged_text)
     repo = json.loads(schema_path.read_text(encoding="utf-8"))
@@ -52,8 +48,6 @@ def test_packaged_schema_resource_is_loadable_by_jsonschema() -> None:
     """The packaged schema must validate against the JSON Schema 2020-12 meta-schema."""
     from jsonschema import Draft202012Validator
 
-    resource = importlib_resources.files("ltagent.resources").joinpath(
-        "circuit_ir.schema.json"
-    )
+    resource = importlib_resources.files("ltagent.resources").joinpath("circuit_ir.schema.json")
     schema = json.loads(resource.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)

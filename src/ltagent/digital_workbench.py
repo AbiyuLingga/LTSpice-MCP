@@ -79,9 +79,7 @@ ERR_DIGITAL_SYNTHESIS_FAILED: Final[str] = "WORKBENCH_DIGITAL_SYNTHESIS_FAILED"
 class DigitalWorkbenchError(ValueError):
     """Structured error from the digital workbench."""
 
-    def __init__(
-        self, code: str, message: str, *, data: Mapping[str, Any] | None = None
-    ) -> None:
+    def __init__(self, code: str, message: str, *, data: Mapping[str, Any] | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
@@ -204,18 +202,8 @@ def _verilog_module(module: DigitalModule) -> str:
     sig = _module_signature(module)
     body = module.body.strip() or "// (empty body — Phase 6 placeholder)"
     if sig:
-        return (
-            f"module {module.name}(\n{sig}\n);\n"
-            f"  // kind: {module.kind}\n"
-            f"  {body}\n"
-            f"endmodule\n"
-        )
-    return (
-        f"module {module.name}();n"
-        f"  // kind: {module.kind}\n"
-        f"  {body}\n"
-        f"endmodule\n"
-    )
+        return f"module {module.name}(\n{sig}\n);\n  // kind: {module.kind}\n  {body}\nendmodule\n"
+    return f"module {module.name}();n  // kind: {module.kind}\n  {body}\nendmodule\n"
 
 
 def design_to_verilog(design: DigitalDesignIR) -> str:
@@ -247,10 +235,10 @@ def _render_testbench(design: DigitalDesignIR) -> str:
     """
     clock = design.clock or ClockSpec(name="clk", periodNs=10)
     reset = design.reset or ResetSpec(name="rst_n", active="low")
-    goal_lines = "\n  ".join(
-        f"$display(\"GOAL %s: %s\"); // {goal.expression}"
-        for goal in design.testGoals
-    ) or "$display(\"GOAL (none specified)\");"
+    goal_lines = (
+        "\n  ".join(f'$display("GOAL %s: %s"); // {goal.expression}' for goal in design.testGoals)
+        or '$display("GOAL (none specified)");'
+    )
     return (
         f"module tb_{design.topModule};\n"
         f"  reg {clock.name} = 0;\n"
@@ -412,28 +400,30 @@ def run_simulation(
     finished = utc_now_iso()
     if completed.returncode != 0:
         return DigitalRunResult(
-        bundle=ResultBundle(
-            status="failed",
-            run=RunManifest(
-                schemaVersion="1.0",
-                runId=f"run_{manifest.jobId}",
-                jobId=manifest.jobId,
-                toolVersion=tool.version,
-                artifacts={"verilog": str(verilog_path.relative_to(project_dir))},
-                stderrTail=completed.stderr[-2000:] if completed.stderr else "",
-                createdAt=started,
+            bundle=ResultBundle(
+                status="failed",
+                run=RunManifest(
+                    schemaVersion="1.0",
+                    runId=f"run_{manifest.jobId}",
+                    jobId=manifest.jobId,
+                    toolVersion=tool.version,
+                    artifacts={"verilog": str(verilog_path.relative_to(project_dir))},
+                    stderrTail=completed.stderr[-2000:] if completed.stderr else "",
+                    createdAt=started,
+                ),
+                errors=[
+                    completed.stderr.strip().splitlines()[-1] if completed.stderr else "tool failed"
+                ],
             ),
-            errors=[completed.stderr.strip().splitlines()[-1] if completed.stderr else "tool failed"],
-        ),
-        manifest=_update_manifest(
-            manifest,
-            state=JobState.FAILED,
-            finishedAt=utc_now_iso(),
-            runId=f"run_{manifest.jobId}",
-        ),
-        project_id=project_id,
-        tool=tool,
-    )
+            manifest=_update_manifest(
+                manifest,
+                state=JobState.FAILED,
+                finishedAt=utc_now_iso(),
+                runId=f"run_{manifest.jobId}",
+            ),
+            project_id=project_id,
+            tool=tool,
+        )
     return DigitalRunResult(
         bundle=ResultBundle(
             status="success",
@@ -474,14 +464,17 @@ def run_synthesis(
     rendering layer can display the cell estimate.
     """
     tool = discover_tool(YOSYS_TOOL_ID)
-    manifest = _make_manifest(
-        project_id, design, utc_now_iso(), JobState.SKIPPED, YOSYS_TOOL_ID
-    )
+    manifest = _make_manifest(project_id, design, utc_now_iso(), JobState.SKIPPED, YOSYS_TOOL_ID)
     if tool is None:
         return DigitalRunResult(
             bundle=ResultBundle(
                 status="skipped",
-                run=RunManifest(schemaVersion="1.0", runId=f"run_{manifest.jobId}", jobId=manifest.jobId, toolVersion="yosys-not-installed"),
+                run=RunManifest(
+                    schemaVersion="1.0",
+                    runId=f"run_{manifest.jobId}",
+                    jobId=manifest.jobId,
+                    toolVersion="yosys-not-installed",
+                ),
                 errors=["yosys binary not found"],
             ),
             manifest=manifest,
@@ -505,7 +498,12 @@ def run_synthesis(
         return DigitalRunResult(
             bundle=ResultBundle(
                 status="timed_out",
-                run=RunManifest(schemaVersion="1.0", runId=f"run_{manifest.jobId}", jobId=manifest.jobId, toolVersion=tool.version),
+                run=RunManifest(
+                    schemaVersion="1.0",
+                    runId=f"run_{manifest.jobId}",
+                    jobId=manifest.jobId,
+                    toolVersion=tool.version,
+                ),
                 errors=[str(exc)],
             ),
             manifest=manifest,

@@ -15,6 +15,7 @@ It is meant to be run from CI; the Tauri build itself is run
 separately because it needs the GTK / WebKit / librsvg stack
 that the Python core does not require.
 """
+
 from __future__ import annotations
 
 import json
@@ -25,9 +26,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DIST = REPO_ROOT / "dist"
 SIDECAR_DIR = REPO_ROOT / "apps" / "desktop" / "sidecar"
-TAURI_CONFIG = (
-    REPO_ROOT / "apps" / "desktop" / "src-tauri" / "tauri.conf.json"
-)
+TAURI_CONFIG = REPO_ROOT / "apps" / "desktop" / "src-tauri" / "tauri.conf.json"
 
 
 def _stage_sidecar() -> list[Path]:
@@ -55,9 +54,7 @@ def _stage_sidecar() -> list[Path]:
         "ltagent-mcp": "ltagent.mcp_server:main",
     }
     discovered: dict[str, str] = {
-        ep.name: ep.value
-        for ep in eps.select(group="console_scripts")
-        if ep.name in targets
+        ep.name: ep.value for ep in eps.select(group="console_scripts") if ep.name in targets
     }
     staged: list[Path] = []
     for name, target in targets.items():

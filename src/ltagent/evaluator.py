@@ -389,9 +389,7 @@ def _value_aware_signature(ir: Mapping[str, Any]) -> tuple[Any, ...]:
         role = c.get("role")
         cid = str(c.get("id", ""))
         value = str(c.get("value", ""))
-        norm.append(
-            (cid, kind, nodes, str(role) if role is not None else None, value)
-        )
+        norm.append((cid, kind, nodes, str(role) if role is not None else None, value))
     return (topology, tuple(norm))
 
 
@@ -410,9 +408,7 @@ def _score_layout(layout_score: int | None) -> tuple[int, list[ScoringRule]]:
             ScoringRule(
                 code="RULE_LAYOUT_OFFICIAL",
                 weight=WEIGHT_LAYOUT_OFFICIAL,
-                detail=(
-                    f"layout score {layout_score} >= {LAYOUT_OFFICIAL_THRESHOLD}"
-                ),
+                detail=(f"layout score {layout_score} >= {LAYOUT_OFFICIAL_THRESHOLD}"),
                 data={"layoutScore": layout_score},
             )
         )
@@ -422,9 +418,7 @@ def _score_layout(layout_score: int | None) -> tuple[int, list[ScoringRule]]:
             ScoringRule(
                 code="RULE_LAYOUT_LOW",
                 weight=WEIGHT_PENALTY_LAYOUT_LOW,
-                detail=(
-                    f"layout score {layout_score} < {LAYOUT_PROJECT_THRESHOLD}"
-                ),
+                detail=(f"layout score {layout_score} < {LAYOUT_PROJECT_THRESHOLD}"),
                 data={"layoutScore": layout_score},
             )
         )
@@ -576,10 +570,7 @@ def _score(
             ScoringRule(
                 code="RULE_NO_SIMILAR",
                 weight=WEIGHT_NO_SIMILAR,
-                detail=(
-                    f"no other template in the library shares topology "
-                    f"{manifest.topology!r}"
-                ),
+                detail=(f"no other template in the library shares topology {manifest.topology!r}"),
                 data={"topology": manifest.topology},
             )
         )
@@ -638,9 +629,7 @@ def _score(
             ScoringRule(
                 code="RULE_INCOMPLETE_METADATA",
                 weight=WEIGHT_PENALTY_INCOMPLETE,
-                detail=(
-                    "manifest is missing a description or any declared parameters"
-                ),
+                detail=("manifest is missing a description or any declared parameters"),
                 data={},
             )
         )
@@ -672,10 +661,7 @@ def _gates(
                 GateCheck(
                     code="GATE_SIMULATION_NOT_VERIFIED",
                     passed=False,
-                    detail=(
-                        "simulation did not succeed; manifest tags include "
-                        "'sim-failed'"
-                    ),
+                    detail=("simulation did not succeed; manifest tags include 'sim-failed'"),
                     data={},
                 )
             )
@@ -719,10 +705,7 @@ def _gates(
             GateCheck(
                 code="GATE_LAYOUT_TOO_LOW",
                 passed=False,
-                detail=(
-                    f"layout score {layout_score} < "
-                    f"{LAYOUT_PROJECT_THRESHOLD}"
-                ),
+                detail=(f"layout score {layout_score} < {LAYOUT_PROJECT_THRESHOLD}"),
                 data={"layoutScore": layout_score},
             )
         )
@@ -731,10 +714,7 @@ def _gates(
             GateCheck(
                 code="GATE_LAYOUT_TOO_LOW",
                 passed=True,
-                detail=(
-                    f"layout score {layout_score} >= "
-                    f"{LAYOUT_PROJECT_THRESHOLD}"
-                ),
+                detail=(f"layout score {layout_score} >= {LAYOUT_PROJECT_THRESHOLD}"),
                 data={"layoutScore": layout_score},
             )
         )
@@ -784,17 +764,12 @@ def _find_value_variant_duplicate(
     That ``None`` is the "no similar template" case used by the
     scoring + the gate.
     """
-    existing = find_by_topology(
-        templates_dir, manifest.topology, status=TemplateStatus.OFFICIAL
-    )
+    existing = find_by_topology(templates_dir, manifest.topology, status=TemplateStatus.OFFICIAL)
     if existing is None or existing.templateId == manifest.templateId:
         return None
     own_ir = templates_dir / own_status.value / manifest.templateId / "template.ir.json"
     other_ir = (
-        templates_dir
-        / TemplateStatus.OFFICIAL.value
-        / existing.templateId
-        / "template.ir.json"
+        templates_dir / TemplateStatus.OFFICIAL.value / existing.templateId / "template.ir.json"
     )
     own_sig = _signature_from_ir_file(own_ir)
     other_sig = _signature_from_ir_file(other_ir)
@@ -861,9 +836,7 @@ def evaluate_candidate(
     duplicate_of = _find_value_variant_duplicate(root, manifest, own_status=s)
     layout_score = manifest.layoutScore
 
-    score, rules = _score(
-        manifest, duplicate_of=duplicate_of, layout_score=layout_score
-    )
+    score, rules = _score(manifest, duplicate_of=duplicate_of, layout_score=layout_score)
     gates = _gates(manifest, duplicate_of=duplicate_of, layout_score=layout_score)
 
     # Score-only path: even when all gates pass, the score must also
@@ -879,9 +852,7 @@ def evaluate_candidate(
         decision = PromotionDecision.PROJECT
 
     promotion_eligible = (
-        decision == PromotionDecision.OFFICIAL
-        and all_gates_pass
-        and duplicate_of is None
+        decision == PromotionDecision.OFFICIAL and all_gates_pass and duplicate_of is None
     )
 
     return EvaluationResult(
@@ -976,9 +947,7 @@ def promote_candidate(
     Returns the new manifest and the :class:`EvaluationResult` so
     the CLI can render both the file move and the score.
     """
-    evaluation = evaluate_candidate(
-        templates_dir, template_id, today=today
-    )
+    evaluation = evaluate_candidate(templates_dir, template_id, today=today)
     root = _ensure_root(templates_dir)
 
     if evaluation.status == TemplateStatus.OFFICIAL:
@@ -1017,9 +986,7 @@ def promote_candidate(
         # status; the returned manifest already carries
         # ``status=OFFICIAL`` and a refreshed ``updatedAt``. We just
         # add the override tag on top of it.
-        moved = move_template(
-            templates_dir, template_id, to_status=TemplateStatus.OFFICIAL
-        )
+        moved = move_template(templates_dir, template_id, to_status=TemplateStatus.OFFICIAL)
         updated = replace(
             moved,
             tags=tuple(existing_tags),
@@ -1032,18 +999,14 @@ def promote_candidate(
         dump_manifest(updated, manifest_path)
         return updated, evaluation
 
-    new_manifest = move_template(
-        templates_dir, template_id, to_status=TemplateStatus.OFFICIAL
-    )
+    new_manifest = move_template(templates_dir, template_id, to_status=TemplateStatus.OFFICIAL)
     return new_manifest, evaluation
 
 
 def audit_promotability(
     templates_dir: str | Path,
     *,
-    status: TemplateStatus | str | Iterable[TemplateStatus | str] = (
-        TemplateStatus.CANDIDATE,
-    ),
+    status: TemplateStatus | str | Iterable[TemplateStatus | str] = (TemplateStatus.CANDIDATE,),
 ) -> PromotabilityReport:
     """Evaluate every candidate and return a per-template report.
 

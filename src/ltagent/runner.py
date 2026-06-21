@@ -271,8 +271,7 @@ def build_argv(
             raise RunnerBuildError(
                 code=ERR_WINE_NOT_FOUND,
                 detail=(
-                    "wine binary not found; set ltspice.wine_command in config "
-                    "or install wine"
+                    "wine binary not found; set ltspice.wine_command in config or install wine"
                 ),
                 data={"searched": _wine_search_trace(request.wine_command)},
             )
@@ -535,9 +534,7 @@ def _result(
     )
 
 
-def _errdict(
-    code: str, detail: str, data: Mapping[str, Any] | None = None
-) -> dict[str, Any]:
+def _errdict(code: str, detail: str, data: Mapping[str, Any] | None = None) -> dict[str, Any]:
     d: dict[str, Any] = {"code": code, "detail": detail, "data": dict(data) if data else {}}
     return d
 

@@ -90,11 +90,7 @@ def test_parse_log_text_handles_voltage_divider_op() -> None:
 
 
 def test_parse_log_text_handles_find_at_form() -> None:
-    text = (
-        "Title: *\n"
-        "vout: FIND(v(out))=0.5 AT 0\n"
-        "Elapsed time: 0.01 seconds.\n"
-    )
+    text = "Title: *\nvout: FIND(v(out))=0.5 AT 0\nElapsed time: 0.01 seconds.\n"
     report = parse_log_text(text)
     assert "vout" in report.measurements
     assert report.measurements["vout"].function == "FIND"
@@ -103,11 +99,7 @@ def test_parse_log_text_handles_find_at_form() -> None:
 
 
 def test_parse_log_text_handles_i_r1_with_si_suffix() -> None:
-    text = (
-        "i(R1)=1m\n"
-        "i(R2)=100u\n"
-        "Elapsed time: 0.01 seconds.\n"
-    )
+    text = "i(R1)=1m\ni(R2)=100u\nElapsed time: 0.01 seconds.\n"
     report = parse_log_text(text)
     assert report.measurements["i(R1)"].value == pytest.approx(1e-3)
     assert report.measurements["i(R2)"].value == pytest.approx(100e-6)
@@ -165,20 +157,14 @@ def test_parse_log_detects_warning_without_fatal() -> None:
 
 
 def test_parse_log_recognises_subcircuit_error() -> None:
-    text = (
-        "Title: *\n"
-        "Fatal Error: Unknown subcircuit LM358 in call from X1\n"
-    )
+    text = "Title: *\nFatal Error: Unknown subcircuit LM358 in call from X1\n"
     report = parse_log_text(text)
     assert report.has_fatal is True
     assert any(f.code == LOG_ERR_SUBCKT for f in report.findings)
 
 
 def test_parse_log_recognises_parse_error() -> None:
-    text = (
-        "Title: *\n"
-        "ERROR: parse error on line 12\n"
-    )
+    text = "Title: *\nERROR: parse error on line 12\n"
     report = parse_log_text(text)
     assert any(f.code == LOG_ERR_ERROR for f in report.findings)
     assert any(f.code == LOG_ERR_PARSE for f in report.findings)
@@ -233,14 +219,10 @@ def test_findings_to_errors_shape() -> None:
 
 def test_merge_measurements_last_wins() -> None:
     a = ParseReport(
-        measurements={
-            "x": log_parser.MeasurementResult(name="x", value=1.0, raw="1.0")
-        }
+        measurements={"x": log_parser.MeasurementResult(name="x", value=1.0, raw="1.0")}
     )
     b = ParseReport(
-        measurements={
-            "x": log_parser.MeasurementResult(name="x", value=2.0, raw="2.0")
-        }
+        measurements={"x": log_parser.MeasurementResult(name="x", value=2.0, raw="2.0")}
     )
     merged = merge_measurements(a, b)
     assert merged["x"].value == 2.0

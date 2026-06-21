@@ -288,9 +288,7 @@ def test_append_history_creates_file_on_first_write(tmp_path: Path) -> None:
     root = _setup_root(tmp_path)
     paths = create_live_project(root, "amp_01")
     assert not paths.history.exists()
-    event = make_history_event(
-        step=1, op="create_project", project_id="amp_01", reason="initial"
-    )
+    event = make_history_event(step=1, op="create_project", project_id="amp_01", reason="initial")
     out = append_history(paths.project_dir, event)
     assert out == paths.history
     assert paths.history.is_file()
@@ -301,12 +299,8 @@ def test_append_history_produces_valid_jsonl(tmp_path: Path) -> None:
     paths = create_live_project(root, "amp_01")
     events = [
         make_history_event(step=1, op="create_project", reason="initial"),
-        make_history_event(
-            step=2, op="set_component_value", target="R1", old="10k", new="12k"
-        ),
-        make_history_event(
-            step=3, op="run_simulation", success=True, extra={"fc": "1.05kHz"}
-        ),
+        make_history_event(step=2, op="set_component_value", target="R1", old="10k", new="12k"),
+        make_history_event(step=3, op="run_simulation", success=True, extra={"fc": "1.05kHz"}),
     ]
     for ev in events:
         append_history(paths.project_dir, ev)
@@ -383,8 +377,7 @@ def test_read_history_skips_blank_lines(tmp_path: Path) -> None:
     paths.history.write_text(
         json.dumps({"step": 1, "op": "x", "time": "t"}) + "\n"
         "\n"
-        "   \n"
-        + json.dumps({"step": 2, "op": "y", "time": "t"}) + "\n",
+        "   \n" + json.dumps({"step": 2, "op": "y", "time": "t"}) + "\n",
         encoding="utf-8",
     )
     events = read_history(paths.project_dir)
@@ -396,8 +389,7 @@ def test_read_history_rejects_corrupt_line(tmp_path: Path) -> None:
     paths = create_live_project(root, "amp_01")
     paths.history.parent.mkdir(parents=True, exist_ok=True)
     paths.history.write_text(
-        json.dumps({"step": 1, "op": "x", "time": "t"}) + "\n"
-        "this is not json\n",
+        json.dumps({"step": 1, "op": "x", "time": "t"}) + "\nthis is not json\n",
         encoding="utf-8",
     )
     with pytest.raises(LiveProjectError) as excinfo:

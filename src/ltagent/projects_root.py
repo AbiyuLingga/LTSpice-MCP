@@ -59,9 +59,7 @@ def resolve_projects_root(explicit: Path | str | None = None) -> Path:
         candidate = Path(explicit).expanduser()
     else:
         env = os.environ.get(ENV_PROJECTS_ROOT)
-        candidate = (
-            Path(env).expanduser() if env else get_default_projects_root().expanduser()
-        )
+        candidate = Path(env).expanduser() if env else get_default_projects_root().expanduser()
     return candidate.resolve(strict=False)
 
 

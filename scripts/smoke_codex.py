@@ -7,6 +7,7 @@ exit code 0 on success, 1 on failure.
 
 This is the smoke hook CI calls after ``pip install -e .``.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,9 +29,7 @@ def _run(args: list[str], *, expect_zero: bool = True) -> dict[str, Any]:
     )
     if expect_zero and proc.returncode != 0:
         sys.stderr.write(
-            f"FAIL: {' '.join([CLI, *args])}\n"
-            f"stdout: {proc.stdout}\n"
-            f"stderr: {proc.stderr}\n"
+            f"FAIL: {' '.join([CLI, *args])}\nstdout: {proc.stdout}\nstderr: {proc.stderr}\n"
         )
         raise SystemExit(1)
     return json.loads(proc.stdout)  # type: ignore[no-any-return]
@@ -65,9 +64,7 @@ def main() -> int:
         assert uninstalled["data"]["removed"] is True
         assert not config.exists(), "uninstall should remove the file"
 
-        doctor2 = _run(
-            ["codex", "doctor", "--config", str(config)], expect_zero=False
-        )
+        doctor2 = _run(["codex", "doctor", "--config", str(config)], expect_zero=False)
         assert doctor2["data"]["server"] is None
         codes = {issue["code"] for issue in doctor2["data"]["issues"]}
         assert "CODEX_SERVER_NOT_INSTALLED" in codes

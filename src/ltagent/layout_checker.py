@@ -220,10 +220,7 @@ def score_layout(result: ASCResult) -> LayoutResult:
         warnings.append(
             LayoutWarning(
                 code="LAYOUT_MISSING_GROUND",
-                detail=(
-                    "no FLAG 0 was emitted; the schematic has no "
-                    "ground reference"
-                ),
+                detail=("no FLAG 0 was emitted; the schematic has no ground reference"),
                 data={},
             )
         )
@@ -254,9 +251,7 @@ def score_layout(result: ASCResult) -> LayoutResult:
                     },
                 )
             )
-        elif rect_overlaps(
-            a_anchor, a_size, b_anchor, b_size, padding=MIN_SPACING_PADDING
-        ):
+        elif rect_overlaps(a_anchor, a_size, b_anchor, b_size, padding=MIN_SPACING_PADDING):
             # Boxes are separate but closer than the minimum
             # spacing. This is a soft warning.
             min_spacing_violations += 1

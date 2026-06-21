@@ -32,14 +32,7 @@ def _enc(op: int, operand: int) -> int:
 
 
 def test_assemble_demo_program() -> None:
-    src = (
-        "LDI 20\n"
-        "STA 0x10\n"
-        "LDI 22\n"
-        "ADD 0x10\n"
-        "STA 0x11\n"
-        "HALT\n"
-    )
+    src = "LDI 20\nSTA 0x10\nLDI 22\nADD 0x10\nSTA 0x11\nHALT\n"
     r = assemble_program(src, rom_size=8)
     assert r.words == [
         _enc(OP_LDI, 20),
@@ -202,9 +195,7 @@ def test_reserved_opcode_never_encoded() -> None:
 
 
 def test_program_to_mem_lines_known_program() -> None:
-    text = program_to_mem_lines(
-        [("LDI", 20), ("STA", 0x10), ("HALT", 0)], rom_size=4
-    )
+    text = program_to_mem_lines([("LDI", 20), ("STA", 0x10), ("HALT", 0)], rom_size=4)
     lines = text.strip().splitlines()
     assert lines[0] == f"{_enc(OP_LDI, 20):04x}"
     assert lines[1] == f"{_enc(OP_STA, 0x10):04x}"

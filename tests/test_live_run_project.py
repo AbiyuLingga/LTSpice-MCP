@@ -14,8 +14,7 @@ def test_run_project_and_verify_writes_structured_report(tmp_path: Path) -> None
     paths.cir.write_text("R1 in out 1k\n.end\n", encoding="utf-8")
     log_path = paths.project_dir / "circuit.log"
     log_path.write_text(
-        "vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005\n"
-        "Elapsed time: 0.1 seconds\n",
+        "vout_max: MAX(v(out))=0.70710678 FROM 0 TO 0.005\nElapsed time: 0.1 seconds\n",
         encoding="utf-8",
     )
 

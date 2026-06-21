@@ -164,14 +164,10 @@ def test_end_to_end_codex_workbench_ai_round_trip(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    (project_dir / FILE_SYSTEM).write_text(
-        SystemSpec().model_dump_json(), encoding="utf-8"
-    )
+    (project_dir / FILE_SYSTEM).write_text(SystemSpec().model_dump_json(), encoding="utf-8")
 
     # 3. Inspect (no mutation).
-    inspect = tool_wb_v2_inspect_project(
-        project_id, projects_root=str(projects_root)
-    )
+    inspect = tool_wb_v2_inspect_project(project_id, projects_root=str(projects_root))
     assert inspect["success"] is True
     assert inspect["data"]["documents"]["manifest"]["revision"] == 0
 
@@ -210,9 +206,7 @@ def test_end_to_end_codex_workbench_ai_round_trip(tmp_path: Path) -> None:
     assert applied["data"]["revision"] == 1
 
     # 6. Final inspect shows the new component + new revision.
-    final = tool_wb_v2_inspect_project(
-        project_id, projects_root=str(projects_root)
-    )
+    final = tool_wb_v2_inspect_project(project_id, projects_root=str(projects_root))
     assert final["success"] is True
     assert final["data"]["documents"]["manifest"]["revision"] == 1
     assert "R1" in final["data"]["documents"]["analog"]["components"]

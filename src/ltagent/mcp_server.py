@@ -120,8 +120,7 @@ def _emit_sdk_missing() -> int:
         "message": "MCP SDK not installed",
         "data": {
             "installHint": (
-                'pip install "ltspice-ai-agent[mcp]" '
-                "(or run `uv add ltspice-ai-agent[mcp]`)"
+                'pip install "ltspice-ai-agent[mcp]" (or run `uv add ltspice-ai-agent[mcp]`)'
             ),
             "importError": repr(_IMPORT_ERROR) if _IMPORT_ERROR else None,
         },
@@ -242,7 +241,7 @@ def _security_boundary(command: str) -> Callable[[_T], _T]:
 # ---------------------------------------------------------------------------
 
 
-@_security_boundary('create_project')
+@_security_boundary("create_project")
 def tool_create_project(
     ir_source: str,
     *,
@@ -316,7 +315,9 @@ def tool_create_project(
         )
 
     payload_raw = _to_jsonable(pr)
-    payload_dict: dict[str, Any] = payload_raw if isinstance(payload_raw, dict) else {"result": payload_raw}
+    payload_dict: dict[str, Any] = (
+        payload_raw if isinstance(payload_raw, dict) else {"result": payload_raw}
+    )
     # Separate the standard contract keys from the project's domain payload.
     contract_keys = {"success", "command", "message", "warnings", "errors"}
     contract = {k: payload_dict[k] for k in contract_keys if k in payload_dict}
@@ -328,7 +329,7 @@ def tool_create_project(
     )
 
 
-@_security_boundary('inspect_project')
+@_security_boundary("inspect_project")
 def tool_inspect_project(
     project_id: str,
     *,
@@ -396,7 +397,7 @@ def tool_inspect_project(
     )
 
 
-@_security_boundary('generate_netlist')
+@_security_boundary("generate_netlist")
 def tool_generate_netlist(
     ir_path: str,
     *,
@@ -465,7 +466,7 @@ def tool_generate_netlist(
     )
 
 
-@_security_boundary('generate_schematic')
+@_security_boundary("generate_schematic")
 def tool_generate_schematic(
     ir_path: str,
     *,
@@ -539,7 +540,7 @@ def tool_generate_schematic(
     )
 
 
-@_security_boundary('run_simulation')
+@_security_boundary("run_simulation")
 def tool_run_simulation(
     project_id: str,
     *,
@@ -608,7 +609,7 @@ def tool_run_simulation(
     )
 
 
-@_security_boundary('read_measurements')
+@_security_boundary("read_measurements")
 def tool_read_measurements(
     project_id: str,
     *,
@@ -674,7 +675,7 @@ def tool_read_measurements(
     )
 
 
-@_security_boundary('check_layout')
+@_security_boundary("check_layout")
 def tool_check_layout(
     ir_path: str,
     *,
@@ -718,7 +719,7 @@ def tool_check_layout(
     )
 
 
-@_security_boundary('find_template')
+@_security_boundary("find_template")
 def tool_find_template(
     ir_path: str | None = None,
     *,
@@ -783,7 +784,7 @@ def tool_find_template(
     )
 
 
-@_security_boundary('evaluate_template_candidate')
+@_security_boundary("evaluate_template_candidate")
 def tool_evaluate_template_candidate(
     template_id: str,
     *,
@@ -795,9 +796,7 @@ def tool_evaluate_template_candidate(
     validate_slug(template_id, kind="template id")
     cfg, err = _resolve_config(config)
     if err is not None or cfg is None:
-        return err or _err(
-            "evaluate_template_candidate", "config", "CONFIG_INVALID", "no config"
-        )
+        return err or _err("evaluate_template_candidate", "config", "CONFIG_INVALID", "no config")
 
     templates_root = _resolve_templates_root(cfg)
     _ensure_default_templates(templates_root)
@@ -819,7 +818,7 @@ def tool_evaluate_template_candidate(
     )
 
 
-@_security_boundary('promote_template')
+@_security_boundary("promote_template")
 def tool_promote_template(
     template_id: str,
     *,
@@ -874,10 +873,7 @@ _DIGITAL_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
 
 def _validate_digital_project_id(project_id: str) -> str:
     if not _DIGITAL_PROJECT_ID_RE.match(project_id):
-        raise ValueError(
-            f"project id {project_id!r} must match "
-            f"{_DIGITAL_PROJECT_ID_RE.pattern}"
-        )
+        raise ValueError(f"project id {project_id!r} must match {_DIGITAL_PROJECT_ID_RE.pattern}")
     return project_id
 
 
@@ -894,9 +890,11 @@ def _run_cli(argv: list[str]) -> HandlerResult:
 
     buf_out = io.StringIO()
     buf_err = io.StringIO()
-    with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(
-        buf_err
-    ), contextlib.suppress(SystemExit):
+    with (
+        contextlib.redirect_stdout(buf_out),
+        contextlib.redirect_stderr(buf_err),
+        contextlib.suppress(SystemExit),
+    ):
         _cli_main(argv)
     raw = buf_out.getvalue() or buf_err.getvalue()
     if not raw:
@@ -918,7 +916,9 @@ def _run_cli(argv: list[str]) -> HandlerResult:
             {"argv": argv, "raw": raw[:1024]},
         )
     if payload.get("success"):
-        return _ok(payload.get("command", "ltagent"), payload.get("message", ""), payload.get("data", {}))
+        return _ok(
+            payload.get("command", "ltagent"), payload.get("message", ""), payload.get("data", {})
+        )
     # The CLI distinguishes refusals (errors[0].code) from
     # clarifications (warnings[0].code) and roadmaps
     # (warnings[0].code, data.roadmap=true).
@@ -953,7 +953,7 @@ def _run_cli(argv: list[str]) -> HandlerResult:
     )
 
 
-@_security_boundary('plan_digital_system')
+@_security_boundary("plan_digital_system")
 def tool_plan_digital_system(
     prompt: str,
     *,
@@ -976,7 +976,7 @@ def tool_plan_digital_system(
     return _run_cli(["digital", "plan", prompt, "--json"])
 
 
-@_security_boundary('create_digital_project')
+@_security_boundary("create_digital_project")
 def tool_create_digital_project(
     source: str,
     *,
@@ -996,7 +996,7 @@ def tool_create_digital_project(
     return _run_cli(argv)
 
 
-@_security_boundary('assemble_tiny8_program')
+@_security_boundary("assemble_tiny8_program")
 def tool_assemble_tiny8_program(
     source: str,
     *,
@@ -1013,7 +1013,7 @@ def tool_assemble_tiny8_program(
     return _run_cli(argv)
 
 
-@_security_boundary('simulate_hdl_project')
+@_security_boundary("simulate_hdl_project")
 def tool_simulate_hdl_project(
     project_dir: str,
     *,
@@ -1030,7 +1030,7 @@ def tool_simulate_hdl_project(
     return _run_cli(argv)
 
 
-@_security_boundary('synth_check_hdl_project')
+@_security_boundary("synth_check_hdl_project")
 def tool_synth_check_hdl_project(
     project_dir: str,
     *,
@@ -1047,7 +1047,7 @@ def tool_synth_check_hdl_project(
     return _run_cli(argv)
 
 
-@_security_boundary('inspect_digital_project')
+@_security_boundary("inspect_digital_project")
 def tool_inspect_digital_project(
     project_dir: str,
     *,
@@ -1163,9 +1163,7 @@ def _read_template_metadata(cfg: Config, template_id: str) -> HandlerResult:
     for status in ("official", "candidates", "rejected"):
         manifest_path = templates_root / status / template_id / "manifest.json"
         try:
-            manifest_path = safe_resolve_under(
-                manifest_path, templates_root, must_exist=False
-            )
+            manifest_path = safe_resolve_under(manifest_path, templates_root, must_exist=False)
         except PathSafetyError:
             continue
         if manifest_path.exists():
@@ -1228,10 +1226,7 @@ def _build_server() -> Any:
     )(tool_create_project)
     mcp.tool(
         name="inspect_project",
-        description=(
-            "Return a project's metadata.json + result.json as a "
-            "combined view."
-        ),
+        description=("Return a project's metadata.json + result.json as a combined view."),
     )(tool_inspect_project)
     mcp.tool(
         name="generate_netlist",
@@ -1257,15 +1252,12 @@ def _build_server() -> Any:
     mcp.tool(
         name="read_measurements",
         description=(
-            "Parse a project's circuit.log and return .meas results plus "
-            "any saved result.json."
+            "Parse a project's circuit.log and return .meas results plus any saved result.json."
         ),
     )(tool_read_measurements)
     mcp.tool(
         name="check_layout",
-        description=(
-            "Score an .asc rendered from a Circuit IR file."
-        ),
+        description=("Score an .asc rendered from a Circuit IR file."),
     )(tool_check_layout)
     mcp.tool(
         name="find_template",
@@ -1277,9 +1269,7 @@ def _build_server() -> Any:
     )(tool_find_template)
     mcp.tool(
         name="evaluate_template_candidate",
-        description=(
-            "Run the Phase 9 evaluator on a candidate template."
-        ),
+        description=("Run the Phase 9 evaluator on a candidate template."),
     )(tool_evaluate_template_candidate)
     mcp.tool(
         name="promote_template",
@@ -1402,7 +1392,7 @@ def _build_server() -> Any:
         ),
     )(tool_wb_v2_propose_ai_design)
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://projects",
         name="projects",
         description="Collection of all project directories in the configured workspace.",
@@ -1414,7 +1404,7 @@ def _build_server() -> Any:
             cfg = load_config(None)
         return json.dumps(_list_projects(cfg), sort_keys=False)
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://projects/{project_id}/metadata",
         name="project-metadata",
         description="Project metadata.json.",
@@ -1429,7 +1419,7 @@ def _build_server() -> Any:
             sort_keys=False,
         )
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://projects/{project_id}/result",
         name="project-result",
         description="Project result.json.",
@@ -1444,7 +1434,7 @@ def _build_server() -> Any:
             sort_keys=False,
         )
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://projects/{project_id}/circuit-ir",
         name="project-circuit-ir",
         description="Project circuit.ir.json (validated Circuit IR).",
@@ -1459,7 +1449,7 @@ def _build_server() -> Any:
             sort_keys=False,
         )
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://projects/{project_id}/netlist",
         name="project-netlist",
         description="Project circuit.cir (SPICE netlist).",
@@ -1474,7 +1464,7 @@ def _build_server() -> Any:
             sort_keys=False,
         )
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://projects/{project_id}/log",
         name="project-log",
         description="Project circuit.log (LTspice simulation log).",
@@ -1489,7 +1479,7 @@ def _build_server() -> Any:
             sort_keys=False,
         )
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://templates",
         name="templates",
         description="Collection of all known templates.",
@@ -1501,7 +1491,7 @@ def _build_server() -> Any:
             cfg = load_config(None)
         return json.dumps(_list_templates(cfg), sort_keys=False)
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://templates/{template_id}/metadata",
         name="template-metadata",
         description="Template manifest.json (official/, candidates/, rejected/).",
@@ -1514,7 +1504,7 @@ def _build_server() -> Any:
         return json.dumps(_read_template_metadata(cfg, template_id), sort_keys=False)
 
     # --- Phase 12: Tiny8 digital resources -------------------------------
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://digital/capabilities",
         name="digital-capabilities",
         description=(
@@ -1559,7 +1549,7 @@ def _build_server() -> Any:
         }
         return json.dumps(caps, sort_keys=False, indent=2)
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://digital/tiny8/spec",
         name="tiny8-spec",
         description=(
@@ -1611,7 +1601,7 @@ def _build_server() -> Any:
         }
         return json.dumps(spec, sort_keys=False, indent=2)
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://digital/templates",
         name="digital-templates",
         description=(
@@ -1641,12 +1631,10 @@ def _build_server() -> Any:
             indent=2,
         )
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://projects/{project_id}/digital-manifest",
         name="digital-project-manifest",
-        description=(
-            "Tiny8 project manifest.json. v1.0 schema."
-        ),
+        description=("Tiny8 project manifest.json. v1.0 schema."),
         mime_type="application/json",
     )
     def _res_digital_manifest(project_id: str) -> str:
@@ -1671,8 +1659,11 @@ def _build_server() -> Any:
                 break
         if project_dir is None:
             return json.dumps(
-                {"error": "PROJECT_NOT_FOUND", "projectId": project_id,
-                 "candidates": [str(c) for c in candidates]},
+                {
+                    "error": "PROJECT_NOT_FOUND",
+                    "projectId": project_id,
+                    "candidates": [str(c) for c in candidates],
+                },
                 sort_keys=False,
             )
         manifest_path = project_dir / PATH_MANIFEST
@@ -1683,7 +1674,7 @@ def _build_server() -> Any:
             )
         return manifest_path.read_text(encoding="utf-8")
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://projects/{project_id}/rtl",
         name="digital-project-rtl",
         description=(
@@ -1718,12 +1709,11 @@ def _build_server() -> Any:
             parts.append(v.read_text(encoding="utf-8"))
         return "\n".join(parts)
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://projects/{project_id}/verification-report",
         name="digital-project-verification-report",
         description=(
-            "Top-level result.json for a Tiny8 project: lint, "
-            "simulation, and synthesis status."
+            "Top-level result.json for a Tiny8 project: lint, simulation, and synthesis status."
         ),
         mime_type="application/json",
     )
@@ -1755,7 +1745,7 @@ def _build_server() -> Any:
         return result_path.read_text(encoding="utf-8")
 
     # --- Phase 9: Workbench v2 (Codex MCP) resources ----------------------
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://workbench/v2/capabilities",
         name="workbench-v2-capabilities",
         description=(
@@ -1768,21 +1758,16 @@ def _build_server() -> Any:
     def _res_workbench_v2_caps() -> str:
         return workbench_v2_capabilities_resource()
 
-    @mcp.resource(
+    @mcp.resource(  # type: ignore[untyped-decorator]
         "ltagent://workbench/v2/projects/{project_id}/manifest",
         name="workbench-v2-project-manifest",
         description=(
-            "The workbench v2 manifest.json for a project. Companion to "
-            "wb_v2_inspect_project."
+            "The workbench v2 manifest.json for a project. Companion to wb_v2_inspect_project."
         ),
         mime_type="application/json",
     )
     def _res_workbench_v2_manifest(project_id: str) -> str:
-        if (
-            not project_id
-            or "/" in project_id
-            or project_id.startswith(".")
-        ):
+        if not project_id or "/" in project_id or project_id.startswith("."):
             return json.dumps(
                 {"error": "WB_PROJECT_ID_INVALID", "projectId": project_id},
                 sort_keys=False,

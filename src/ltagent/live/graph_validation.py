@@ -245,10 +245,7 @@ def _check_project_id(graph: CircuitGraph) -> list[ValidationIssue]:
                 CODE_PROJECT_ID_INVALID,
                 Severity.ERROR,
                 path="projectId",
-                detail=(
-                    f"projectId {graph.projectId!r} must match "
-                    f"{_SAFE_PROJECT_ID_RE.pattern}"
-                ),
+                detail=(f"projectId {graph.projectId!r} must match {_SAFE_PROJECT_ID_RE.pattern}"),
             )
         )
     return issues
@@ -271,10 +268,7 @@ def _check_duplicate_component_ids(
                     CODE_COMPONENT_ID_DUPLICATE,
                     Severity.ERROR,
                     path=f"components.{key}",
-                    detail=(
-                        f"components key {key!r} does not match "
-                        f"component id {comp.id!r}"
-                    ),
+                    detail=(f"components key {key!r} does not match component id {comp.id!r}"),
                     target=comp.id,
                 )
             )
@@ -342,18 +336,15 @@ def _check_component_kind_and_pins(
             ComponentKind.VOLTAGE_SOURCE,
             ComponentKind.CURRENT_SOURCE,
         ) and (not comp.value or not comp.value.strip()):
-                issues.append(
-                    _build_issue(
-                        CODE_COMPONENT_MISSING_VALUE,
-                        Severity.ERROR,
-                        path=f"components.{comp_id}.value",
-                        detail=(
-                            f"source component {comp_id!r} requires a "
-                            f"non-empty value"
-                        ),
-                        target=comp_id,
-                    )
+            issues.append(
+                _build_issue(
+                    CODE_COMPONENT_MISSING_VALUE,
+                    Severity.ERROR,
+                    path=f"components.{comp_id}.value",
+                    detail=(f"source component {comp_id!r} requires a non-empty value"),
+                    target=comp_id,
                 )
+            )
         if comp.kind.value in COMPONENT_KINDS_REQUIRING_MODEL:
             model_name = comp.model or comp.value
             if not model_name or not model_name.strip():
@@ -381,10 +372,7 @@ def _check_component_kind_and_pins(
                         CODE_COMPONENT_PIN_BLANK,
                         Severity.ERROR,
                         path=pin_path,
-                        detail=(
-                            f"pin entry on {comp_id!r} has a blank pin "
-                            f"or net name"
-                        ),
+                        detail=(f"pin entry on {comp_id!r} has a blank pin or net name"),
                         target=comp_id,
                     )
                 )
@@ -395,10 +383,7 @@ def _check_component_kind_and_pins(
                         CODE_COMPONENT_INVALID_PIN_NAME,
                         Severity.ERROR,
                         path=pin_path,
-                        detail=(
-                            f"pin name {pin!r} on {comp_id!r} is not a "
-                            f"safe SPICE pin name"
-                        ),
+                        detail=(f"pin name {pin!r} on {comp_id!r} is not a safe SPICE pin name"),
                         target=comp_id,
                     )
                 )
@@ -448,10 +433,7 @@ def _check_component_kind_and_pins(
                 CODE_NET_FLOATING,
                 Severity.WARNING,
                 path=f"nets.{name}",
-                detail=(
-                    f"net {name!r} is declared but no component pin "
-                    f"references it"
-                ),
+                detail=(f"net {name!r} is declared but no component pin references it"),
                 target=name,
             )
         )
@@ -588,9 +570,7 @@ def validate_graph(graph: CircuitGraph) -> ValidationResult:
     serialise through ``ltagent.serialization.to_jsonable``.
     """
     if not isinstance(graph, CircuitGraph):
-        raise TypeError(
-            f"validate_graph expects CircuitGraph, got {type(graph).__name__}"
-        )
+        raise TypeError(f"validate_graph expects CircuitGraph, got {type(graph).__name__}")
     return _assemble_result(_collect_issues(graph))
 
 

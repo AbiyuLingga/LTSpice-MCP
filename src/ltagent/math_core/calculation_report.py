@@ -193,9 +193,7 @@ def _unit_for_quantity(quantity: str) -> str:
     }.get(quantity, "")
 
 
-def _make_named_quantity(
-    value: float, quantity: str, unit: str | None = None
-) -> NamedQuantity:
+def _make_named_quantity(value: float, quantity: str, unit: str | None = None) -> NamedQuantity:
     """Wrap a numeric value in the ``NamedQuantity`` triple."""
     chosen_unit = unit if unit is not None else _unit_for_quantity(quantity)
     return NamedQuantity(
@@ -278,10 +276,7 @@ def _build_rc_report(
         # selected (no series re-pick for caps in the MVP).
         ideal_c = c
         selected_c = c
-        formula_name = (
-            "rc_lowpass_resistor" if topology == "rc_lowpass"
-            else "rc_highpass_resistor"
-        )
+        formula_name = "rc_lowpass_resistor" if topology == "rc_lowpass" else "rc_highpass_resistor"
         formula_expression = "R = 1 / (2 * pi * fc * C)"
         # Verify the predicted cutoff using the ideal R so the
         # "predicted" block is meaningful even when the standard-value
@@ -306,10 +301,7 @@ def _build_rc_report(
         ideal_r = fixed_resistor
         ideal_c = c
         selected_c = c
-        formula_name = (
-            "rc_lowpass_cutoff" if topology == "rc_lowpass"
-            else "rc_highpass_cutoff"
-        )
+        formula_name = "rc_lowpass_cutoff" if topology == "rc_lowpass" else "rc_highpass_cutoff"
         formula_expression = "fc = 1 / (2 * pi * R * C)"
 
     # Standard-value selection for R.
@@ -332,8 +324,7 @@ def _build_rc_report(
         final_cutoff = rc_highpass_cutoff(r=selected_r, c=selected_c)
 
     predicted_fc = (
-        final_cutoff.result if final_cutoff.ok and final_cutoff.result is not None
-        else None
+        final_cutoff.result if final_cutoff.ok and final_cutoff.result is not None else None
     )
     error_percent = None if predicted_fc is None else calculate_error_percent(fc, predicted_fc)
 
@@ -399,7 +390,11 @@ def build_rc_report(
         whether every formula and lookup succeeded.
     """
     return _build_rc_report(
-        fc=fc, c=c, series=series, topology=topology, fixed_resistor=None,
+        fc=fc,
+        c=c,
+        series=series,
+        topology=topology,
+        fixed_resistor=None,
     )
 
 
@@ -408,9 +403,7 @@ def build_rc_report(
 # ---------------------------------------------------------------------------
 
 
-def _build_opamp_report(
-    gain: float, rg: float, series: str, topology: str
-) -> CalculationReport:
+def _build_opamp_report(gain: float, rg: float, series: str, topology: str) -> CalculationReport:
     """Build a report for an op-amp gain-stage design."""
     from .formulas import (
         inverting_opamp_feedback,
@@ -430,10 +423,7 @@ def _build_opamp_report(
             topology=topology,
             success=False,
             code=CODE_UNKNOWN_TOPOLOGY,
-            detail=(
-                f"unknown topology {topology!r}; expected "
-                "noninv_opamp or inverting_opamp"
-            ),
+            detail=(f"unknown topology {topology!r}; expected noninv_opamp or inverting_opamp"),
         )
     if not rf.ok or rf.result is None:
         return CalculationReport(
@@ -509,16 +499,20 @@ def build_noninverting_opamp_report(
 ) -> CalculationReport:
     """Build a report for a non-inverting op-amp stage."""
     return _build_opamp_report(
-        gain=gain, rg=rg, series=series, topology="noninv_opamp",
+        gain=gain,
+        rg=rg,
+        series=series,
+        topology="noninv_opamp",
     )
 
 
-def build_inverting_opamp_report(
-    gain: float, rin: float, series: str = "E24"
-) -> CalculationReport:
+def build_inverting_opamp_report(gain: float, rin: float, series: str = "E24") -> CalculationReport:
     """Build a report for an inverting op-amp stage."""
     return _build_opamp_report(
-        gain=gain, rg=rin, series=series, topology="inverting_opamp",
+        gain=gain,
+        rg=rin,
+        series=series,
+        topology="inverting_opamp",
     )
 
 
@@ -534,7 +528,9 @@ def build_led_resistor_report(
     from .formulas import led_resistor
 
     calc = led_resistor(
-        v_supply=v_supply, v_forward=v_forward, i_led=i_led,
+        v_supply=v_supply,
+        v_forward=v_forward,
+        i_led=i_led,
     )
     if not calc.ok or calc.result is None:
         return CalculationReport(
@@ -593,9 +589,7 @@ def build_led_resistor_report(
 # ---------------------------------------------------------------------------
 
 
-def build_buck_report(
-    vin: float, vout: float, iout: float
-) -> CalculationReport:
+def build_buck_report(vin: float, vout: float, iout: float) -> CalculationReport:
     """Build a report for an ideal buck converter."""
     from .formulas import buck_ideal
 
@@ -635,9 +629,7 @@ def build_buck_report(
     )
 
 
-def build_boost_report(
-    vin: float, vout: float, iout: float
-) -> CalculationReport:
+def build_boost_report(vin: float, vout: float, iout: float) -> CalculationReport:
     """Build a report for an ideal boost converter."""
     from .formulas import boost_ideal
 
@@ -652,7 +644,9 @@ def build_boost_report(
     return CalculationReport(
         topology="boost_ideal",
         description="Ideal boost (step-up) converter",
-        formulas=[FormulaEntry(name="boost_ideal", expression="D = 1 - Vin / Vout, R = Vout / Iout")],
+        formulas=[
+            FormulaEntry(name="boost_ideal", expression="D = 1 - Vin / Vout, R = Vout / Iout")
+        ],
         ideal_values={
             "Vin": _make_named_quantity_v(vin),
             "Vout": _make_named_quantity_v(vout),

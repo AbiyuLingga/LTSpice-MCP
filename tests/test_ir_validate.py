@@ -31,17 +31,13 @@ def _load_fixture_dict(name: str) -> dict:
     sorted(INVALID_FIXTURES.items()),
     ids=sorted(INVALID_FIXTURES.keys()),
 )
-def test_invalid_fixture_rejected_with_expected_code(
-    fixture_name: str, expected_code: str
-) -> None:
+def test_invalid_fixture_rejected_with_expected_code(fixture_name: str, expected_code: str) -> None:
     """Each fixture must trigger its declared error code."""
     data = _load_fixture_dict(fixture_name)
     ir, errs = validate_dict(data)
     assert ir is None, f"{fixture_name} unexpectedly accepted"
     codes = [e.code for e in errs]
-    assert expected_code in codes, (
-        f"{fixture_name}: expected code {expected_code!r}, got {codes}"
-    )
+    assert expected_code in codes, f"{fixture_name}: expected code {expected_code!r}, got {codes}"
 
 
 # ---------------------------------------------------------------------------
@@ -111,9 +107,7 @@ def test_extra_fields_rejected_at_root() -> None:
 
 
 @pytest.mark.parametrize("example_name", EXAMPLES)
-def test_valid_example_passes_json_schema(
-    example_name: str, json_schema: dict
-) -> None:
+def test_valid_example_passes_json_schema(example_name: str, json_schema: dict) -> None:
     """Each valid example must satisfy the JSON Schema.
 
     Note: jsonschema does not enforce pydantic's custom field_validators

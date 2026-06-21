@@ -169,12 +169,10 @@ def render_testbench(ir: DesignIR) -> str:
         acc_val = f"8'h{expected.acc:02x}"
 
     mem_lines: list[str] = []
-    for key, value in sorted(
-        expected.memory_as_int_dict().items(), key=lambda kv: kv[0]
-    ):
+    for key, value in sorted(expected.memory_as_int_dict().items(), key=lambda kv: kv[0]):
         mem_lines.append(
             f"                if (ram_mem[{key}] !== 8'h{value:02x}) begin\n"
-            f"                    $display(\"TB_FAIL ram[{key}] expected 8'h{value:02x} got %h\", ram_mem[{key}]);\n"
+            f'                    $display("TB_FAIL ram[{key}] expected 8\'h{value:02x} got %h", ram_mem[{key}]);\n'
             f"                    failed = 1'b1;\n"
             f"                end"
         )
@@ -328,9 +326,7 @@ def generate_project(
         # Caller passed a pre-built (mnemonic, operand) sequence.
         program_seq = program if program is not None else []
         try:
-            mem_text = program_to_mem_lines(
-                list(program_seq), rom_size=ir.memory.romWords
-            )
+            mem_text = program_to_mem_lines(list(program_seq), rom_size=ir.memory.romWords)
         except Exception as exc:
             warnings.append(f"program render error: {exc}")
             mem_text = "0000\n" * ir.memory.romWords
@@ -386,9 +382,7 @@ def generate_project(
             )
         )
 
-    return GeneratedProject(
-        project_dir=project_dir, files=written, warnings=warnings
-    )
+    return GeneratedProject(project_dir=project_dir, files=written, warnings=warnings)
 
 
 # ---------------------------------------------------------------------------

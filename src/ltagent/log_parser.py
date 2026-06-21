@@ -50,9 +50,9 @@ PARSER_SCHEMA_VERSION = "0.1"
 #: ``[^()]+(?:\([^()]*\)[^()]*)*`` to extract it.
 _MEAS_RESULT_RE = re.compile(
     r"^\s*"
-    r"(?P<name>[A-Za-z][A-Za-z0-9_]*)"          # measurement name
-    r"\s*:\s*"                                    # colon separator
-    r"(?P<func>[A-Z][A-Z0-9_]*)"                  # function name (MAX, MIN, ...)
+    r"(?P<name>[A-Za-z][A-Za-z0-9_]*)"  # measurement name
+    r"\s*:\s*"  # colon separator
+    r"(?P<func>[A-Z][A-Z0-9_]*)"  # function name (MAX, MIN, ...)
     r"(?:\((?P<expr>[^()]+(?:\([^()]*\)[^()]*)*)\))?"  # optional (expr)
     r"\s*=\s*"
     r"(?P<value>[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)"  # numeric value
@@ -141,9 +141,7 @@ _ERROR_PATTERNS: tuple[tuple[re.Pattern[str], str, bool], ...] = (
     (re.compile(r"ERROR\s*:", re.IGNORECASE), LOG_ERR_ERROR, False),
     (re.compile(r"Warning\s*:", re.IGNORECASE), LOG_ERR_WARNING, False),
     (
-        re.compile(
-            r"(?:Simulation\s+stopped|Did\s+not\s+converge)", re.IGNORECASE
-        ),
+        re.compile(r"(?:Simulation\s+stopped|Did\s+not\s+converge)", re.IGNORECASE),
         LOG_ERR_TERMINATION,
         False,
     ),
@@ -341,9 +339,7 @@ def parse_log_text(text: str) -> ParseReport:
         # rely on.
         for pattern, code, _anchor in _ERROR_PATTERNS:
             if pattern.search(line):
-                report.findings.append(
-                    LogFinding(code=code, line_no=idx, line=line.rstrip())
-                )
+                report.findings.append(LogFinding(code=code, line_no=idx, line=line.rstrip()))
                 if code in (LOG_ERR_FATAL, LOG_ERR_TERMINATION):
                     report.has_fatal = True
 
@@ -392,9 +388,7 @@ def _parse_value_with_suffix(raw: str) -> float:
     except ValueError:
         pass
     # Split into mantissa + suffix.
-    m = re.match(
-        r"^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)([a-zA-Z]+)$", s
-    )
+    m = re.match(r"^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)([a-zA-Z]+)$", s)
     if not m:
         raise ValueError(f"unparsable value: {raw!r}")
     mantissa = float(m.group(1))

@@ -98,15 +98,11 @@ def _seed_v2_project(tmp_path: Path, project_id: str = "rc_lab") -> Path:
         encoding="utf-8",
     )
     (project_dir / FILE_DIGITAL).write_text(
-        json.dumps(
-            {"schemaVersion": PROJECT_SCHEMA_VERSION, "design": {}, "notes": ""}
-        ),
+        json.dumps({"schemaVersion": PROJECT_SCHEMA_VERSION, "design": {}, "notes": ""}),
         encoding="utf-8",
     )
     (project_dir / FILE_SYSTEM).write_text(
-        json.dumps(
-            {"schemaVersion": PROJECT_SCHEMA_VERSION, "blocks": [], "connections": []}
-        ),
+        json.dumps({"schemaVersion": PROJECT_SCHEMA_VERSION, "blocks": [], "connections": []}),
         encoding="utf-8",
     )
     return project_dir
@@ -154,9 +150,7 @@ def test_add_component_persists_and_bumps_revision(tmp_path: Path) -> None:
     result = service.apply_change_set("rc_lab", cs)
     assert result.revision == 1
     assert result.affected_component_ids == ("R1",)
-    analog = json.loads(
-        (project_dir / "design/analog/main.graph.json").read_text(encoding="utf-8")
-    )
+    analog = json.loads((project_dir / "design/analog/main.graph.json").read_text(encoding="utf-8"))
     assert "R1" in analog["components"]
     manifest = HardwareProject.model_validate(
         json.loads((project_dir / FILE_MANIFEST).read_text(encoding="utf-8"))
@@ -240,9 +234,9 @@ def test_layout_ops_cover_place_move_rotate_grid(tmp_path: Path) -> None:
     )
     view = SchematicView.model_validate(
         json.loads(
-            (tmp_path / "projects" / "rc_lab" / "design" / "schematic" / "main.view.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                tmp_path / "projects" / "rc_lab" / "design" / "schematic" / "main.view.json"
+            ).read_text(encoding="utf-8")
         )
     )
     assert view.symbols[0].x == 64
@@ -304,9 +298,9 @@ def test_set_wire_route_persists(tmp_path: Path) -> None:
     )
     view = SchematicView.model_validate(
         json.loads(
-            (tmp_path / "projects" / "rc_lab" / "design" / "schematic" / "main.view.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                tmp_path / "projects" / "rc_lab" / "design" / "schematic" / "main.view.json"
+            ).read_text(encoding="utf-8")
         )
     )
     assert len(view.wires) == 1
@@ -369,7 +363,13 @@ def test_connect_pin_adds_net_to_ground_when_needed(tmp_path: Path) -> None:
             "schemaVersion": PROJECT_SCHEMA_VERSION,
             "baseRevision": 1,
             "operations": [
-                {"document": "analog", "type": "connect_pin", "componentId": "R1", "pin": "p1", "net": "0"},
+                {
+                    "document": "analog",
+                    "type": "connect_pin",
+                    "componentId": "R1",
+                    "pin": "p1",
+                    "net": "0",
+                },
             ],
         },
     )

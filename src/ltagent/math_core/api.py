@@ -185,7 +185,12 @@ def calculate(topology: str, parameters: Mapping[str, Any]) -> dict[str, Any]:
                 raise ValueError("voltage_divider requires 0 < vout < vin")
             r2 = r1 * vout / (vin - vout)
         payload = _base(topology)
-        for key, value, unit in (("vin", vin, "V"), ("vout", vout, "V"), ("r1", r1, "ohm"), ("r2", r2, "ohm")):
+        for key, value, unit in (
+            ("vin", vin, "V"),
+            ("vout", vout, "V"),
+            ("r1", r1, "ohm"),
+            ("r2", r2, "ohm"),
+        ):
             if value is not None:
                 payload["idealValues"][key] = _quantity(value, unit)
         return payload
@@ -238,9 +243,7 @@ def calculate(topology: str, parameters: Mapping[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def explain(
-    topology: str, parameters: Mapping[str, Any] | None = None
-) -> dict[str, Any]:
+def explain(topology: str, parameters: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Return formula metadata, optionally enriched by a calculation."""
     if topology not in _FORMULA_METADATA:
         raise ValueError(f"unsupported topology {topology!r}")

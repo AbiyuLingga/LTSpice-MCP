@@ -6,6 +6,7 @@ inspect an empty project, apply a typed change set, and inspect
 the result. Verifies the revision bumps and the on-disk graph
 gains the new component.
 """
+
 from __future__ import annotations
 
 import json
@@ -101,9 +102,7 @@ def main() -> int:
                 }
             ],
         }
-        applied = tool_wb_v2_apply_change_set(
-            project_id, change_set, projects_root=str(root)
-        )
+        applied = tool_wb_v2_apply_change_set(project_id, change_set, projects_root=str(root))
         assert applied["success"] is True, applied
         assert applied["data"]["revision"] == 1
         assert "R1" in applied["data"]["documents"]["analog"]["components"]

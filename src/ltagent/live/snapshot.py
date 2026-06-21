@@ -467,9 +467,7 @@ def list_snapshots(
     silently skipped. The list is always sorted by the counter
     embedded in the snapshot id.
     """
-    _, snapshots_dir = _resolve_snapshot_dir(
-        project_dir, projects_root=projects_root
-    )
+    _, snapshots_dir = _resolve_snapshot_dir(project_dir, projects_root=projects_root)
     out: list[SnapshotInfo] = []
     for _, sid in _list_existing_snapshot_ids(snapshots_dir):
         snap_dir = snapshots_dir / sid
@@ -570,9 +568,7 @@ def diff_snapshot(
     """
     _validate_snapshot_id(snapshot_a)
     _validate_snapshot_id(snapshot_b)
-    _, snapshots_dir = _resolve_snapshot_dir(
-        project_dir, projects_root=projects_root
-    )
+    _, snapshots_dir = _resolve_snapshot_dir(project_dir, projects_root=projects_root)
     dir_a = snapshots_dir / snapshot_a
     dir_b = snapshots_dir / snapshot_b
     if not dir_a.exists() or not dir_a.is_dir():

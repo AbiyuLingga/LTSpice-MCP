@@ -61,9 +61,7 @@ DESIGN_SCHEMA_VERSION = "0.1"
 # Supported design kinds for Phase 12. ``tiny8_soc`` is reserved and
 # must validate, but no generator emits it yet. Adding a new kind
 # requires updating this set, the templates, and the generator.
-SUPPORTED_DESIGN_KINDS: frozenset[str] = frozenset(
-    {"tiny8_cpu", "tiny8_soc"}
-)
+SUPPORTED_DESIGN_KINDS: frozenset[str] = frozenset({"tiny8_cpu", "tiny8_soc"})
 
 # ISA identifiers recognised in v1. Tiny8 has one ISA ("tiny8_v0")
 # that maps to the 16-instruction accumulator design.
@@ -147,9 +145,7 @@ class ClockSpec(BaseModel):
     @classmethod
     def _name_safe(cls, v: str) -> str:
         if not _SIGNAL_NAME_RE.match(v):
-            raise ValueError(
-                f"clock name {v!r} must match {_SIGNAL_NAME_RE.pattern}"
-            )
+            raise ValueError(f"clock name {v!r} must match {_SIGNAL_NAME_RE.pattern}")
         return v
 
 
@@ -166,9 +162,7 @@ class ResetSpec(BaseModel):
     @classmethod
     def _name_safe(cls, v: str) -> str:
         if not _SIGNAL_NAME_RE.match(v):
-            raise ValueError(
-                f"reset name {v!r} must match {_SIGNAL_NAME_RE.pattern}"
-            )
+            raise ValueError(f"reset name {v!r} must match {_SIGNAL_NAME_RE.pattern}")
         return v
 
 
@@ -187,19 +181,14 @@ class CpuSpec(BaseModel):
     @classmethod
     def _data_width(cls, v: int) -> int:
         if not MIN_DATA_WIDTH <= v <= MAX_DATA_WIDTH:
-            raise ValueError(
-                f"dataWidth must be in [{MIN_DATA_WIDTH}, {MAX_DATA_WIDTH}]"
-            )
+            raise ValueError(f"dataWidth must be in [{MIN_DATA_WIDTH}, {MAX_DATA_WIDTH}]")
         return v
 
     @field_validator("addressWidth")
     @classmethod
     def _address_width(cls, v: int) -> int:
         if not MIN_ADDRESS_WIDTH <= v <= MAX_ADDRESS_WIDTH:
-            raise ValueError(
-                f"addressWidth must be in "
-                f"[{MIN_ADDRESS_WIDTH}, {MAX_ADDRESS_WIDTH}]"
-            )
+            raise ValueError(f"addressWidth must be in [{MIN_ADDRESS_WIDTH}, {MAX_ADDRESS_WIDTH}]")
         return v
 
     @field_validator("instructionWidth")
@@ -207,8 +196,7 @@ class CpuSpec(BaseModel):
     def _instruction_width(cls, v: int) -> int:
         if not MIN_INSTRUCTION_WIDTH <= v <= MAX_INSTRUCTION_WIDTH:
             raise ValueError(
-                f"instructionWidth must be in "
-                f"[{MIN_INSTRUCTION_WIDTH}, {MAX_INSTRUCTION_WIDTH}]"
+                f"instructionWidth must be in [{MIN_INSTRUCTION_WIDTH}, {MAX_INSTRUCTION_WIDTH}]"
             )
         return v
 
@@ -217,8 +205,7 @@ class CpuSpec(BaseModel):
     def _architecture(cls, v: str) -> str:
         if v not in SUPPORTED_ARCHITECTURE:
             raise ValueError(
-                f"architecture {v!r} not supported; "
-                f"allowed: {sorted(SUPPORTED_ARCHITECTURE)}"
+                f"architecture {v!r} not supported; allowed: {sorted(SUPPORTED_ARCHITECTURE)}"
             )
         return v
 
@@ -226,9 +213,7 @@ class CpuSpec(BaseModel):
     @classmethod
     def _isa(cls, v: str) -> str:
         if v not in SUPPORTED_ISA:
-            raise ValueError(
-                f"isa {v!r} not supported; allowed: {sorted(SUPPORTED_ISA)}"
-            )
+            raise ValueError(f"isa {v!r} not supported; allowed: {sorted(SUPPORTED_ISA)}")
         return v
 
 
@@ -244,20 +229,14 @@ class MemorySpec(BaseModel):
     @classmethod
     def _rom(cls, v: int) -> int:
         if not MIN_MEMORY_WORDS <= v <= MAX_MEMORY_WORDS:
-            raise ValueError(
-                f"romWords must be in "
-                f"[{MIN_MEMORY_WORDS}, {MAX_MEMORY_WORDS}]"
-            )
+            raise ValueError(f"romWords must be in [{MIN_MEMORY_WORDS}, {MAX_MEMORY_WORDS}]")
         return v
 
     @field_validator("ramBytes")
     @classmethod
     def _ram(cls, v: int) -> int:
         if not MIN_MEMORY_WORDS <= v <= MAX_MEMORY_WORDS:
-            raise ValueError(
-                f"ramBytes must be in "
-                f"[{MIN_MEMORY_WORDS}, {MAX_MEMORY_WORDS}]"
-            )
+            raise ValueError(f"ramBytes must be in [{MIN_MEMORY_WORDS}, {MAX_MEMORY_WORDS}]")
         return v
 
 
@@ -274,18 +253,14 @@ class IoPort(BaseModel):
     @classmethod
     def _name(cls, v: str) -> str:
         if not _PORT_NAME_RE.match(v):
-            raise ValueError(
-                f"port name {v!r} must match {_PORT_NAME_RE.pattern}"
-            )
+            raise ValueError(f"port name {v!r} must match {_PORT_NAME_RE.pattern}")
         return v
 
     @field_validator("width")
     @classmethod
     def _width(cls, v: int) -> int:
         if not MIN_PORT_WIDTH <= v <= MAX_PORT_WIDTH:
-            raise ValueError(
-                f"port width must be in [{MIN_PORT_WIDTH}, {MAX_PORT_WIDTH}]"
-            )
+            raise ValueError(f"port width must be in [{MIN_PORT_WIDTH}, {MAX_PORT_WIDTH}]")
         return v
 
 
@@ -321,8 +296,7 @@ class ProgramSpec(BaseModel):
     def _source(cls, v: str) -> str:
         if not _PROGRAM_SOURCE_RE.match(v):
             raise ValueError(
-                f"program.source {v!r} must be a relative path ending "
-                f"in .asm with no traversal"
+                f"program.source {v!r} must be a relative path ending in .asm with no traversal"
             )
         return v
 
@@ -338,8 +312,7 @@ class ProgramSpec(BaseModel):
     def _halt(cls, v: int) -> int:
         if not MIN_HALT_CYCLES <= v <= MAX_HALT_CYCLES:
             raise ValueError(
-                f"expectedHaltCyclesMax must be in "
-                f"[{MIN_HALT_CYCLES}, {MAX_HALT_CYCLES}]"
+                f"expectedHaltCyclesMax must be in [{MIN_HALT_CYCLES}, {MAX_HALT_CYCLES}]"
             )
         return v
 
@@ -372,20 +345,15 @@ class ExpectedState(BaseModel):
         for k, v in list(self.memory.items()):
             if not re.fullmatch(r"\d+", k):
                 raise ValueError(
-                    f"verification.expected.memory key {k!r} must be a "
-                    f"non-negative integer string"
+                    f"verification.expected.memory key {k!r} must be a non-negative integer string"
                 )
             addr = int(k)
             if addr > MAX_MEMORY_WORDS:
                 raise ValueError(
-                    f"verification.expected.memory key {k!r} is out of "
-                    f"range 0..{MAX_MEMORY_WORDS}"
+                    f"verification.expected.memory key {k!r} is out of range 0..{MAX_MEMORY_WORDS}"
                 )
             if v < 0 or v > 0xFF:
-                raise ValueError(
-                    f"verification.expected.memory[{k}] = {v} must be in "
-                    f"0..255"
-                )
+                raise ValueError(f"verification.expected.memory[{k}] = {v} must be in 0..255")
         return self
 
     def memory_as_int_dict(self) -> dict[int, int]:
@@ -465,8 +433,7 @@ class DesignIR(BaseModel):
     def _version(cls, v: str) -> str:
         if v != DESIGN_SCHEMA_VERSION:
             raise ValueError(
-                f"schemaVersion {v!r} not supported; "
-                f"only {DESIGN_SCHEMA_VERSION!r} is accepted"
+                f"schemaVersion {v!r} not supported; only {DESIGN_SCHEMA_VERSION!r} is accepted"
             )
         return v
 
@@ -474,9 +441,7 @@ class DesignIR(BaseModel):
     @classmethod
     def _domain(cls, v: str) -> str:
         if v != "digital":
-            raise ValueError(
-                f"domain {v!r} is not 'digital'; this is the digital IR"
-            )
+            raise ValueError(f"domain {v!r} is not 'digital'; this is the digital IR")
         return v
 
     @field_validator("kind")
@@ -484,8 +449,7 @@ class DesignIR(BaseModel):
     def _kind(cls, v: str) -> str:
         if v not in SUPPORTED_DESIGN_KINDS:
             raise ValueError(
-                f"design kind {v!r} not supported; "
-                f"allowed: {sorted(SUPPORTED_DESIGN_KINDS)}"
+                f"design kind {v!r} not supported; allowed: {sorted(SUPPORTED_DESIGN_KINDS)}"
             )
         return v
 
@@ -493,9 +457,7 @@ class DesignIR(BaseModel):
     @classmethod
     def _name(cls, v: str) -> str:
         if not _NAME_RE.match(v):
-            raise ValueError(
-                f"design name {v!r} must match {_NAME_RE.pattern}"
-            )
+            raise ValueError(f"design name {v!r} must match {_NAME_RE.pattern}")
         return v
 
     @field_validator("description")
@@ -512,13 +474,10 @@ class DesignIR(BaseModel):
     def _consistency(self) -> DesignIR:
         # Tiny8 v0 is fixed at 8/8/16. Future ISAs can lift this.
         if self.cpu.isa == "tiny8_v0" and (
-            self.cpu.dataWidth != 8
-            or self.cpu.addressWidth != 8
-            or self.cpu.instructionWidth != 16
+            self.cpu.dataWidth != 8 or self.cpu.addressWidth != 8 or self.cpu.instructionWidth != 16
         ):
             raise ValueError(
-                "isa 'tiny8_v0' requires dataWidth=8, addressWidth=8, "
-                "instructionWidth=16"
+                "isa 'tiny8_v0' requires dataWidth=8, addressWidth=8, instructionWidth=16"
             )
         # Program ROM size must be expressible in addressWidth bits.
         if self.memory.romWords > (1 << self.cpu.addressWidth):

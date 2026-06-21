@@ -489,7 +489,7 @@ def test_netlist_to_stdout_includes_text_in_data(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     assert payload["data"]["writtenTo"] is None
-    assert ".tran 0 5m" in payload["data"]["netlist"]
+    assert ".tran 5e-06 5m" in payload["data"]["netlist"]
     assert payload["data"]["netlist"].rstrip().endswith(".end")
 
 

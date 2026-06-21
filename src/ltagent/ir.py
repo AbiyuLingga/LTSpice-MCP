@@ -79,6 +79,11 @@ MVP_TOPOLOGIES: frozenset[str] = frozenset(
     }
 )
 
+# The workbench graph can represent circuits assembled manually rather than
+# selected from a planner template. Keep this out of MVP_TOPOLOGIES so planner
+# refusal messages continue to advertise only topologies it can construct.
+IR_TOPOLOGIES: frozenset[str] = MVP_TOPOLOGIES | {"generic"}
+
 # Analysis kinds supported by the structured `analysis` block. Raw SPICE
 # directive strings are deliberately not accepted here; they go through
 # the `directives` field which is currently allowlist-empty.
@@ -536,10 +541,8 @@ class CircuitIR(BaseModel):
     @field_validator("topology")
     @classmethod
     def _topology_supported(cls, v: str) -> str:
-        if v not in MVP_TOPOLOGIES:
-            raise ValueError(
-                f"topology {v!r} not supported in MVP; allowed: {sorted(MVP_TOPOLOGIES)}"
-            )
+        if v not in IR_TOPOLOGIES:
+            raise ValueError(f"topology {v!r} not supported; allowed: {sorted(IR_TOPOLOGIES)}")
         return v
 
     @field_validator("nodes")
@@ -776,6 +779,7 @@ __all__ = [
     "DIRECTIVE_ALLOWLIST",
     "GROUND_NODE",
     "IDENTIFIER_PATTERN",
+    "IR_TOPOLOGIES",
     "KIND_ARITY",
     "KIND_TO_SPICE_PREFIX",
     "MVP_TOPOLOGIES",

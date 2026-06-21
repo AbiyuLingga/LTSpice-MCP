@@ -159,6 +159,9 @@ def test_job_broker_persists_lifecycle_and_artifact(tmp_path: Path) -> None:
     assert status["state"] == "completed"
     assert (project_dir / "runs" / started["jobId"] / "job.json").is_file()
     assert (project_dir / "runs" / started["jobId"] / "result.json").is_file()
+    deadline = time.monotonic() + 1
+    while time.monotonic() < deadline and not any(name == "job.completed" for name, _ in events):
+        time.sleep(0.01)
     assert [name for name, _ in events] == [
         "job.started",
         "job.progress",

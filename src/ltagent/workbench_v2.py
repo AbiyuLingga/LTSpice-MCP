@@ -37,6 +37,7 @@ from .live.graph_schema import (
 )
 from .live.graph_schema import (
     CircuitGraph,
+    ComponentKind,
 )
 
 # ---------------------------------------------------------------------------
@@ -95,6 +96,8 @@ SCHEMATIC_SYMBOL_KINDS: Final[frozenset[str]] = frozenset(
         "current_source",
         "gnd",
         "label",
+        "counter",
+        "led_matrix",
     }
 )
 
@@ -249,6 +252,15 @@ class SchematicSymbol(BaseModel):
         return v
 
 
+class SchematicPinConnection(BaseModel):
+    """A stable symbol pin attached to one end of a routed wire."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    symbolId: str = Field(min_length=1, max_length=64)
+    pin: str = Field(min_length=1, max_length=64)
+
+
 class SchematicWire(BaseModel):
     """One orthogonal wire between two or more grid points."""
 
@@ -257,6 +269,7 @@ class SchematicWire(BaseModel):
     id: str = Field(min_length=1, max_length=64)
     points: list[tuple[int, int]] = Field(min_length=2)
     net: str | None = None
+    connections: list[SchematicPinConnection] = Field(default_factory=list, max_length=2)
 
     @field_validator("points")
     @classmethod
@@ -395,7 +408,10 @@ def validate_schematic_view_against_graph(
     """
     issues: list[str] = []
     known_components = set(graph.components.keys())
+    analog_kinds = {kind.value for kind in ComponentKind}
     for symbol in view.symbols:
+        if symbol.kind not in analog_kinds:
+            continue
         if symbol.id not in known_components:
             issues.append(
                 f"schematic symbol {symbol.id!r} does not match any component "
@@ -458,6 +474,7 @@ __all__ = [
     "Requirements",
     "SafetyClass",
     "SchematicNetLabel",
+    "SchematicPinConnection",
     "SchematicSymbol",
     "SchematicView",
     "SchematicWire",

@@ -16,6 +16,7 @@ registered, the timeout is bounded, and the result is a typed
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from collections.abc import Mapping
@@ -45,6 +46,7 @@ DIGITAL_DESIGN_SCHEMA_VERSION: Final[str] = "1.0"
 DIGITAL_DOC_SCHEMA_VERSION: Final[str] = "2.0"
 
 IVERILOG_TOOL_ID: Final[str] = "iverilog"
+VVP_TOOL_ID: Final[str] = "vvp"
 VERILATOR_TOOL_ID: Final[str] = "verilator"
 YOSYS_TOOL_ID: Final[str] = "yosys"
 
@@ -192,26 +194,45 @@ class DigitalDesignIR(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _format_port(port: Port) -> str:
+def _format_port(port: Port, *, registered: bool = False) -> str:
     direction = {"in": "input", "out": "output", "inout": "inout"}[port.direction]
+    if registered and port.direction == "out":
+        direction += " reg"
     width = "" if port.width == 1 else f" [{port.width - 1}:0]"
     return f"  {direction}{width} {port.name}"
 
 
 def _module_signature(module: DigitalModule) -> str:
-    ports = ",\n".join(_format_port(p) for p in module.ports) if module.ports else ""
+    registered_outputs = {
+        port.name
+        for port in module.ports
+        if port.direction == "out"
+        and re.search(rf"\breg\s+(?:\[[^]]+\]\s+)?{re.escape(port.name)}\s*;", module.body)
+    }
+    ports = (
+        ",\n".join(_format_port(p, registered=p.name in registered_outputs) for p in module.ports)
+        if module.ports
+        else ""
+    )
     return ports
 
 
 def _verilog_module(module: DigitalModule) -> str:
     sig = _module_signature(module)
     body = module.body.strip() or "// (empty body — Phase 6 placeholder)"
+    for port in module.ports:
+        if port.direction == "out":
+            body = re.sub(
+                rf"\breg\s+(?:\[[^]]+\]\s+)?{re.escape(port.name)}\s*;\s*",
+                "",
+                body,
+            )
     if sig:
         return f"module {module.name}(\n{sig}\n);\n  // kind: {module.kind}\n  {body}\nendmodule\n"
     return f"module {module.name}();n  // kind: {module.kind}\n  {body}\nendmodule\n"
 
 
-def design_to_verilog(design: DigitalDesignIR) -> str:
+def design_to_verilog(design: DigitalDesignIR, *, include_testbench: bool = True) -> str:
     """Render a :class:`DigitalDesignIR` to a Verilog-2001 string.
 
     The function is deterministic: the same input always
@@ -227,7 +248,8 @@ def design_to_verilog(design: DigitalDesignIR) -> str:
             data={"topModule": design.topModule},
         )
     module_chunks = [_verilog_module(m) for m in design.modules]
-    return "\n".join(module_chunks) + "\n" + _render_testbench(design)
+    source = "\n".join(module_chunks)
+    return source + ("\n" + _render_testbench(design) if include_testbench else "")
 
 
 def _render_testbench(design: DigitalDesignIR) -> str:
@@ -240,22 +262,55 @@ def _render_testbench(design: DigitalDesignIR) -> str:
     """
     clock = design.clock or ClockSpec(name="clk", periodNs=10)
     reset = design.reset or ResetSpec(name="rst_n", active="low")
+    top = next(module for module in design.modules if module.name == design.topModule)
+    declarations: list[str] = []
+    connections: list[str] = []
+    for port in top.ports:
+        width = "" if port.width == 1 else f" [{port.width - 1}:0]"
+        storage = "reg" if port.direction == "in" else "wire"
+        initial = " = 0" if storage == "reg" else ""
+        declarations.append(f"  {storage}{width} {port.name}{initial};")
+        connections.append(f"    .{port.name}({port.name})")
+    has_clock = any(port.name == clock.name and port.direction == "in" for port in top.ports)
+    has_reset = any(port.name == reset.name and port.direction == "in" for port in top.ports)
+    max_cycles = max((goal.timeoutCycles for goal in design.testGoals), default=20)
     goal_lines = (
-        "\n  ".join(f'$display("GOAL %s: %s"); // {goal.expression}' for goal in design.testGoals)
-        or '$display("GOAL (none specified)");'
+        "\n    ".join(
+            f'$display("GOAL {goal.name}: {goal.expression}");' for goal in design.testGoals
+        )
+        or '$display("GOAL none");'
     )
-    return (
-        f"module tb_{design.topModule};\n"
-        f"  reg {clock.name} = 0;\n"
-        f"  reg {reset.name} = 0;\n"
-        f"  always #({clock.periodNs // 2 or 5}) {clock.name} = ~{clock.name};\n"
-        f"  initial begin\n"
-        f"    {reset.name} = 0;\n"
-        f"    #({clock.periodNs * 2}) {reset.name} = 1;\n"
-        f"    {goal_lines}\n"
-        f"    $finish;\n"
-        f"  end\n"
-        f"endmodule\n"
+    clock_line = (
+        f"  always #({clock.periodNs // 2 or 1}) {clock.name} = ~{clock.name};\n"
+        if has_clock
+        else ""
+    )
+    reset_lines = ""
+    if has_reset:
+        active, inactive = ("0", "1") if reset.active == "low" else ("1", "0")
+        reset_lines = (
+            f"    {reset.name} = {active};\n"
+            f"    #({clock.periodNs * 2}) {reset.name} = {inactive};\n"
+        )
+    return "".join(
+        [
+            f"module tb_{design.topModule};\n",
+            "\n".join(declarations),
+            "\n",
+            f"  {design.topModule} dut(\n",
+            ",\n".join(connections),
+            "\n  );\n",
+            clock_line,
+            "  initial begin\n",
+            '    $dumpfile("waveform.vcd");\n',
+            "    $dumpvars(0, dut);\n",
+            reset_lines,
+            f"    {goal_lines}\n",
+            f"    #({clock.periodNs * max_cycles});\n",
+            "    $finish;\n",
+            "  end\n",
+            "endmodule\n",
+        ]
     )
 
 
@@ -293,6 +348,7 @@ def _resolve_digital_tool(tool_id: str, env_var: str) -> Path | None:
 def discover_tool(tool_id: str) -> DigitalToolInfo | None:
     env_map = {
         IVERILOG_TOOL_ID: "LTAGENT_IVERILOG",
+        VVP_TOOL_ID: "LTAGENT_VVP",
         VERILATOR_TOOL_ID: "LTAGENT_VERILATOR",
         YOSYS_TOOL_ID: "LTAGENT_YOSYS",
     }
@@ -374,13 +430,22 @@ def run_simulation(
 
     run_dir = _resolve_run_dir(project_dir, manifest.jobId, run_dir)
     verilog_path = run_dir / f"{design.topModule}.v"
-    verilog_path.write_text(design_to_verilog(design), encoding="utf-8")
+    verilog_path.write_text(
+        design_to_verilog(design, include_testbench=tool_id == IVERILOG_TOOL_ID),
+        encoding="utf-8",
+    )
     sim_path = run_dir / f"tb_{design.topModule}.out"
 
     if tool_id == IVERILOG_TOOL_ID:
         argv = [str(tool.executable), "-o", str(sim_path), str(verilog_path)]
     else:
-        argv = [str(tool.executable), "--cc", str(verilog_path)]
+        argv = [
+            str(tool.executable),
+            "--lint-only",
+            "--language",
+            "1364-2001",
+            str(verilog_path),
+        ]
 
     started = utc_now_iso()
     completed = run_tool_process(
@@ -427,6 +492,44 @@ def run_simulation(
             project_id=project_id,
             tool=tool,
         )
+    if completed.returncode == 0 and tool_id == IVERILOG_TOOL_ID:
+        runtime = discover_tool(VVP_TOOL_ID)
+        if runtime is None:
+            return DigitalRunResult(
+                bundle=ResultBundle(
+                    status="failed",
+                    run=RunManifest(
+                        schemaVersion="1.0",
+                        runId=f"run_{manifest.jobId}",
+                        jobId=manifest.jobId,
+                        toolVersion=tool.version,
+                    ),
+                    errors=["vvp binary not found"],
+                ),
+                manifest=_update_manifest(
+                    manifest,
+                    state=JobState.FAILED,
+                    finishedAt=utc_now_iso(),
+                    errorCode=ERR_DIGITAL_TOOL_MISSING,
+                    errorMessage="vvp binary not found",
+                ),
+                project_id=project_id,
+                tool=tool,
+            )
+        executed = run_tool_process(
+            [str(runtime.executable), str(sim_path)],
+            timeout_seconds=timeout_seconds,
+            cancel_event=cancel_event,
+            cwd=run_dir,
+        )
+        if executed.cancelled or executed.timed_out or executed.returncode != 0:
+            completed = executed
+        else:
+            completed = type(executed)(
+                returncode=0,
+                stdout=completed.stdout + executed.stdout,
+                stderr=completed.stderr + executed.stderr,
+            )
     finished = utc_now_iso()
     if completed.returncode != 0:
         return DigitalRunResult(
@@ -465,6 +568,11 @@ def run_simulation(
                 artifacts={
                     "verilog": str(verilog_path.relative_to(project_dir)),
                     "binary": str(sim_path.relative_to(project_dir)),
+                    **(
+                        {"waveform": str((run_dir / "waveform.vcd").relative_to(project_dir))}
+                        if (run_dir / "waveform.vcd").is_file()
+                        else {}
+                    ),
                 },
                 warnings=[],
                 stdoutTail=completed.stdout[-2000:] if completed.stdout else "",
@@ -516,9 +624,9 @@ def run_synthesis(
         )
     run_dir = _resolve_run_dir(project_dir, manifest.jobId, run_dir)
     verilog_path = run_dir / f"{design.topModule}.v"
-    verilog_path.write_text(design_to_verilog(design), encoding="utf-8")
+    verilog_path.write_text(design_to_verilog(design, include_testbench=False), encoding="utf-8")
     log_path = run_dir / "synth.log"
-    script = f"read_verilog {verilog_path}; synth; stat"
+    script = f"read_verilog {verilog_path}; synth -top {design.topModule}; stat"
     argv = [str(tool.executable), "-p", script, "-l", str(log_path)]
     started = utc_now_iso()
     completed = run_tool_process(

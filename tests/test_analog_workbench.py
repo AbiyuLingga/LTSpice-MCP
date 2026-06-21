@@ -89,6 +89,14 @@ def test_graph_to_netlist_emits_components_and_analyses() -> None:
     assert ".tran" in text.lower() or ".op" in text.lower()
 
 
+def test_graph_to_netlist_accepts_manually_assembled_generic_graph() -> None:
+    graph = _sample_graph().model_copy(update={"topology": ""})
+
+    text = graph_to_netlist_text(graph)
+
+    assert "* Topology: generic" in text
+
+
 def test_validate_topology_rejects_missing_ground() -> None:
     graph = CircuitGraph(
         schemaVersion="0.2",
@@ -141,11 +149,10 @@ def test_run_simulation_with_user_supplied_tool(
     paths.graph.write_text(graph.model_dump_json(), encoding="utf-8")
 
     # Stand-in tool: exit 0 and write a measurable log line. The
-    # fake tool's argv is ``-b -o <log_path> <netlist_path>``; the
-    # 4th arg (index 3) is the netlist and the 3rd is the log path.
+    # fake tool's argv is ``-b -r <raw> -o <log> <netlist>``.
     fake_tool = tmp_path / "fake_tool.sh"
     fake_tool.write_text(
-        "#!/bin/sh\necho 'vout_max = 1.234' > \"$3\"\nexit 0\n",
+        "#!/bin/sh\necho 'vout_max = 1.234' > \"$5\"\nexit 0\n",
         encoding="utf-8",
     )
     fake_tool.chmod(0o755)

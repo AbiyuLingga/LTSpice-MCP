@@ -10,7 +10,14 @@ import {
   WorkspaceSurface,
 } from "./components/WorkspaceSurface";
 import { WorkspaceShell } from "./components/WorkspaceShell";
-import { nextNodeId, type SchematicWire } from "./components/componentRegistry";
+import {
+  defaultComponentValue,
+  isAnalogKind,
+  nextNodeId,
+  pinPosition,
+  type SchematicPinConnection,
+  type SchematicWire,
+} from "./components/componentRegistry";
 
 type AppProps = { bridge?: EngineBridge };
 type LedEmulation = { led?: { frames: Array<{ pixels: boolean[] }> }; status: string };
@@ -36,6 +43,16 @@ const INITIAL_SCHEMATIC: SchematicDocument = {
   symbols: [],
   wires: [],
 };
+
+function routeWire(wire: SchematicWire, symbols: SchematicNode[]): Array<[number, number]> {
+  if (wire.connections?.length !== 2) return wire.points;
+  const endpoints = wire.connections.map((connection) => {
+    const symbol = symbols.find((item) => item.id === connection.symbolId);
+    return symbol ? pinPosition(symbol, connection.pin) : null;
+  });
+  if (!endpoints[0] || !endpoints[1]) return wire.points;
+  return [endpoints[0], [endpoints[1][0], endpoints[0][1]], endpoints[1]];
+}
 
 export function App({ bridge = desktopBridge }: AppProps) {
   const [project, setProject] = useState<EngineProject | null>(null);
@@ -138,6 +155,21 @@ export function App({ bridge = desktopBridge }: AppProps) {
     }
   }
 
+  async function runToolDoctor() {
+    setBottomTab("jobs");
+    setJobMessage("Checking local EDA tools…");
+    try {
+      const result = await bridge.request<{
+        status: string;
+        tools: Array<{ available: boolean; toolId: string }>;
+      }>("tool.doctor", {});
+      const available = result.tools.filter((tool) => tool.available).length;
+      setJobMessage(`Tool doctor ${result.status}: ${available}/${result.tools.length} available`);
+    } catch (caught) {
+      setJobMessage(caught instanceof Error ? caught.message : "Tool doctor failed");
+    }
+  }
+
   async function runLedDemo() {
     setBottomTab("jobs");
     setJobMessage("Running Tiny8 LED demo…");
@@ -191,7 +223,10 @@ export function App({ bridge = desktopBridge }: AppProps) {
   async function placeComponent(x: number, y: number) {
     if (!project || !selectedComponent) return;
     const nextNode: SchematicNode = {
-      id: nextNodeId(selectedComponent, schematic.symbols.length),
+      id: nextNodeId(
+        selectedComponent,
+        schematic.symbols.filter((node) => node.kind === selectedComponent).length,
+      ),
       kind: selectedComponent,
       rotation: 0,
       x,
@@ -202,20 +237,37 @@ export function App({ bridge = desktopBridge }: AppProps) {
       const result = await bridge.request<{ revision: number }>("design.applyChanges", {
         changeSet: {
           baseRevision: project.revision,
-          operations: [{
-            document: "schematic",
-            kind: selectedComponent,
-            rotation: 0,
-            symbolId: nextNode.id,
-            type: "place_node",
-            x,
-            y,
-          }],
+          operations: [
+            ...(isAnalogKind(selectedComponent) ? [{
+              componentId: nextNode.id,
+              document: "analog",
+              kind: selectedComponent,
+              pins: {},
+              type: "add_component",
+              value: defaultComponentValue(selectedComponent),
+            }] : []),
+            {
+              document: "schematic",
+              kind: selectedComponent,
+              properties: { value: defaultComponentValue(selectedComponent) },
+              rotation: 0,
+              symbolId: nextNode.id,
+              type: "place_node",
+              x,
+              y,
+            },
+          ],
           schemaVersion: "2.0",
         },
         projectId: project.projectId,
       });
-      setSchematic({ ...schematic, symbols: [...schematic.symbols, nextNode] });
+      setSchematic({
+        ...schematic,
+        symbols: [...schematic.symbols, {
+          ...nextNode,
+          properties: { value: defaultComponentValue(selectedComponent) },
+        }],
+      });
       setSelectedIds([nextNode.id]);
       setProject({ ...project, revision: result.revision });
       setJobMessage(`${nextNode.id} placed`);
@@ -231,6 +283,10 @@ export function App({ bridge = desktopBridge }: AppProps) {
       ...schematic,
       symbols: schematic.symbols.map((node) => node.id === componentId ? { ...node, x, y } : node),
     };
+    nextSchematic.wires = nextSchematic.wires.map((wire) => ({
+      ...wire,
+      points: routeWire(wire, nextSchematic.symbols),
+    }));
     if (nextSchematic.symbols.every((node, index) => node === schematic.symbols[index])) return;
     setSchematic(nextSchematic);
     setJobMessage(`Moving ${componentId}…`);
@@ -238,7 +294,19 @@ export function App({ bridge = desktopBridge }: AppProps) {
       const result = await bridge.request<{ revision: number }>("design.applyChanges", {
         changeSet: {
           baseRevision: project.revision,
-          operations: [{ document: "schematic", symbolId: componentId, type: "move_node", x, y }],
+          operations: [
+            { document: "schematic", symbolId: componentId, type: "move_node", x, y },
+            ...nextSchematic.wires
+              .filter((wire) => wire.connections?.some((item) => item.symbolId === componentId))
+              .map((wire) => ({
+                connections: wire.connections,
+                document: "schematic",
+                net: wire.net,
+                points: wire.points,
+                type: "set_wire_route",
+                wireId: wire.id,
+              })),
+          ],
           schemaVersion: "2.0",
         },
         projectId: project.projectId,
@@ -251,14 +319,31 @@ export function App({ bridge = desktopBridge }: AppProps) {
     }
   }
 
-  async function addWire(points: Array<[number, number]>) {
+  async function addWire(points: Array<[number, number]>, connections: SchematicPinConnection[]) {
     if (!project) return;
-    const wire: SchematicWire = { id: `wire_${schematic.wires.length + 1}`, points };
+    const endpointNodes = connections.map((item) => schematic.symbols.find((node) => node.id === item.symbolId));
+    const net = endpointNodes.some((node) => node?.kind === "gnd")
+      ? "0"
+      : `net_${schematic.wires.length + 1}`;
+    const wire: SchematicWire = { connections, id: `wire_${schematic.wires.length + 1}`, net, points };
     try {
       const result = await bridge.request<{ revision: number }>("design.applyChanges", {
         changeSet: {
           baseRevision: project.revision,
-          operations: [{ document: "schematic", points, type: "set_wire_route", wireId: wire.id }],
+          operations: [
+            { connections, document: "schematic", net, points, type: "set_wire_route", wireId: wire.id },
+            ...connections.flatMap((connection, index) => {
+              const node = endpointNodes[index];
+              if (!node || !isAnalogKind(node.kind)) return [];
+              return [{
+                componentId: connection.symbolId,
+                document: "analog",
+                net,
+                pin: connection.pin,
+                type: "connect_pin",
+              }];
+            }),
+          ],
           schemaVersion: "2.0",
         },
         projectId: project.projectId,
@@ -278,32 +363,56 @@ export function App({ bridge = desktopBridge }: AppProps) {
         .filter((node) => ids.includes(node.id))
         .map((node) => [node.id, (((node.rotation ?? 0) + 90) % 360) as 0 | 90 | 180 | 270]),
     );
+    const nextSymbols = schematic.symbols.map((node) => rotations.has(node.id) ? { ...node, rotation: rotations.get(node.id) } : node);
+    const nextWires = schematic.wires.map((wire) => ({ ...wire, points: routeWire(wire, nextSymbols) }));
     const result = await bridge.request<{ revision: number }>("design.applyChanges", {
       changeSet: {
         baseRevision: project.revision,
-        operations: [...rotations].map(([symbolId, rotation]) => ({ document: "schematic", rotation, symbolId, type: "rotate_node" })),
+        operations: [
+          ...[...rotations].map(([symbolId, rotation]) => ({ document: "schematic", rotation, symbolId, type: "rotate_node" })),
+          ...nextWires
+            .filter((wire) => wire.connections?.some((item) => rotations.has(item.symbolId)))
+            .map((wire) => ({ connections: wire.connections, document: "schematic", net: wire.net, points: wire.points, type: "set_wire_route", wireId: wire.id })),
+        ],
         schemaVersion: "2.0",
       },
       projectId: project.projectId,
     });
     setSchematic({
       ...schematic,
-      symbols: schematic.symbols.map((node) => rotations.has(node.id) ? { ...node, rotation: rotations.get(node.id) } : node),
+      symbols: nextSymbols,
+      wires: nextWires,
     });
     setProject({ ...project, revision: result.revision });
   }
 
   async function deleteSelection(ids: string[]) {
     if (!project || !ids.length) return;
+    const deletedNodes = schematic.symbols.filter((node) => ids.includes(node.id));
+    const deletedWires = schematic.wires.filter((wire) => wire.connections?.some((item) => ids.includes(item.symbolId)));
     const result = await bridge.request<{ revision: number }>("design.applyChanges", {
       changeSet: {
         baseRevision: project.revision,
-        operations: ids.map((symbolId) => ({ document: "schematic", symbolId, type: "delete_node" })),
+        operations: [
+          ...deletedWires.map((wire) => ({ document: "schematic", type: "remove_wire", wireId: wire.id })),
+          ...deletedWires.flatMap((wire) => (wire.connections ?? []).flatMap((connection) => {
+            if (ids.includes(connection.symbolId)) return [];
+            const node = schematic.symbols.find((item) => item.id === connection.symbolId);
+            if (!node || !isAnalogKind(node.kind)) return [];
+            return [{ componentId: connection.symbolId, document: "analog", pin: connection.pin, type: "disconnect_pin" }];
+          })),
+          ...deletedNodes.flatMap((node) => isAnalogKind(node.kind) ? [{ componentId: node.id, document: "analog", type: "remove_component" }] : []),
+          ...ids.map((symbolId) => ({ document: "schematic", symbolId, type: "delete_node" })),
+        ],
         schemaVersion: "2.0",
       },
       projectId: project.projectId,
     });
-    setSchematic({ ...schematic, symbols: schematic.symbols.filter((node) => !ids.includes(node.id)) });
+    setSchematic({
+      ...schematic,
+      symbols: schematic.symbols.filter((node) => !ids.includes(node.id)),
+      wires: schematic.wires.filter((wire) => !deletedWires.some((deleted) => deleted.id === wire.id)),
+    });
     setProject({ ...project, revision: result.revision });
     setSelectedIds([]);
   }
@@ -324,10 +433,14 @@ export function App({ bridge = desktopBridge }: AppProps) {
 
   async function updateNode(id: string, label: string, value: string) {
     if (!project) return;
+    const node = schematic.symbols.find((item) => item.id === id);
     const result = await bridge.request<{ revision: number }>("design.applyChanges", {
       changeSet: {
         baseRevision: project.revision,
-        operations: [{ document: "schematic", label, properties: { value }, symbolId: id, type: "set_node_properties" }],
+        operations: [
+          ...(node && isAnalogKind(node.kind) ? [{ componentId: id, document: "analog", type: "set_component_value", value }] : []),
+          { document: "schematic", label, properties: { value }, symbolId: id, type: "set_node_properties" },
+        ],
         schemaVersion: "2.0",
       },
       projectId: project.projectId,
@@ -379,6 +492,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
         onUndo={() => changeHistory("design.undo")}
         onUpdateNode={updateNode}
         onValidate={validateProject}
+        onToolDoctor={runToolDoctor}
       />
       {dialogMode ? (
         <ProjectDialog

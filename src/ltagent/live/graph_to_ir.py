@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ltagent.ir import KIND_TO_SPICE_PREFIX, SCHEMA_VERSION, CircuitIR
+from ltagent.ir import IR_TOPOLOGIES, KIND_TO_SPICE_PREFIX, SCHEMA_VERSION, CircuitIR
 
 from .graph_schema import CircuitGraph
 
@@ -41,7 +41,7 @@ def graph_to_ir(graph: CircuitGraph) -> CircuitIR:
     payload: dict[str, Any] = {
         "schemaVersion": SCHEMA_VERSION,
         "name": graph.projectId,
-        "topology": graph.topology,
+        "topology": graph.topology if graph.topology in IR_TOPOLOGIES else "generic",
         "description": graph.description,
         "nodes": nodes,
         "components": components,

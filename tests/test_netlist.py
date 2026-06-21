@@ -118,8 +118,8 @@ def test_rc_lowpass_netlist_matches_plan_reference() -> None:
     assert "Vin in 0 SINE(0 1 1k)" in lines
     assert "R1 in out 1.59k" in lines
     assert "C1 out 0 100n" in lines
-    # .tran with default start of "0" because the IR only specifies stopTime.
-    assert ".tran 0 5m" in lines
+    # ngspice requires TSTEP > 0; default to 1/1000 of TSTOP.
+    assert ".tran 5e-06 5m" in lines
     assert ".meas tran VOUT_MAX MAX V(out)" in lines
     assert ".meas tran VOUT_MIN MIN V(out)" in lines
     assert lines[-1] == ".end"
@@ -129,7 +129,7 @@ def test_rc_highpass_emits_both_tran_and_ac() -> None:
     ir = load_ir(EXAMPLES_DIR / "rc_highpass.ir.json")
     text = render_netlist(ir).text
     lines = _strip_blank_lines(text)
-    assert ".tran 0 20m" in lines
+    assert ".tran 2e-05 20m" in lines
     assert ".ac dec 20 10k" in lines
 
 
@@ -216,7 +216,7 @@ def test_tran_with_explicit_start_and_step_uses_three_arg_form() -> None:
         ],
     )
     text = render_netlist(ir).text
-    assert ".tran 0.1m 1m 10m" in text
+    assert ".tran 0.1m 10m 1m" in text
 
 
 def test_tran_without_start_defaults_to_zero() -> None:
@@ -251,7 +251,7 @@ def test_tran_without_start_defaults_to_zero() -> None:
         analysis=[Analysis(kind=AnalysisKind.TRAN, stopTime="5m")],
     )
     text = render_netlist(ir).text
-    assert ".tran 0 5m" in text
+    assert ".tran 5e-06 5m" in text
 
 
 def test_op_emits_dot_op_directive() -> None:

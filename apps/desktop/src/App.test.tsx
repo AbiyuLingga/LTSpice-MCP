@@ -46,6 +46,12 @@ function fakeBridge(): EngineBridge {
     if (method === "job.status") {
       return { jobId: "job_1", result: { status: "skipped" }, state: "skipped" };
     }
+    if (method === "tool.doctor") {
+      return {
+        status: "pass",
+        tools: ["ngspice", "iverilog", "vvp", "verilator", "yosys"].map((toolId) => ({ available: true, toolId })),
+      };
+    }
     if (method === "design.applyChanges") {
       revision += 1;
       return { changedDocuments: ["schematic"], revision };
@@ -159,6 +165,16 @@ describe("App", () => {
     });
   });
 
+  it("reports installed local EDA tools", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+
+    await user.click(screen.getByRole("button", { name: "Tool doctor" }));
+
+    expect(await screen.findByText("Tool doctor pass: 5/5 available")).toBeVisible();
+  });
+
   it("places a selected component through a revision-guarded change set", async () => {
     const user = userEvent.setup();
     const bridge = fakeBridge();
@@ -173,7 +189,10 @@ describe("App", () => {
       "design.applyChanges",
       expect.objectContaining({
         changeSet: expect.objectContaining({
-          operations: [expect.objectContaining({ type: "place_node" })],
+          operations: expect.arrayContaining([
+            expect.objectContaining({ componentId: "R1", type: "add_component" }),
+            expect.objectContaining({ symbolId: "R1", type: "place_node" }),
+          ]),
           schemaVersion: "2.0",
         }),
         projectId: "analog_lab",
@@ -191,8 +210,8 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Place Op amp" }));
     fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 256, clientY: 144 });
 
-    expect(await screen.findByLabelText("Resistor resistor_1")).toBeVisible();
-    expect(screen.getByLabelText("Op amp opamp_2")).toBeVisible();
+    expect(await screen.findByLabelText("Resistor R1")).toBeVisible();
+    expect(screen.getByLabelText("Op amp X1")).toBeVisible();
     expect(screen.getByTestId("symbol-opamp").querySelector("polygon")).not.toBeNull();
     expect(screen.getByTestId("symbol-resistor").querySelector("polyline")).not.toBeNull();
   });
@@ -208,7 +227,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Place Resistor" }));
     fireEvent.click(grid, { clientX: 96, clientY: 144 });
 
-    const resistor = await screen.findByLabelText("Resistor resistor_1");
+    const resistor = await screen.findByLabelText("Resistor R1");
     firePointerEvent(resistor, "pointerdown", 96, 144);
     firePointerEvent(resistor, "pointermove", 179, 211);
     firePointerEvent(resistor, "pointerup", 179, 211);
@@ -219,12 +238,12 @@ describe("App", () => {
     expect(changes.at(-1)?.[1]).toEqual(expect.objectContaining({
       changeSet: expect.objectContaining({
         baseRevision: 1,
-        operations: [expect.objectContaining({
-          symbolId: "resistor_1",
+        operations: expect.arrayContaining([expect.objectContaining({
+          symbolId: "R1",
           type: "move_node",
           x: 176,
           y: 208,
-        })],
+        })]),
       }),
     }));
   });
@@ -237,7 +256,7 @@ describe("App", () => {
     await createProject(user);
     await user.click(screen.getByRole("button", { name: "Place Resistor" }));
     fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 96, clientY: 144 });
-    fireEvent.click(await screen.findByLabelText("Resistor resistor_1"));
+    fireEvent.click(await screen.findByLabelText("Resistor R1"));
 
     const changes = vi.mocked(bridge.request).mock.calls.filter(([method]) => method === "design.applyChanges");
     expect(changes).toHaveLength(1);
@@ -252,14 +271,14 @@ describe("App", () => {
     await createProject(user);
     await user.click(screen.getByRole("button", { name: "Place Resistor" }));
     fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 96, clientY: 144 });
-    await user.click(await screen.findByLabelText("Resistor resistor_1"));
+    await user.click(await screen.findByLabelText("Resistor R1"));
     await user.click(screen.getByRole("button", { name: "Rotate selection" }));
 
     expect(bridge.request).toHaveBeenCalledWith(
       "design.applyChanges",
       expect.objectContaining({
         changeSet: expect.objectContaining({
-          operations: [expect.objectContaining({ rotation: 90, type: "rotate_node" })],
+          operations: expect.arrayContaining([expect.objectContaining({ rotation: 90, type: "rotate_node" })]),
         }),
       }),
     );
@@ -268,7 +287,7 @@ describe("App", () => {
     expect(screen.getByText(/0 components/)).toBeVisible();
   });
 
-  it("draws an orthogonal wire with two grid clicks", async () => {
+  it("connects two component pins with an electrical net", async () => {
     const user = userEvent.setup();
     const bridge = fakeBridge();
     render(<App bridge={bridge} />);
@@ -276,16 +295,24 @@ describe("App", () => {
     await createProject(user);
     const grid = screen.getByLabelText("Schematic grid");
     vi.spyOn(grid, "getBoundingClientRect").mockReturnValue(schematicBounds());
+    await user.click(screen.getByRole("button", { name: "Place Resistor" }));
+    fireEvent.click(grid, { clientX: 96, clientY: 144 });
+    await user.click(screen.getByRole("button", { name: "Place Capacitor" }));
+    fireEvent.click(grid, { clientX: 256, clientY: 144 });
     await user.click(screen.getByRole("button", { name: "Wire tool" }));
-    fireEvent.click(grid, { clientX: 32, clientY: 48 });
-    fireEvent.click(grid, { clientX: 160, clientY: 112 });
+    await user.click(screen.getByRole("button", { name: "Pin p2 of R1" }));
+    await user.click(screen.getByRole("button", { name: "Pin p1 of C1" }));
 
     expect(await screen.findByLabelText("Wire wire_1")).toBeVisible();
     expect(bridge.request).toHaveBeenCalledWith(
       "design.applyChanges",
       expect.objectContaining({
         changeSet: expect.objectContaining({
-          operations: [expect.objectContaining({ type: "set_wire_route" })],
+          operations: expect.arrayContaining([
+            expect.objectContaining({ connections: [{ pin: "p2", symbolId: "R1" }, { pin: "p1", symbolId: "C1" }], net: "net_1", type: "set_wire_route" }),
+            expect.objectContaining({ componentId: "R1", pin: "p2", type: "connect_pin" }),
+            expect.objectContaining({ componentId: "C1", pin: "p1", type: "connect_pin" }),
+          ]),
         }),
       }),
     );
@@ -299,8 +326,9 @@ describe("App", () => {
     await createProject(user);
     await user.click(screen.getByRole("button", { name: "Place Resistor" }));
     fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 96, clientY: 144 });
-    await user.click(await screen.findByLabelText("Resistor resistor_1"));
+    await user.click(await screen.findByLabelText("Resistor R1"));
     await user.type(screen.getByLabelText("Component label"), "Rload");
+    await user.clear(screen.getByLabelText("Component value"));
     await user.type(screen.getByLabelText("Component value"), "1k");
     await user.click(screen.getByRole("button", { name: "Apply properties" }));
 
@@ -308,7 +336,10 @@ describe("App", () => {
       "design.applyChanges",
       expect.objectContaining({
         changeSet: expect.objectContaining({
-          operations: [expect.objectContaining({ label: "Rload", properties: { value: "1k" }, type: "set_node_properties" })],
+          operations: expect.arrayContaining([
+            expect.objectContaining({ componentId: "R1", type: "set_component_value", value: "1k" }),
+            expect.objectContaining({ label: "Rload", properties: { value: "1k" }, type: "set_node_properties" }),
+          ]),
         }),
       }),
     );

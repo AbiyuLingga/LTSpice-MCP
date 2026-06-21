@@ -91,6 +91,7 @@ def test_handshake_advertises_versioned_local_capabilities(tmp_path: Path) -> No
                     "project.validate",
                     "simulation.start",
                     "synthesis.start",
+                    "tool.doctor",
                 ],
             },
             "engineVersion": "0.2",
@@ -307,3 +308,17 @@ def test_engine_rejects_unknown_simulation_domain(tmp_path: Path) -> None:
 
     assert response["error"]["data"]["code"] == "ENGINE_PARAMS_INVALID"  # type: ignore[index]
     service.close()
+
+
+def test_tool_doctor_reports_allowlisted_backends(tmp_path: Path) -> None:
+    response = _service(tmp_path).handle(_request(1, "tool.doctor", {}))
+
+    tools = response["result"]["tools"]  # type: ignore[index]
+    assert {item["toolId"] for item in tools} == {
+        "iverilog",
+        "ngspice",
+        "verilator",
+        "vvp",
+        "yosys",
+    }
+    assert all(item["installHint"].startswith("sudo apt install") for item in tools)

@@ -8,6 +8,7 @@ import subprocess
 import time
 from contextlib import suppress
 from dataclasses import dataclass
+from pathlib import Path
 from threading import Event
 
 
@@ -25,6 +26,7 @@ def run_tool_process(
     *,
     timeout_seconds: float,
     cancel_event: Event | None = None,
+    cwd: Path | None = None,
 ) -> ToolProcessResult:
     """Run one internal argv and terminate its process group when interrupted."""
     if not argv:
@@ -35,6 +37,7 @@ def run_tool_process(
         stderr=subprocess.PIPE,
         text=True,
         start_new_session=True,
+        cwd=cwd,
     )
     deadline = time.monotonic() + timeout_seconds
     while True:

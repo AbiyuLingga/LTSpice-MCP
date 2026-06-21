@@ -36,6 +36,21 @@ function OpAmpSymbol() {
     <path d="M20 24h24M20 48h24" />
     <polygon points="44,12 44,60 92,36" />
     <path d="M92 36h16M28 24h8M32 20v8M28 48h8" />
+    <path d="M60 12V0M60 60v12" />
+  </>;
+}
+
+function VoltageSourceSymbol() {
+  return <>
+    <path d="M60 0v14M60 58v14" />
+    <circle cx="60" cy="36" r="22" />
+    <path d="M53 27h14M60 20v14M53 46h14" />
+  </>;
+}
+
+function GroundSymbol() {
+  return <>
+    <path d="M60 8v28M36 36h48M44 46h32M52 56h16" />
   </>;
 }
 
@@ -68,6 +83,8 @@ export function symbolLabel(kind: string): string {
     led_matrix: "LED matrix",
     opamp: "Op amp",
     resistor: "Resistor",
+    voltage_source: "Voltage source",
+    gnd: "Ground",
   };
   return labels[kind] ?? kind;
 }
@@ -78,6 +95,8 @@ export function SchematicSymbol({ kind }: SchematicSymbolProps) {
   if (kind === "capacitor") content = <CapacitorSymbol />;
   if (kind === "diode") content = <DiodeSymbol />;
   if (kind === "opamp") content = <OpAmpSymbol />;
+  if (kind === "voltage_source") content = <VoltageSourceSymbol />;
+  if (kind === "gnd") content = <GroundSymbol />;
   if (kind === "led_matrix") content = <LedMatrixSymbol />;
 
   return (

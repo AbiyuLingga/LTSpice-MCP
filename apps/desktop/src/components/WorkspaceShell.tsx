@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 
 import { type BottomTab, type Surface, WorkspaceSurface } from "./WorkspaceSurface";
-import { type SchematicNode, type SchematicNodeKind, type SchematicWire } from "./componentRegistry";
+import { type SchematicNode, type SchematicNodeKind, type SchematicPinConnection, type SchematicWire } from "./componentRegistry";
 import { ComponentLibrary } from "./ComponentLibrary";
 import { Explorer } from "./Explorer";
 import { Inspector } from "./Inspector";
@@ -31,12 +31,13 @@ export interface WorkspaceShellProps {
   onRedo: () => void;
   onUndo: () => void;
   onValidate: () => void;
+  onToolDoctor: () => void;
   onSurfaceChange: (next: Surface) => void;
   onBottomTabChange: (next: BottomTab) => void;
   onSelectComponent: (next: SchematicNodeKind | null) => void;
   onPlaceComponent: (x: number, y: number) => void;
   onMoveComponent: (id: string, x: number, y: number) => void;
-  onAddWire: (points: Array<[number, number]>) => void;
+  onAddWire: (points: Array<[number, number]>, connections: SchematicPinConnection[]) => void;
   onDeleteSelection: (ids: string[]) => void;
   onDeleteWire: (id: string) => void;
   onExitPlacement: () => void;
@@ -62,6 +63,7 @@ export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
         onRedo={props.onRedo}
         onUndo={props.onUndo}
         onValidate={props.onValidate}
+        onToolDoctor={props.onToolDoctor}
       />
       <Explorer
         project={props.project}

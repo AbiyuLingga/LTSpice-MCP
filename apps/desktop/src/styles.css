@@ -82,6 +82,7 @@ button:disabled { cursor: not-allowed; opacity: .44; }
 .wire { fill: none; pointer-events: stroke; stroke: #90c9a9; stroke-linecap: square; stroke-linejoin: miter; stroke-width: 2; }
 .wire:hover, .wire:focus, .wire.is-selected { outline: none; stroke: #f0b760; stroke-width: 4; }
 .wire-start { fill: #f0b760; pointer-events: none; }
+.pin-handle { background: #191b17; border: 2px solid #f0b760; border-radius: 50%; height: 12px; padding: 0; position: absolute; transform: translate(-50%, -50%); width: 12px; z-index: 3; }.pin-handle:hover, .pin-handle:focus-visible { background: #f0b760; outline: 2px solid #fff; outline-offset: 2px; }
 .surface-empty { align-self: center; color: var(--muted); justify-self: center; }
 .led-surface { align-items: stretch; }
 .led-matrix { align-content: center; display: grid; gap: 5px; grid-template-columns: repeat(8, minmax(8px, 30px)); justify-content: center; padding: 22px; }

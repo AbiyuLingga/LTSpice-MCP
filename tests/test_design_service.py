@@ -292,6 +292,10 @@ def test_set_wire_route_persists(tmp_path: Path) -> None:
                     "wireId": "w1",
                     "points": [[0, 0], [10, 0]],
                     "net": "vcc",
+                    "connections": [
+                        {"symbolId": "R1", "pin": "p1"},
+                        {"symbolId": "C1", "pin": "p2"},
+                    ],
                 }
             ],
         },
@@ -305,6 +309,7 @@ def test_set_wire_route_persists(tmp_path: Path) -> None:
     )
     assert len(view.wires) == 1
     assert view.wires[0].net == "vcc"
+    assert [item.symbolId for item in view.wires[0].connections] == ["R1", "C1"]
 
 
 def test_update_and_delete_schematic_items(tmp_path: Path) -> None:

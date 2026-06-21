@@ -310,18 +310,19 @@ def _render_models_and_subcircuits(ir: CircuitIR) -> list[str]:
 
 
 def _format_tran(a: Analysis) -> str:
-    # The IR describes `startTime` as required for `tran` but allows it
-    # to default to None. We normalize that to "0" at generation time so
-    # the emitted line is always the unambiguous `<start> <stop>` form
-    # shown in the plan's reference output (section 11.2). When
-    # `stepTime` is provided we emit the three-arg `<step> <start>
-    # <stop>` form so users with custom step settings get a literal
-    # record of their choice.
-    start = a.startTime if a.startTime is not None else "0"
+    # SPICE syntax is `.tran TSTEP TSTOP [TSTART]`. ngspice rejects a
+    # zero TSTEP, so derive a conservative default when only TSTOP is given.
+    from .units import parse_spice_value
+
     stop = a.stopTime or ""
-    if a.stepTime is not None:
-        return f".tran {a.stepTime} {start} {stop}".rstrip()
-    return f".tran {start} {stop}".rstrip()
+    step = a.stepTime
+    if step is None:
+        numeric_stop = parse_spice_value(stop)
+        step = f"{numeric_stop / 1000:.12g}" if numeric_stop else stop
+    parts = [".tran", step, stop]
+    if a.startTime is not None:
+        parts.append(a.startTime)
+    return " ".join(parts).rstrip()
 
 
 def _format_op(a: Analysis) -> str:

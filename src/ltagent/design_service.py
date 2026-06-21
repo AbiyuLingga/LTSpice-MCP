@@ -63,6 +63,7 @@ from .workbench_v2 import (
     HardwareProject,
     Requirements,
     SchematicNetLabel,
+    SchematicPinConnection,
     SchematicSymbol,
     SchematicView,
     SystemSpec,
@@ -250,6 +251,7 @@ class SetWireRouteOp(_BaseOp):
     wireId: str
     points: list[tuple[int, int]] = Field(min_length=2)
     net: str | None = None
+    connections: list[SchematicPinConnection] = Field(default_factory=list, max_length=2)
 
 
 class RemoveWireOp(_BaseOp):
@@ -773,7 +775,12 @@ def _op_set_wire_route(state: dict[str, Any], op: SetWireRouteOp) -> None:
     from .workbench_v2 import SchematicWire
 
     view = _validate_schematic(state["schematic"])
-    wire = SchematicWire(id=op.wireId, points=list(op.points), net=op.net)
+    wire = SchematicWire(
+        id=op.wireId,
+        points=list(op.points),
+        net=op.net,
+        connections=list(op.connections),
+    )
     new_wires: list[SchematicWire] = []
     replaced = False
     for existing in view.wires:

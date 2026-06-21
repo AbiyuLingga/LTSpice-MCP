@@ -72,9 +72,12 @@ def test_verilog_emits_module_testbench_and_clock() -> None:
     assert "module counter8(" in text
     assert "input clk" in text
     assert "input rst_n" in text
-    assert "output [7:0] q" in text
+    assert "output reg [7:0] q" in text
     assert "module tb_counter8;" in text
     assert "always #(5) clk" in text
+    assert "counter8 dut(" in text
+    assert ".q(q)" in text
+    assert '$dumpfile("waveform.vcd")' in text
 
 
 def test_verilog_rejects_unknown_kind() -> None:
@@ -116,14 +119,20 @@ def test_run_simulation_with_user_supplied_tool(
         encoding="utf-8",
     )
     fake_tool.chmod(0o755)
+    fake_vvp = tmp_path / "fake_vvp.sh"
+    fake_vvp.write_text(
+        "#!/bin/sh\ntouch waveform.vcd\nexit 0\n",
+        encoding="utf-8",
+    )
+    fake_vvp.chmod(0o755)
     monkeypatch.setattr(
         "ltagent.digital_workbench.discover_tool",
-        lambda tool_id: (
-            __import__("ltagent.digital_workbench", fromlist=["DigitalToolInfo"]).DigitalToolInfo(
-                toolId=tool_id, executable=fake_tool, version="fake"
-            )
-            if tool_id == IVERILOG_TOOL_ID
-            else None
+        lambda tool_id: __import__(
+            "ltagent.digital_workbench", fromlist=["DigitalToolInfo"]
+        ).DigitalToolInfo(
+            toolId=tool_id,
+            executable=fake_tool if tool_id == IVERILOG_TOOL_ID else fake_vvp,
+            version="fake",
         ),
     )
     project_dir = tmp_path / "proj"

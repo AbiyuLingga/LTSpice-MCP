@@ -242,7 +242,11 @@ def _probe_tool_version(executable: Path, argv_tail: list[str]) -> str:
     except (OSError, subprocess.TimeoutExpired) as exc:
         return f"unknown ({exc})"
     text = (result.stdout or result.stderr or "").strip()
-    return text.splitlines()[0] if text else "unknown"
+    for line in text.splitlines():
+        candidate = line.strip()
+        if candidate and set(candidate) != {"*"}:
+            return candidate
+    return "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -340,11 +344,20 @@ def run_analog_simulation(
             raise AnalogWorkbenchError(ERR_ANALOG_IO, exc.message, data=exc.data) from exc
     netlist_path = run_dir / "circuit.cir"
     log_path = run_dir / "run.log"
+    raw_path = run_dir / "waveform.raw"
 
     netlist_text = graph_to_netlist_text(graph)
     netlist_path.write_text(netlist_text, encoding="utf-8")
 
-    argv = [str(tool.executable), "-b", "-o", str(log_path), str(netlist_path)]
+    argv = [
+        str(tool.executable),
+        "-b",
+        "-r",
+        str(raw_path),
+        "-o",
+        str(log_path),
+        str(netlist_path),
+    ]
     started = utc_now_iso()
     initial_manifest = _make_manifest(
         project_id,

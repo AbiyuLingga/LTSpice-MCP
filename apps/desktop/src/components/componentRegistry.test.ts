@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COMPONENT_REGISTRY, componentDescriptor, nextNodeId, snap } from "./componentRegistry";
+import { COMPONENT_REGISTRY, componentDescriptor, nextNodeId, pinPosition, snap } from "./componentRegistry";
 
 describe("componentRegistry", () => {
   it("returns a known descriptor for every kind", () => {
@@ -26,7 +26,12 @@ describe("componentRegistry", () => {
   });
 
   it("nextNodeId increments from the count", () => {
-    expect(nextNodeId("resistor", 0)).toBe("resistor_1");
-    expect(nextNodeId("resistor", 4)).toBe("resistor_5");
+    expect(nextNodeId("resistor", 0)).toBe("R1");
+    expect(nextNodeId("resistor", 4)).toBe("R5");
+  });
+
+  it("rotates stable pin positions around the symbol center", () => {
+    expect(pinPosition({ id: "R1", kind: "resistor", rotation: 0, x: 100, y: 100 }, "p1")).toEqual([44, 100]);
+    expect(pinPosition({ id: "R1", kind: "resistor", rotation: 90, x: 100, y: 100 }, "p1")).toEqual([100, 44]);
   });
 });

@@ -15,7 +15,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Final, TextIO, cast
 
-from .analog_workbench import ANALOG_TOOL_ID, run_analog_simulation
+from .analog_workbench import ANALOG_TOOL_ID, discover_analog_tool, run_analog_simulation
 from .design_service import (
     ERR_CHANGESET_CONFLICT,
     ERR_PROJECT_NOT_FOUND,
@@ -25,14 +25,17 @@ from .design_service import (
 from .digital_emulator import RunResult, run_program
 from .digital_workbench import (
     IVERILOG_TOOL_ID,
+    VERILATOR_TOOL_ID,
+    VVP_TOOL_ID,
     YOSYS_TOOL_ID,
     DigitalDesignIR,
+    discover_tool,
     run_simulation,
     run_synthesis,
 )
 from .jobs import JobBroker, JobBrokerError, JobKind, JobNotifier
 from .led_matrix import render_tiny8_led_frames
-from .live.graph_schema import CircuitGraph
+from .live.graph_schema import Analysis, AnalysisKind, CircuitGraph
 from .workbench import (
     WorkbenchError,
     create_workbench_project,
@@ -65,6 +68,7 @@ METHODS: Final[tuple[str, ...]] = (
     "project.validate",
     "simulation.start",
     "synthesis.start",
+    "tool.doctor",
 )
 
 
@@ -116,6 +120,7 @@ class EngineService:
             "project.validate": self._project_validate,
             "simulation.start": self._simulation_start,
             "synthesis.start": self._synthesis_start,
+            "tool.doctor": self._tool_doctor,
         }
 
     def handle(self, request: object) -> dict[str, object] | None:
@@ -311,6 +316,8 @@ class EngineService:
                     "analog document is not simulation-ready",
                     data={"domain": domain, "reason": str(exc)},
                 ) from exc
+            if not graph.analyses:
+                graph = graph.model_copy(update={"analyses": [Analysis(kind=AnalysisKind.OP)]})
 
             def work(cancel, run_dir, progress):  # type: ignore[no-untyped-def]
                 if cancel.is_set():
@@ -341,7 +348,19 @@ class EngineService:
             def work(cancel, run_dir, progress):  # type: ignore[no-untyped-def]
                 if cancel.is_set():
                     return {"status": "cancelled"}
-                progress(10, "generating deterministic Verilog")
+                progress(10, "linting deterministic Verilog")
+                lint = run_simulation(
+                    project_id,
+                    self.projects_root / project_id,
+                    design,
+                    tool_id=VERILATOR_TOOL_ID,
+                    timeout_seconds=timeout,
+                    cancel_event=cancel,
+                    run_dir=run_dir,
+                )
+                if lint.bundle.status != "success":
+                    return lint.bundle.to_dict()
+                progress(40, "running Icarus simulation")
                 result = run_simulation(
                     project_id,
                     self.projects_root / project_id,
@@ -420,6 +439,46 @@ class EngineService:
                 maximum=JobBroker.max_artifact_slice,
             ),
         )
+
+    def _tool_doctor(self, _params: Mapping[str, object]) -> dict[str, object]:
+        analog = discover_analog_tool()
+        tools: list[dict[str, object]] = [
+            {
+                "available": analog is not None,
+                "installHint": "sudo apt install ngspice",
+                "path": str(analog.executable) if analog else None,
+                "purpose": "analog simulation",
+                "required": True,
+                "toolId": ANALOG_TOOL_ID,
+                "version": analog.version if analog else None,
+            }
+        ]
+        for tool_id, purpose in (
+            (IVERILOG_TOOL_ID, "digital compilation"),
+            (VVP_TOOL_ID, "digital simulation"),
+            (VERILATOR_TOOL_ID, "digital lint"),
+            (YOSYS_TOOL_ID, "digital synthesis"),
+        ):
+            tool = discover_tool(tool_id)
+            tools.append(
+                {
+                    "available": tool is not None,
+                    "installHint": (
+                        "sudo apt install iverilog"
+                        if tool_id in {IVERILOG_TOOL_ID, VVP_TOOL_ID}
+                        else f"sudo apt install {tool_id}"
+                    ),
+                    "path": str(tool.executable) if tool else None,
+                    "purpose": purpose,
+                    "required": True,
+                    "toolId": tool_id,
+                    "version": tool.version if tool else None,
+                }
+            )
+        return {
+            "status": "pass" if all(bool(item["available"]) for item in tools) else "warn",
+            "tools": tools,
+        }
 
     def _digital_design(self, project_id: str) -> DigitalDesignIR:
         document = self.design.read_document(project_id, "digital")

@@ -2,7 +2,7 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Activity, Braces, Cable, CircuitBoard, Grid2X2, MousePointer2, RotateCw, Trash2 } from "lucide-react";
 
 import { SchematicSymbol, symbolLabel } from "./SchematicSymbol";
-import { type SchematicNode, type SchematicNodeKind, type SchematicWire } from "./componentRegistry";
+import { componentDescriptor, pinPosition, type SchematicNode, type SchematicNodeKind, type SchematicPinConnection, type SchematicWire } from "./componentRegistry";
 
 export type Surface = "schematic" | "hdl" | "waveform" | "led";
 export type BottomTab = "problems" | "jobs" | "console";
@@ -15,7 +15,7 @@ type WorkspaceSurfaceProps = {
   onRunLedDemo(): void;
   onRunSimulation(domain: "analog" | "digital"): void;
   onRunSynthesis(): void;
-  onAddWire(points: Array<[number, number]>): void;
+  onAddWire(points: Array<[number, number]>, connections: SchematicPinConnection[]): void;
   onDeleteSelection(ids: string[]): void;
   onDeleteWire(id: string): void;
   onExitPlacement(): void;
@@ -38,6 +38,8 @@ type DragState = {
   y: number;
 };
 
+type WireEndpoint = SchematicPinConnection & { x: number; y: number };
+
 const GRID_SIZE = 16;
 
 export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAddWire, onDeleteSelection, onDeleteWire, onExitPlacement, onMoveComponent, onPlaceComponent, onRotateSelection, onRunLedDemo, onRunSimulation, onRunSynthesis, onSelectionChange, schematicNodes, schematicWires, selectedComponent, selectedIds }: WorkspaceSurfaceProps) {
@@ -45,7 +47,7 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAd
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [tool, setTool] = useState<"select" | "wire">("select");
-  const [wireStart, setWireStart] = useState<[number, number] | null>(null);
+  const [wireStart, setWireStart] = useState<WireEndpoint | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
   const overlapIds = new Set(
     schematicNodes
@@ -119,6 +121,25 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAd
     event.preventDefault();
     onMoveComponent(node.id, Math.max(0, node.x + delta.x), Math.max(0, node.y + delta.y));
   }
+
+  function connectPin(endpoint: WireEndpoint) {
+    if (!wireStart) {
+      setWireStart(endpoint);
+      return;
+    }
+    if (wireStart.symbolId === endpoint.symbolId && wireStart.pin === endpoint.pin) {
+      setWireStart(null);
+      return;
+    }
+    onAddWire(
+      [[wireStart.x, wireStart.y], [endpoint.x, wireStart.y], [endpoint.x, endpoint.y]],
+      [
+        { pin: wireStart.pin, symbolId: wireStart.symbolId },
+        { pin: endpoint.pin, symbolId: endpoint.symbolId },
+      ],
+    );
+    setWireStart(null);
+  }
   if (activeSurface === "hdl") {
     return (
       <section className="code-surface" aria-label="HDL editor">
@@ -181,14 +202,7 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAd
             onPlaceComponent(position.x, position.y);
             return;
           }
-          if (tool === "wire") {
-            if (!wireStart) setWireStart([position.x, position.y]);
-            else {
-              onAddWire([wireStart, [position.x, wireStart[1]], [position.x, position.y]]);
-              setWireStart(null);
-            }
-            return;
-          }
+          if (tool === "wire") { setWireStart(null); return; }
           onSelectionChange([]);
           setSelectedWireId(null);
         }}
@@ -205,7 +219,7 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAd
               tabIndex={0}
             />
           ))}
-          {wireStart ? <circle className="wire-start" cx={wireStart[0]} cy={wireStart[1]} r={4} /> : null}
+          {wireStart ? <circle className="wire-start" cx={wireStart.x} cy={wireStart.y} r={4} /> : null}
         </svg>
         {schematicNodes.map((node) => {
           const preview = dragging?.id === node.id ? dragging : node;
@@ -242,6 +256,22 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAd
             </button>
           );
         })}
+        {tool === "wire" ? schematicNodes.flatMap((node) =>
+          componentDescriptor(node.kind).pins.map((pin) => {
+            const [x, y] = pinPosition(node, pin);
+            return (
+              <button
+                aria-label={`Pin ${pin} of ${node.id}`}
+                className="pin-handle"
+                key={`${node.id}:${pin}`}
+                onClick={(event) => { event.stopPropagation(); connectPin({ pin, symbolId: node.id, x, y }); }}
+                style={{ left: x, top: y }}
+                title={`${node.id}.${pin}`}
+                type="button"
+              />
+            );
+          }),
+        ) : null}
         {!schematicNodes.length ? <div className="schematic-empty">{selectedComponent ? `Click to place ${selectedComponent}` : "Select a component from the library to place it on the schematic."}</div> : null}
       </div>
     </section>

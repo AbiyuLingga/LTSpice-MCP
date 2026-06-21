@@ -64,7 +64,7 @@ the same tag is a no-op.
 git tag -s v0.1.0-alpha.1 -m "ltagent 0.1.0-alpha.1"
 git push origin v0.1.0-alpha.1
 
-# 2. Build the sdist + wheel and the sidecar.
+# 2. Build the sdist + wheel and frozen Linux sidecars.
 uv run --no-sync python scripts/build_sidecar.py
 
 # 3. Sign the wheel with the alpha key.

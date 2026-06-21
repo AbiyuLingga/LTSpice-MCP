@@ -33,6 +33,7 @@ dist-baseline/
 # Desktop workbench build artifacts
 apps/desktop/node_modules/
 apps/desktop/dist/
+apps/desktop/sidecar/*-x86_64-unknown-linux-gnu
 apps/desktop/src-tauri/target/
 # Tauri regenerates this directory from apps/desktop/src-tauri/capabilities/.
 apps/desktop/src-tauri/gen/

@@ -7,7 +7,7 @@ the established CLI or MCP contracts.
 
 - Versioned `hardware.project.json` projects with separate requirement,
   analog, schematic, digital, and system documents.
-- Revision-guarded `replace_document` change sets with transaction recovery.
+- Revision-guarded typed change sets with transaction recovery.
 - `ltagent-engine`, a JSON-RPC/NDJSON sidecar exposing allowlisted project and
   document methods plus bounded Tiny8 emulation.
 - A Tauri/React workbench shell with local project creation, Basic/Advanced
@@ -24,8 +24,9 @@ npm run dev
 ```
 
 The browser dev server is useful for UI development. To launch the native
-window, make the project virtual environment's `ltagent-engine` available on
-`PATH`, then run `npm run tauri dev`.
+window in development, make the project virtual environment's
+`ltagent-engine` available on `PATH`, then run `npm run tauri dev`.
+Production bundles use the frozen sidecar copied next to the desktop binary.
 
 On this Linux host, `cargo check` currently stops before compiling application
 code because the system lacks GTK/Pango development headers. Install the

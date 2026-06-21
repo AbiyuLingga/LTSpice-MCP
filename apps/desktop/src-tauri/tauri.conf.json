@@ -24,9 +24,24 @@
     }
   },
   "bundle": {
-    "active": false,
-    "targets": "all",
+    "active": true,
+    "targets": ["deb", "appimage"],
+    "externalBin": [
+      "../sidecar/ltagent-engine",
+      "../sidecar/ltagent-mcp"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png"
+    ],
     "resources": [],
+    "linux": {
+      "deb": {
+        "recommends": ["ngspice", "iverilog", "verilator", "yosys"]
+      }
+    },
     "category": "DeveloperTool",
     "shortDescription": "Local-first hardware design workbench",
     "longDescription": "Generate, simulate, and inspect analog and digital circuits through a curated Python core, with a Tauri desktop shell and a Codex MCP server."

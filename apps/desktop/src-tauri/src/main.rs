@@ -18,7 +18,7 @@ impl EngineSidecar {
     fn start(projects_root: &PathBuf) -> Result<Self, String> {
         std::fs::create_dir_all(projects_root)
             .map_err(|error| format!("cannot create projects root: {error}"))?;
-        let mut child = Command::new("ltagent-engine")
+        let mut child = Command::new(engine_command())
             .arg("--projects-root")
             .arg(projects_root)
             .stdin(Stdio::piped())
@@ -73,6 +73,31 @@ impl EngineSidecar {
             }
             return Err("local engine returned a response with an unexpected id".to_owned());
         }
+    }
+}
+
+fn engine_command() -> PathBuf {
+    if let Ok(executable) = std::env::current_exe() {
+        if let Some(parent) = executable.parent() {
+            let bundled = parent.join("ltagent-engine");
+            if bundled.is_file() {
+                return bundled;
+            }
+        }
+    }
+    PathBuf::from("ltagent-engine")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::engine_command;
+
+    #[test]
+    fn engine_command_has_the_allowlisted_binary_name() {
+        assert_eq!(
+            engine_command().file_name().and_then(|name| name.to_str()),
+            Some("ltagent-engine")
+        );
     }
 }
 

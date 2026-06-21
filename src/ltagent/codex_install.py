@@ -68,6 +68,9 @@ def _resolve_server_command(command: str) -> str:
     discovered = shutil.which(command)
     if discovered:
         return str(Path(discovered).resolve())
+    executable_sibling = Path(sys.executable).parent / command
+    if executable_sibling.is_file():
+        return str(executable_sibling.resolve())
     sibling = Path(sys.prefix) / "bin" / command
     if sibling.is_file():
         return str(sibling.resolve())

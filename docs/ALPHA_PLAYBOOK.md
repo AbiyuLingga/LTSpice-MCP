@@ -31,8 +31,8 @@ git push origin v0.1.0-alpha.1
 uv run --no-sync python scripts/build_sidecar.py
 ```
 
-The script writes the wheel, the sdist, and the sidecar
-stubs into `dist/` and `apps/desktop/sidecar/`.
+The script writes the wheel, the sdist, and the target-triple
+PyInstaller sidecars into `dist/` and `apps/desktop/sidecar/`.
 
 ## Sign the wheel
 

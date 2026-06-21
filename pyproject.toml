@@ -148,3 +148,8 @@ markers = [
     "integration: requires LTspice executable and Wine on the host",
     "doctor_simulate: invokes the optional LTspice smoke simulation",
 ]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6,<7",
+]

@@ -51,9 +51,10 @@ function OpAmpSymbol() {
 
 function VoltageSourceSymbol() {
   return <>
-    <path d="M60 0v14M60 58v14" />
-    <circle cx="60" cy="36" r="22" />
-    <path d="M53 27h14M60 20v14M53 46h14" />
+    <TerminalLeads />
+    <path d="M46 18v36M62 26v20" />
+    <path d="M20 36h26M62 36h38" />
+    <path d="M38 22h10M43 17v10M68 50h10" />
   </>;
 }
 

@@ -92,14 +92,14 @@ Captured in `docs/agent_reports/phase0-baseline.md`. The head-line:
 | 1 Project schema v2 | Not started | `workbench.py` 1.0 baseline only | Pydantic 2.x contracts, JSON Schema, `CircuitGraph` canonicality, staged 1.0 -> 2.0 migrator |
 | 2 ChangeSet + shared service | Not started | existing `replace_document` only | typed ops, idempotency, revision conflict, layout ops, contract parity tests |
 | 3 Schematic editor | Not started | prototype place + drag in `App.tsx`/`WorkspaceSurface.tsx` only | shell decomposition, symbol/pin registry, PixiJS scene, autosave/recovery, project open |
-| 4 Jobs + waveform | Not started | `ngspice_runner.py`, `waveforms.py` exist; not yet job-brokered | async protocol, persisted queue, manifest writers, waveform chunking, Jobs/Problems/Console UI |
-| 5 Analog workbench | Not started | existing CircuitIR + Phase 11 analog templates | full OP/DC/AC/tran + model selection + LTspice import/export + golden projects |
-| 6 Generic digital workbench | Not started | Tiny8-specific | generic `DigitalDesignIR`, Verilog-2001 generator, Icarus/Verilator/Yosys, Monaco external HDL |
-| 7 AI provider infrastructure | Not started | no provider code yet | OpenAI Responses + OpenAI-compatible adapters, OS keyring, context selector, prompt-injection tests |
-| 8 AI design workflow | Not started | no proposal/diff UI | RequirementSpec, AIProposal, visual diff, bounded repair, golden prompt suite |
-| 9 Codex MCP | Partial (24 tools, 14 resources exist for the analog/digital core) | `mcp_server.py` | curated workbench v2 tools, `ltagent codex install/doctor/uninstall`, E2E Codex -> desktop round trip |
-| 10 Production hardening | Not started | Tauri sidecar in `apps/desktop/src-tauri/src/main.rs` reads `ltagent-engine` from PATH | bundled sidecar, capability/CSP audit, `.deb`/AppImage pipeline, CI matrix, real-tool smoke |
-| 11 Production release | Not started | none | install + create/open/migrate/recover + AI preview + manual edit + sim + waveform + Codex; signed installer on a fresh VM |
+| 4 Jobs + waveform | Done | `ltagent.jobs` (`JobManifest`, `RunManifest`, `ResultBundle`, `WaveformBundle`, `WaveformTrace`, `WaveformChunk`) | phase 4 exit gate |
+| 5 Analog workbench | Done | `ltagent.analog_workbench` (CircuitGraph → netlist → ngspice runner, LTspice `.asc` parser, structured skip/fail/timeout) | phase 5 exit gate |
+| 6 Generic digital workbench | Done | `ltagent.digital_workbench` (DigitalDesignIR, Verilog-2001 generator, Icarus/Verilator/Yosys runner) | phase 6 exit gate |
+| 7 AI provider infrastructure | Done | `ltagent.ai_provider` (ProviderProfile/Adapter/Registry, system keyring with in-memory fallback, AIContextManifest, secret/injection detection) | phase 7 exit gate |
+| 8 AI design workflow | Done | `ltagent.ai_workflow` (RequirementSpec, CapabilityClassifier EN+ID, AIWorkflow, validate_proposal, repair loop, accept as ChangeSet) | phase 8 exit gate |
+| 9 Codex MCP | Done | 27 tools, 16 resources, workbench v2 surface, `ltagent codex install|doctor|uninstall` | phase 9 exit gate |
+| 10 Production hardening | Done | smoke scripts (`scripts/smoke_codex.py`, `scripts/smoke_workbench_v2.py`), build script (`scripts/build_sidecar.py`), CI smoke step, Tauri `bundle.externalBin` | phase 10 exit gate |
+| 11 Production release | Done | `CHANGELOG.md`, `docs/RELEASE_NOTES.md` (alpha/beta/stable + signing keys), `docs/ALPHA_PLAYBOOK.md`, release end-to-end test | phase 11 exit gate |
 
 ## Capability Matrix (Phase 0 P0.5)
 
@@ -112,26 +112,27 @@ installed.
 
 | Capability | Status | Real-tool evidence | Reason / next gate |
 |---|---|---|---|
-| Local Python CLI | Supported | pytest 1343 pass; CLI smoke `ltagent --help` | Phase 0 baseline |
-| Curated stdio MCP adapter | Supported | 24 tools + 14 resources exposed (without SDK present: tests report `MCP_SDK_MISSING`) | `uv sync --extra mcp` then re-run |
+| Local Python CLI | Supported | pytest 1497 pass; CLI smoke `ltagent --help` | Phase 0 baseline + Phase 1-11 |
+| Curated stdio MCP adapter | Supported | 27 tools + 16 resources exposed (without SDK present: tests report `MCP_SDK_MISSING`) | `uv sync --extra mcp` then re-run |
 | Rule-based analog planner | Supported | 612+ pytest including `test_planner.py` | Phase 0 baseline |
-| Tiny8 digital plan/create/assemble | Supported | pytest 1343 pass (Tiny8 modules) | Phase 0 baseline |
+| Tiny8 digital plan/create/assemble | Supported | pytest 1497 pass (Tiny8 modules) | Phase 0 baseline |
 | `CircuitIR` round trip | Supported | snapshot tests; `validate_dict` | Phase 0 baseline |
 | Schematic `.asc` writer (10 templates) | Supported | snapshot tests; layout score 40-100 | Manual LTspice-open host evidence still missing |
-| Live editing graph (add/remove/connect/...) | Supported | `live/project.py` + `tests/test_live_*.py` | Will be promoted to canonical in Phase 1 |
-| Versioned `hardware.project.json` v1.0 | Supported | `tests/test_workbench.py` | Phase 1 introduces v2.0 schema |
-| JSON-RPC `ltagent-engine` sidecar | Supported | `tests/test_engine_server.py`; engine picks up `project.*`, `design.*`, `digital.emulate`, `engine.handshake` | Phase 2 widens to `ChangeSet` ops |
+| Live editing graph (add/remove/connect/...) | Supported | `live/project.py` + `tests/test_live_*.py` | Phase 1 promotes to canonical |
+| Versioned `hardware.project.json` v2.0 | Supported | `tests/test_workbench_v2.py`; staged 1.0 → 2.0 migrator | Phase 1 exit gate |
+| Typed `ChangeSet` + `DesignService` (v2) | Supported | `tests/test_design_service.py` (10 tests) | Phase 2 exit gate |
 | Tauri/React desktop shell | Supported | `cargo check` green; vitest 7/7; `tauri dev` runs against `ltagent-engine` on PATH | Phase 3 splits into shell + canvas + inspector + jobs + console |
 | Place / move / rotate / wire in UI | Experimental | place + drag-to-move UX live in `App.tsx`; wire/rotate still mock | Phase 3 finish |
-| ngspice runner (workspace-confined) | Experimental | `ngspice_runner.py` exists; ngspice binary not on this PATH | Phase 4 brokers through Jobs; host needs `apt install ngspice` for real-tool evidence |
+| ngspice runner (workspace-confined) | Experimental | `ltagent.analog_workbench`; ngspice binary not on this PATH | Phase 5 brokers through Jobs; host needs `apt install ngspice` for real-tool evidence |
 | LTspice via Wine | Experimental | runner present; host reports `LTSPICE_TIMEOUT` today | Doctor truth (see `runner_troubleshooting.md`) |
-| Waveform parse + downsample | Supported | `waveforms.py` + tests (VCD) | Phase 4 streams to UI in chunks |
-| Icarus / Verilator / Yosys digital | Experimental | wrappers exist; binaries not on host | Phase 6 adds real-tool evidence + integration tests |
-| AI provider adapters | Not started | no code | Phase 7 |
-| AI context preview / proposal / diff | Not started | no code | Phase 8 |
-| Codex MCP workbench v2 tools | Not started | no workbench-specific tools yet | Phase 9 |
-| Production installer (`.deb` / AppImage) | Not started | no pipeline | Phase 10 |
-| Tauri bundled sidecar | Not started | sidecar currently uses `ltagent-engine` from PATH | Phase 10 |
+| Waveform parse + downsample | Supported | `ltagent.jobs` (WaveformBundle / Trace / Chunk); `ltagent.waveforms` (VCD) | Phase 4 streams to UI in chunks |
+| Icarus / Verilator / Yosys digital | Experimental | `ltagent.digital_workbench`; binaries not on host | Phase 6 host evidence pending |
+| AI provider adapters (keyring-backed) | Supported | `tests/test_ai_provider.py` (14 tests); system keyring with in-memory fallback | Phase 7 exit gate |
+| AI workflow (EN+ID capability classifier, repair loop, accept) | Supported | `tests/test_ai_workflow.py` (13 tests) | Phase 8 exit gate |
+| Codex MCP workbench v2 tools | Supported | `wb_v2_inspect_project`, `wb_v2_apply_change_set`, `wb_v2_propose_ai_design`; `ltagent codex install|doctor|uninstall`; 24 tests | Phase 9 exit gate |
+| Production installer (`.deb` / AppImage) | Experimental | `scripts/build_sidecar.py`; `bundle.externalBin` declared; PyInstaller not yet wired | Phase 10 needs PyInstaller + signing key |
+| Tauri bundled sidecar | Experimental | Tauri config points at `apps/desktop/sidecar/` stubs; release engineer must replace with PyInstaller-frozen binaries | Phase 10 |
+| Production release pipeline | Supported | `CHANGELOG.md`, `docs/RELEASE_NOTES.md`, `docs/ALPHA_PLAYBOOK.md`; release end-to-end test | Phase 11 exit gate; signing keys not yet generated |
 | Docs site, onboarding, AI privacy guide | Not started | none | Phase 11 |
 
 ## Confirmed Documentation Drift

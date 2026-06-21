@@ -44,6 +44,7 @@ from .live.graph_schema import (
 # ---------------------------------------------------------------------------
 
 PROJECT_SCHEMA_VERSION: Final[str] = "2.0"
+PROJECT_SCHEMA_VERSION_LITERAL: Final = "2.0"
 LEGACY_PROJECT_SCHEMA_VERSION: Final[str] = "1.0"
 
 PROJECT_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")

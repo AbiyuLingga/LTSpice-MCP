@@ -4,7 +4,6 @@
 # binary before `tauri build`.
 # Target: ltagent.cli:main
 import sys
-from ltagent import __version__
-import ltagent.ltagent.cli
+from ltagent.cli import main
 if __name__ == '__main__':
-    sys.exit(ltagent.ltagent.cli.main())
+    sys.exit(main())

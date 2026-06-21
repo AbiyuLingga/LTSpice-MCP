@@ -61,6 +61,7 @@ def _stage_sidecar() -> list[Path]:
     }
     staged: list[Path] = []
     for name, target in targets.items():
+        module_path = target.split(":", 1)[0]
         dest = SIDECAR_DIR / name
         dest.write_text(
             "#!/usr/bin/env python3\n"
@@ -69,10 +70,9 @@ def _stage_sidecar() -> list[Path]:
             "# binary before `tauri build`.\n"
             f"# Target: {target}\n"
             "import sys\n"
-            "from ltagent import __version__\n"
-            f"import ltagent.{target.split(':', 1)[0]}\n"
+            f"from {module_path} import main\n"
             "if __name__ == '__main__':\n"
-            f"    sys.exit(ltagent.{target.split(':', 1)[0]}.main())\n"
+            "    sys.exit(main())\n"
         )
         dest.chmod(0o755)
         staged.append(dest)

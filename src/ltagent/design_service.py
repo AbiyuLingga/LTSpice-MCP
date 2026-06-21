@@ -57,6 +57,7 @@ from .workbench_v2 import (
     FILE_SCHEMATIC_VIEW,
     FILE_SYSTEM,
     PROJECT_SCHEMA_VERSION,
+    PROJECT_SCHEMA_VERSION_LITERAL,
     SCHEMATIC_ROTATION_VALUES,
     SCHEMATIC_SYMBOL_KINDS,
     HardwareProject,
@@ -980,9 +981,9 @@ class DesignService:
                     data={"index": index, "type": str(op_type)},
                 )
 
-            document = op.document  # type: ignore[attr-defined]
+            document = op.document
             try:
-                reducer(state, op)  # type: ignore[arg-type]
+                reducer(state, op)  # type: ignore[operator]
             except WorkbenchV2Error as exc:
                 raise WorkbenchV2Error(
                     exc.code,
@@ -992,14 +993,20 @@ class DesignService:
             changed_documents.add(document)
             if hasattr(op, "componentId"):
                 affected_components.add(op.componentId)
-            if hasattr(op, "oldId"):
-                affected_components.add(op.oldId)
-                affected_components.add(op.newId)
+            new_id = getattr(op, "newId", None)
+            if new_id is not None:
+                old_id = getattr(op, "oldId", None)
+                if old_id is not None:
+                    affected_components.add(old_id)
+                affected_components.add(new_id)
             if hasattr(op, "net"):
                 affected_nets.add(op.net)
-            if hasattr(op, "oldName"):
-                affected_nets.add(op.oldName)
-                affected_nets.add(op.newName)
+            new_name = getattr(op, "newName", None)
+            if new_name is not None:
+                old_name = getattr(op, "oldName", None)
+                if old_name is not None:
+                    affected_nets.add(old_name)
+                affected_nets.add(new_name)
             if hasattr(op, "symbolId"):
                 affected_symbols.add(op.symbolId)
             if hasattr(op, "labelId"):
@@ -1013,7 +1020,7 @@ class DesignService:
 
         updated_at = datetime.now(UTC).isoformat()
         new_manifest = HardwareProject(
-            schemaVersion=PROJECT_SCHEMA_VERSION,
+            schemaVersion=PROJECT_SCHEMA_VERSION_LITERAL,
             projectId=project.projectId,
             displayName=project.displayName,
             revision=new_revision,
@@ -1101,7 +1108,7 @@ class DesignService:
         return self._rewind_to_revision(project_dir, next_result.revision)
 
     def _rewind_to_revision(
-        self, project_dir, target_revision: int
+        self, project_dir: Any, target_revision: int
     ) -> ChangeSetResult:
         """Re-apply every change-set line up to ``target_revision``.
 
@@ -1154,7 +1161,7 @@ class DesignService:
                     continue
                 for model_cls in OP_TYPES:
                     if model_cls.model_fields["type"].default == op_type:
-                        reducer(state, model_cls.model_validate(_as_op_dict(raw_op)))
+                        reducer(state, model_cls.model_validate(_as_op_dict(raw_op)))  # type: ignore[operator]
                         break
 
         for document in DOCUMENT_NAMES:
@@ -1162,7 +1169,7 @@ class DesignService:
                 project_dir / DOCUMENT_FILE_PATHS[document], state[document]
             )
         new_manifest = HardwareProject(
-            schemaVersion=PROJECT_SCHEMA_VERSION,
+            schemaVersion=PROJECT_SCHEMA_VERSION_LITERAL,
             projectId=project_dir.name,
             displayName=project_dir.name,
             revision=target_revision,

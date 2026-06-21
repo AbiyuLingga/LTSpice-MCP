@@ -67,12 +67,19 @@ git push origin v0.1.0-alpha.1
 # 2. Build the sdist + wheel and frozen Linux sidecars.
 uv run --no-sync python scripts/build_sidecar.py
 
-# 3. Sign the wheel with the alpha key.
+# 3. Build desktop bundles, checksums, SBOM, and smoke.
+cd apps/desktop
+npm run tauri -- build --bundles deb,appimage
+cd ../..
+uv run --no-sync python scripts/release_manifest.py
+uv run --no-sync python scripts/smoke_desktop_bundle.py
+
+# 4. Sign the wheel with the alpha key.
 gpg --armor --detach-sign --local-user ltagent-alpha \
     --output dist/ltspice_ai_agent-0.1.0a1-py3-none-any.whl.asc \
     dist/ltspice_ai_agent-0.1.0a1-py3-none-any.whl
 
-# 4. Publish (alpha + beta only).
+# 5. Publish (alpha + beta only).
 twine upload --repository testpypi dist/*
 ```
 

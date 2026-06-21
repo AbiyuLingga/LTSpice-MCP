@@ -13,6 +13,8 @@ Covers:
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from ltagent import (
@@ -60,6 +62,57 @@ def test_alpha_playbook_documents_smoke_test() -> None:
     assert "smoke_codex" in text
     assert "twine" in text
     assert "git tag" in text
+
+
+def test_release_artifacts_doc_lists_local_outputs() -> None:
+    text = (REPO_ROOT / "docs" / "RELEASE_ARTIFACTS.md").read_text(encoding="utf-8")
+    assert "SHA256SUMS" in text
+    assert "sbom-python.json" in text
+    assert ".AppImage" in text
+    assert "Ubuntu 24.04" in text
+
+
+def test_release_manifest_writes_checksums_and_sboms(tmp_path: Path) -> None:
+    artifact = tmp_path / "demo.bin"
+    artifact.write_bytes(b"release artifact")
+    out = tmp_path / "release"
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "release_manifest.py"),
+            "--out",
+            str(out),
+            "--artifact",
+            str(artifact),
+            "--allow-missing-bundles",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    checksums = (out / "SHA256SUMS").read_text(encoding="utf-8")
+    assert any(row["path"] == str(artifact) for row in manifest["artifacts"])
+    assert "demo.bin" in checksums
+    assert (out / "sbom-python.json").is_file()
+    assert (out / "sbom-npm.json").is_file()
+    assert (out / "sbom-cargo.json").is_file()
+
+
+def test_desktop_bundle_smoke_script_has_cli_contract() -> None:
+    proc = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "smoke_desktop_bundle.py"), "--help"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0
+    assert "--deb" in proc.stdout
+    assert "--appimage" in proc.stdout
 
 
 # ---------------------------------------------------------------------------

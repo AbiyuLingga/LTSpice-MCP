@@ -46,10 +46,14 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 * `ltagent codex install | uninstall | doctor` subcommands
   for wiring the ltagent-mcp entry into the local Codex
   config.
-* Production-readiness smoke and sidecar-staging scripts:
+* Production-readiness smoke and sidecar scripts:
   `scripts/smoke_codex.py`, `scripts/smoke_workbench_v2.py`,
   `scripts/build_sidecar.py`.
-* CI smoke step on the Python 3.12 matrix entry.
+* Local release evidence: `scripts/release_manifest.py`,
+  `scripts/smoke_desktop_bundle.py`, `docs/RELEASE_ARTIFACTS.md`,
+  SHA-256 output, and minimal Python / npm / Cargo SBOM JSON.
+* CI smoke step on the Python 3.12 matrix entry plus frontend
+  and Ubuntu 24.04 desktop bundle gates.
 
 ### Changed
 * The MCP server now exposes 27 curated tools and 16 curated

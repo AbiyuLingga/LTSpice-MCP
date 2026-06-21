@@ -34,6 +34,16 @@ uv run --no-sync python scripts/build_sidecar.py
 The script writes the wheel, the sdist, and the target-triple
 PyInstaller sidecars into `dist/` and `apps/desktop/sidecar/`.
 
+Build the desktop bundles and local release evidence:
+
+```bash
+cd apps/desktop
+npm run tauri -- build --bundles deb,appimage
+cd ../..
+uv run --no-sync python scripts/release_manifest.py
+uv run --no-sync python scripts/smoke_desktop_bundle.py
+```
+
 ## Sign the wheel
 
 ```bash

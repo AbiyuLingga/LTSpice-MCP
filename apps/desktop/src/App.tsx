@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { desktopBridge, EngineBridge, EngineProject } from "./engine";
 import { ProjectDialog } from "./components/ProjectDialog";
@@ -14,17 +14,29 @@ import { nextNodeId } from "./components/componentRegistry";
 
 type AppProps = { bridge?: EngineBridge };
 type LedEmulation = { led?: { frames: Array<{ pixels: boolean[] }> }; status: string };
-type SchematicDocument = { gridSize: number; nodes: SchematicNode[]; schemaVersion: "1.0"; wires: unknown[] };
+type SchematicDocument = {
+  gridSize: number;
+  netLabels: unknown[];
+  schemaVersion: "2.0";
+  symbols: SchematicNode[];
+  wires: unknown[];
+};
 
 const LED_DEMO_ROM = [0x1002, 0xC0F0, 0x1003, 0xC0F1, 0x1001, 0xC0F2, 0xC0F4, 0xF000];
-const INITIAL_SCHEMATIC: SchematicDocument = { gridSize: 16, nodes: [], schemaVersion: "1.0", wires: [] };
+const INITIAL_SCHEMATIC: SchematicDocument = {
+  gridSize: 16,
+  netLabels: [],
+  schemaVersion: "2.0",
+  symbols: [],
+  wires: [],
+};
 
 export function App({ bridge = desktopBridge }: AppProps) {
   const [project, setProject] = useState<EngineProject | null>(null);
   const [surface, setSurface] = useState<Surface>("schematic");
   const [bottomTab, setBottomTab] = useState<BottomTab>("problems");
   const [advanced, setAdvanced] = useState(false);
-  const [showDialog, setShowDialog] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "open" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobMessage, setJobMessage] = useState("No jobs running");
@@ -32,22 +44,73 @@ export function App({ bridge = desktopBridge }: AppProps) {
   const [selectedComponent, setSelectedComponent] = useState<SchematicNodeKind | null>(null);
   const [ledPixels, setLedPixels] = useState<boolean[] | null>(null);
   const [ledFrameCount, setLedFrameCount] = useState(0);
+
+  async function loadProject(nextProject: EngineProject) {
+    const loaded = await bridge.request<{ document: SchematicDocument }>("design.get", {
+      document: "schematic",
+      projectId: nextProject.projectId,
+    });
+    setProject(nextProject);
+    setSchematic(loaded.document);
+  }
+
+  useEffect(() => {
+    if (!project) return;
+    async function refresh() {
+      const result = await bridge.request<{ changed: boolean; project: EngineProject }>("project.refresh", {
+        knownRevision: project?.revision,
+        projectId: project?.projectId,
+      });
+      if (result.changed) await loadProject(result.project);
+    }
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [bridge, project]);
+
   async function createProject(input: { displayName: string; projectId: string }) {
     setBusy(true);
     setError(null);
     try {
       const created = await bridge.request<EngineProject>("project.create", input);
-      const loadedSchematic = await bridge.request<{ document: SchematicDocument }>("design.get", {
-        document: "schematic",
-        projectDir: created.projectDir,
-      });
-      setProject(created);
-      setSchematic(loadedSchematic.document);
-      setShowDialog(false);
+      await loadProject(created);
+      setDialogMode(null);
       setBottomTab("jobs");
       setJobMessage("Project created and schematic loaded");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to create project");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openProject(projectId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const opened = await bridge.request<EngineProject>("project.open", { projectId });
+      await loadProject(opened);
+      setDialogMode(null);
+      setJobMessage("Project opened");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to open project");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeHistory(method: "design.undo" | "design.redo") {
+    if (!project) return;
+    setBusy(true);
+    try {
+      const result = await bridge.request<{ changed: boolean; revision?: number }>(method, {
+        projectId: project.projectId,
+      });
+      if (result.changed && result.revision !== undefined) {
+        await loadProject({ ...project, revision: result.revision });
+      }
+      setJobMessage(result.changed ? (method.endsWith("undo") ? "Undo complete" : "Redo complete") : "Nothing to change");
+    } catch (caught) {
+      setJobMessage(caught instanceof Error ? caught.message : "History operation failed");
     } finally {
       setBusy(false);
     }
@@ -59,7 +122,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
     setJobMessage("Validating project…");
     try {
       const result = await bridge.request<{ status: string }>("project.validate", {
-        projectDir: project.projectDir,
+        projectId: project.projectId,
       });
       setJobMessage(result.status === "pass" ? "Project validation passed" : "Project validation finished");
     } catch (caught) {
@@ -88,24 +151,31 @@ export function App({ bridge = desktopBridge }: AppProps) {
   async function placeComponent(x: number, y: number) {
     if (!project || !selectedComponent) return;
     const nextNode: SchematicNode = {
-      id: nextNodeId(selectedComponent, schematic.nodes.length),
+      id: nextNodeId(selectedComponent, schematic.symbols.length),
       kind: selectedComponent,
       rotation: 0,
       x,
       y,
     };
-    const nextSchematic: SchematicDocument = { ...schematic, nodes: [...schematic.nodes, nextNode] };
     setJobMessage(`Placing ${selectedComponent}…`);
     try {
       const result = await bridge.request<{ revision: number }>("design.applyChanges", {
         changeSet: {
           baseRevision: project.revision,
-          operations: [{ document: "schematic", type: "replace_document", value: nextSchematic }],
-          schemaVersion: "1.0",
+          operations: [{
+            document: "schematic",
+            kind: selectedComponent,
+            rotation: 0,
+            symbolId: nextNode.id,
+            type: "place_node",
+            x,
+            y,
+          }],
+          schemaVersion: "2.0",
         },
-        projectDir: project.projectDir,
+        projectId: project.projectId,
       });
-      setSchematic(nextSchematic);
+      setSchematic({ ...schematic, symbols: [...schematic.symbols, nextNode] });
       setProject({ ...project, revision: result.revision });
       setJobMessage(`${nextNode.id} placed`);
     } catch (caught) {
@@ -118,19 +188,19 @@ export function App({ bridge = desktopBridge }: AppProps) {
     const previousSchematic = schematic;
     const nextSchematic: SchematicDocument = {
       ...schematic,
-      nodes: schematic.nodes.map((node) => node.id === componentId ? { ...node, x, y } : node),
+      symbols: schematic.symbols.map((node) => node.id === componentId ? { ...node, x, y } : node),
     };
-    if (nextSchematic.nodes.every((node, index) => node === schematic.nodes[index])) return;
+    if (nextSchematic.symbols.every((node, index) => node === schematic.symbols[index])) return;
     setSchematic(nextSchematic);
     setJobMessage(`Moving ${componentId}…`);
     try {
       const result = await bridge.request<{ revision: number }>("design.applyChanges", {
         changeSet: {
           baseRevision: project.revision,
-          operations: [{ document: "schematic", type: "replace_document", value: nextSchematic }],
-          schemaVersion: "1.0",
+          operations: [{ document: "schematic", symbolId: componentId, type: "move_node", x, y }],
+          schemaVersion: "2.0",
         },
-        projectDir: project.projectDir,
+        projectId: project.projectId,
       });
       setProject({ ...project, revision: result.revision });
       setJobMessage(`${componentId} moved`);
@@ -151,20 +221,32 @@ export function App({ bridge = desktopBridge }: AppProps) {
         ledFrameCount={ledFrameCount}
         ledPixels={ledPixels}
         project={project}
-        schematicNodes={schematic.nodes}
+        schematicNodes={schematic.symbols}
         selectedComponent={selectedComponent}
         surface={surface}
         onAdvancedToggle={setAdvanced}
         onBottomTabChange={setBottomTab}
-        onCreateClick={() => setShowDialog(true)}
+        onCreateClick={() => setDialogMode("create")}
         onMoveComponent={moveComponent}
+        onOpenClick={() => setDialogMode("open")}
         onPlaceComponent={placeComponent}
+        onRedo={() => changeHistory("design.redo")}
         onRunLedDemo={runLedDemo}
         onSelectComponent={setSelectedComponent}
         onSurfaceChange={setSurface}
+        onUndo={() => changeHistory("design.undo")}
         onValidate={validateProject}
       />
-      {showDialog ? <ProjectDialog busy={busy} error={error} onClose={() => setShowDialog(false)} onCreate={createProject} /> : null}
+      {dialogMode ? (
+        <ProjectDialog
+          busy={busy}
+          error={error}
+          mode={dialogMode}
+          onClose={() => setDialogMode(null)}
+          onCreate={createProject}
+          onOpen={openProject}
+        />
+      ) : null}
     </>
   );
 }

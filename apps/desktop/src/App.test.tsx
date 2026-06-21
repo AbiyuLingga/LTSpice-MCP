@@ -6,25 +6,26 @@ import { App } from "./App";
 import type { EngineBridge } from "./engine";
 
 function fakeBridge(): EngineBridge {
+  let revision = 0;
   const request = vi.fn(async (method: string) => {
-    if (method === "project.create") {
+    if (method === "project.create" || method === "project.open") {
       return {
         displayName: "Analog Lab",
         projectDir: "/projects/analog_lab",
         projectId: "analog_lab",
         revision: 0,
-        schemaVersion: "1.0",
+        schemaVersion: "2.0",
       };
     }
     if (method === "design.get") {
       return {
-        document: { gridSize: 16, nodes: [], schemaVersion: "1.0", wires: [] },
+        document: { gridSize: 16, netLabels: [], schemaVersion: "2.0", symbols: [], wires: [] },
         project: {
           displayName: "Analog Lab",
           projectDir: "/projects/analog_lab",
           projectId: "analog_lab",
           revision: 0,
-          schemaVersion: "1.0",
+          schemaVersion: "2.0",
         },
       };
     }
@@ -40,7 +41,14 @@ function fakeBridge(): EngineBridge {
       };
     }
     if (method === "design.applyChanges") {
-      return { changedDocuments: ["schematic"], revision: 1 };
+      revision += 1;
+      return { changedDocuments: ["schematic"], revision };
+    }
+    if (method === "project.refresh") {
+      return { changed: false, project: { revision } };
+    }
+    if (method === "design.undo" || method === "design.redo") {
+      return { changed: true, revision };
     }
     return {};
   });
@@ -94,6 +102,19 @@ describe("App", () => {
     });
   });
 
+  it("opens an existing project by id", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+
+    await user.click(screen.getByRole("button", { name: "Open project" }));
+    await user.type(screen.getByLabelText("Project ID"), "analog_lab");
+    await user.click(screen.getByRole("button", { name: "Open" }));
+
+    expect(await screen.findByText("Analog Lab")).toBeVisible();
+    expect(bridge.request).toHaveBeenCalledWith("project.open", { projectId: "analog_lab" });
+  });
+
   it("switches between work surfaces without leaving the workspace", async () => {
     const user = userEvent.setup();
     render(<App bridge={fakeBridge()} />);
@@ -128,7 +149,13 @@ describe("App", () => {
     expect(await screen.findByText("1 components")).toBeVisible();
     expect(bridge.request).toHaveBeenCalledWith(
       "design.applyChanges",
-      expect.objectContaining({ projectDir: "/projects/analog_lab" }),
+      expect.objectContaining({
+        changeSet: expect.objectContaining({
+          operations: [expect.objectContaining({ type: "place_node" })],
+          schemaVersion: "2.0",
+        }),
+        projectId: "analog_lab",
+      }),
     );
   });
 
@@ -171,9 +198,10 @@ describe("App", () => {
       changeSet: expect.objectContaining({
         baseRevision: 1,
         operations: [expect.objectContaining({
-          value: expect.objectContaining({
-            nodes: [expect.objectContaining({ id: "resistor_1", x: 176, y: 208 })],
-          }),
+          symbolId: "resistor_1",
+          type: "move_node",
+          x: 176,
+          y: 208,
         })],
       }),
     }));

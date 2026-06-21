@@ -21,7 +21,7 @@ def _request(request_id: int, method: str, params: dict[str, object]) -> dict[st
 
 def test_handshake_advertises_versioned_local_capabilities(tmp_path: Path) -> None:
     response = _service(tmp_path).handle(
-        _request(1, "engine.handshake", {"protocolVersion": "1.0"})
+        _request(1, "engine.handshake", {"protocolVersion": "2.0"})
     )
 
     assert response == {
@@ -32,16 +32,19 @@ def test_handshake_advertises_versioned_local_capabilities(tmp_path: Path) -> No
                 "methods": [
                     "design.applyChanges",
                     "design.get",
+                    "design.redo",
+                    "design.undo",
                     "digital.emulate",
                     "engine.handshake",
                     "project.create",
                     "project.migrate",
                     "project.open",
+                    "project.refresh",
                     "project.validate",
                 ],
             },
-            "engineVersion": "0.1",
-            "protocolVersion": "1.0",
+            "engineVersion": "0.2",
+            "protocolVersion": "2.0",
         },
     }
 
@@ -52,11 +55,13 @@ def test_project_and_design_requests_share_one_revisioned_contract(tmp_path: Pat
         _request(1, "project.create", {"displayName": "Analog Lab", "projectId": "analog_lab"})
     )
     project_dir = created["result"]["projectDir"]  # type: ignore[index]
+    assert created["result"]["schemaVersion"] == "2.0"  # type: ignore[index]
 
     initial = service.handle(
         _request(2, "design.get", {"document": "schematic", "projectDir": project_dir})
     )
     assert initial["result"]["document"]["gridSize"] == 16  # type: ignore[index]
+    assert initial["result"]["document"]["symbols"] == []  # type: ignore[index]
 
     applied = service.handle(
         _request(
@@ -68,29 +73,69 @@ def test_project_and_design_requests_share_one_revisioned_contract(tmp_path: Pat
                     "operations": [
                         {
                             "document": "schematic",
-                            "type": "replace_document",
-                            "value": {
-                                "gridSize": 16,
-                                "nodes": [{"id": "R1", "kind": "resistor"}],
-                                "schemaVersion": "1.0",
-                                "wires": [],
-                            },
+                            "type": "place_node",
+                            "symbolId": "R1",
+                            "kind": "resistor",
+                            "x": 96,
+                            "y": 144,
                         }
                     ],
-                    "schemaVersion": "1.0",
+                    "schemaVersion": "2.0",
                 },
                 "projectDir": project_dir,
             },
         )
     )
 
-    assert applied["result"] == {"changedDocuments": ["schematic"], "revision": 1}  # type: ignore[index]
+    assert applied["result"]["changedDocuments"] == ["schematic"]  # type: ignore[index]
+    assert applied["result"]["revision"] == 1  # type: ignore[index]
+
+    refreshed = service.handle(
+        _request(4, "project.refresh", {"knownRevision": 0, "projectDir": project_dir})
+    )
+    assert refreshed["result"]["changed"] is True  # type: ignore[index]
+    assert refreshed["result"]["project"]["revision"] == 1  # type: ignore[index]
+
+    undone = service.handle(_request(5, "design.undo", {"projectDir": project_dir}))
+    assert undone["result"]["revision"] == 0  # type: ignore[index]
+    redone = service.handle(_request(6, "design.redo", {"projectDir": project_dir}))
+    assert redone["result"]["revision"] == 1  # type: ignore[index]
+
+
+def test_engine_reports_revision_conflict_without_overwriting(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    created = service.handle(_request(1, "project.create", {"projectId": "conflict"}))
+    project_dir = created["result"]["projectDir"]  # type: ignore[index]
+    change_set = {
+        "baseRevision": 0,
+        "operations": [
+            {
+                "document": "schematic",
+                "type": "place_node",
+                "symbolId": "R1",
+                "kind": "resistor",
+                "x": 0,
+                "y": 0,
+            }
+        ],
+        "schemaVersion": "2.0",
+    }
+    service.handle(
+        _request(2, "design.applyChanges", {"changeSet": change_set, "projectDir": project_dir})
+    )
+
+    response = service.handle(
+        _request(3, "design.applyChanges", {"changeSet": change_set, "projectDir": project_dir})
+    )
+
+    assert response["error"]["data"]["code"] == "REVISION_CONFLICT"  # type: ignore[index]
+    assert response["error"]["data"]["actualRevision"] == 1  # type: ignore[index]
 
 
 def test_engine_rejects_project_paths_outside_its_root(tmp_path: Path) -> None:
     response = _service(tmp_path).handle(_request(1, "project.open", {"projectDir": str(tmp_path)}))
 
-    assert response["error"]["data"]["code"] == "WORKBENCH_PROJECT_NOT_FOUND"  # type: ignore[index]
+    assert response["error"]["data"]["code"] == "WORKBENCH_V2_PROJECT_NOT_FOUND"  # type: ignore[index]
 
 
 def test_engine_returns_json_rpc_errors_for_unknown_methods(tmp_path: Path) -> None:
@@ -110,7 +155,7 @@ def test_serve_processes_ndjson_without_writing_protocol_noise(tmp_path: Path) -
     serve(incoming, outgoing, projects_root=tmp_path / "projects")
 
     response = json.loads(outgoing.getvalue())
-    assert response["result"]["engineVersion"] == "0.1"
+    assert response["result"]["engineVersion"] == "0.2"
 
 
 def test_engine_emulates_a_tiny8_led_program_without_external_toolchains(tmp_path: Path) -> None:

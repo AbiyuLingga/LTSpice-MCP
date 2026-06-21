@@ -15,23 +15,24 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Final, TextIO, cast
 
+from .design_service import (
+    ERR_CHANGESET_CONFLICT,
+    ERR_PROJECT_NOT_FOUND,
+    DesignService,
+    WorkbenchV2Error,
+)
 from .digital_emulator import RunResult, run_program
 from .led_matrix import render_tiny8_led_frames
 from .workbench import (
-    ChangeSetResult,
     WorkbenchError,
-    WorkbenchProject,
-    apply_change_set,
     create_workbench_project,
-    migrate_workbench_project,
-    open_workbench_project,
-    read_document,
-    validate_workbench_project,
 )
+from .workbench_migration import migrate_workbench_project_to_v2
+from .workbench_v2 import HardwareProject
 
 JSON_RPC_VERSION: Final[str] = "2.0"
-ENGINE_VERSION: Final[str] = "0.1"
-ENGINE_PROTOCOL_VERSION: Final[str] = "1.0"
+ENGINE_VERSION: Final[str] = "0.2"
+ENGINE_PROTOCOL_VERSION: Final[str] = "2.0"
 ERR_METHOD_NOT_FOUND: Final[str] = "ENGINE_METHOD_NOT_FOUND"
 ERR_PARAMS_INVALID: Final[str] = "ENGINE_PARAMS_INVALID"
 ERR_REQUEST_INVALID: Final[str] = "ENGINE_REQUEST_INVALID"
@@ -40,11 +41,14 @@ ERR_INTERNAL: Final[str] = "ENGINE_INTERNAL_ERROR"
 METHODS: Final[tuple[str, ...]] = (
     "design.applyChanges",
     "design.get",
+    "design.redo",
+    "design.undo",
     "digital.emulate",
     "engine.handshake",
     "project.create",
     "project.migrate",
     "project.open",
+    "project.refresh",
     "project.validate",
 )
 
@@ -78,14 +82,18 @@ class EngineService:
                 "projects root must be a directory",
                 data={"projectsRoot": str(self.projects_root)},
             )
+        self.design = DesignService(str(self.projects_root))
         self._handlers: dict[str, Callable[[Mapping[str, object]], dict[str, object]]] = {
             "design.applyChanges": self._design_apply_changes,
             "design.get": self._design_get,
+            "design.redo": self._design_redo,
+            "design.undo": self._design_undo,
             "digital.emulate": self._digital_emulate,
             "engine.handshake": self._engine_handshake,
             "project.create": self._project_create,
             "project.migrate": self._project_migrate,
             "project.open": self._project_open,
+            "project.refresh": self._project_refresh,
             "project.validate": self._project_validate,
         }
 
@@ -147,6 +155,18 @@ class EngineService:
                     {"code": exc.code, **exc.data},
                 )
             )
+        except WorkbenchV2Error as exc:
+            code = "REVISION_CONFLICT" if exc.code == ERR_CHANGESET_CONFLICT else exc.code
+            return (
+                None
+                if is_notification
+                else _error_response(
+                    request_id,
+                    -32000,
+                    exc.message,
+                    {"code": code, **exc.data},
+                )
+            )
         except WorkbenchError as exc:
             return (
                 None
@@ -183,34 +203,49 @@ class EngineService:
         project = create_workbench_project(
             self.projects_root, project_id, display_name=display_name
         )
-        return _project_payload(project)
+        migrate_workbench_project_to_v2(project.project_dir, projects_root=self.projects_root)
+        return self._project_payload(self.design.open_project(project_id))
 
     def _project_open(self, params: Mapping[str, object]) -> dict[str, object]:
-        project = self._open_scoped_project(params)
-        return _project_payload(project)
+        return self._project_payload(self.design.open_project(self._project_id(params)))
 
     def _project_migrate(self, params: Mapping[str, object]) -> dict[str, object]:
-        project_dir = _required_string(params, "projectDir")
-        result = migrate_workbench_project(project_dir, projects_root=self.projects_root)
+        project_id = self._project_id(params)
+        project_dir = self.projects_root / project_id
+        result = migrate_workbench_project_to_v2(project_dir, projects_root=self.projects_root)
         return {
-            "migratedFrom": result.migrated_from,
-            "project": _project_payload(result.project),
+            "migration": result.to_dict(),
+            "project": self._project_payload(self.design.open_project(project_id)),
         }
 
     def _project_validate(self, params: Mapping[str, object]) -> dict[str, object]:
-        project = self._open_scoped_project(params)
-        return validate_workbench_project(project.project_dir)
+        return self.design.validate_project(self._project_id(params))
+
+    def _project_refresh(self, params: Mapping[str, object]) -> dict[str, object]:
+        project = self.design.open_project(self._project_id(params))
+        known_revision = params.get("knownRevision")
+        if known_revision is not None and not isinstance(known_revision, int):
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                "knownRevision must be an integer",
+                data={"field": "knownRevision"},
+            )
+        return {
+            "changed": known_revision is None or known_revision != project.revision,
+            "project": self._project_payload(project),
+        }
 
     def _design_get(self, params: Mapping[str, object]) -> dict[str, object]:
-        project = self._open_scoped_project(params)
+        project_id = self._project_id(params)
+        project = self.design.open_project(project_id)
         document = _required_string(params, "document")
         return {
-            "document": read_document(project.project_dir, document),
-            "project": _project_payload(project),
+            "document": self.design.read_document(project_id, document),
+            "project": self._project_payload(project),
         }
 
     def _design_apply_changes(self, params: Mapping[str, object]) -> dict[str, object]:
-        project = self._open_scoped_project(params)
+        project_id = self._project_id(params)
         change_set = params.get("changeSet")
         if not isinstance(change_set, Mapping):
             raise EngineRequestError(
@@ -218,11 +253,15 @@ class EngineService:
                 "changeSet must be an object",
                 data={"field": "changeSet"},
             )
-        result: ChangeSetResult = apply_change_set(project.project_dir, change_set)
-        return {
-            "changedDocuments": list(result.changed_documents),
-            "revision": result.revision,
-        }
+        return self.design.apply_change_set(project_id, change_set).to_dict()
+
+    def _design_undo(self, params: Mapping[str, object]) -> dict[str, object]:
+        result = self.design.undo(self._project_id(params))
+        return {"changed": result is not None, **(result.to_dict() if result else {})}
+
+    def _design_redo(self, params: Mapping[str, object]) -> dict[str, object]:
+        result = self.design.redo(self._project_id(params))
+        return {"changed": result is not None, **(result.to_dict() if result else {})}
 
     def _digital_emulate(self, params: Mapping[str, object]) -> dict[str, object]:
         rom = _required_unsigned_array(params, "rom", maximum=0xFFFF, limit=256)
@@ -263,9 +302,28 @@ class EngineService:
             }
         return payload
 
-    def _open_scoped_project(self, params: Mapping[str, object]) -> WorkbenchProject:
-        project_dir = _required_string(params, "projectDir")
-        return open_workbench_project(project_dir, projects_root=self.projects_root)
+    def _project_id(self, params: Mapping[str, object]) -> str:
+        project_id = params.get("projectId")
+        if isinstance(project_id, str) and project_id:
+            return project_id
+        project_dir = (
+            Path(_required_string(params, "projectDir")).expanduser().resolve(strict=False)
+        )
+        try:
+            project_dir.relative_to(self.projects_root)
+        except ValueError as exc:
+            raise WorkbenchV2Error(
+                ERR_PROJECT_NOT_FOUND,
+                "projectDir must be inside the projects root",
+                data={"projectDir": str(project_dir)},
+            ) from exc
+        return project_dir.name
+
+    def _project_payload(self, project: HardwareProject) -> dict[str, object]:
+        return {
+            **project.model_dump(mode="json"),
+            "projectDir": str(self.projects_root / project.projectId),
+        }
 
 
 def serve(
@@ -412,16 +470,6 @@ def _optional_byte_mapping(params: Mapping[str, object], field: str) -> dict[int
             )
         parsed[port] = raw_value
     return parsed
-
-
-def _project_payload(project: WorkbenchProject) -> dict[str, object]:
-    return {
-        "displayName": project.display_name,
-        "projectDir": str(project.project_dir),
-        "projectId": project.project_id,
-        "revision": project.revision,
-        "schemaVersion": ENGINE_PROTOCOL_VERSION,
-    }
 
 
 def _run_result_payload(result: RunResult) -> dict[str, object]:

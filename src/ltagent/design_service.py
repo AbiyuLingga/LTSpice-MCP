@@ -862,6 +862,38 @@ class DesignService:
             state[document] = _read_json(path)
         return state
 
+    def read_document(self, project_id: str, document: str) -> dict[str, Any]:
+        """Read and validate one project document."""
+        if document not in DOCUMENT_FILE_PATHS:
+            raise WorkbenchV2Error(
+                ERR_DOCUMENT_NOT_FOUND,
+                f"document {document!r} is not supported",
+                data={"document": document},
+            )
+        project = self.open_project(project_id)
+        state = self._load_state(self._project_dir(project_id))
+        payload = state.get(document) or self._default_state(project)[document]
+        if document == "analog":
+            return dict(_validate_analog(payload).model_dump(mode="json", exclude_none=True))
+        if document == "schematic":
+            return dict(_validate_schematic(payload).model_dump(mode="json", exclude_none=True))
+        if document == "requirements":
+            return dict(_validate_requirements(payload).model_dump(mode="json", exclude_none=True))
+        if document == "digital":
+            return dict(_validate_digital(payload).model_dump(mode="json", exclude_none=True))
+        return dict(_validate_system(payload).model_dump(mode="json", exclude_none=True))
+
+    def validate_project(self, project_id: str) -> dict[str, Any]:
+        """Validate the manifest and every typed project document."""
+        project = self.open_project(project_id)
+        for document in DOCUMENT_NAMES:
+            self.read_document(project_id, document)
+        return {
+            "projectId": project.projectId,
+            "revision": project.revision,
+            "status": "pass",
+        }
+
     def _default_state(self, project: HardwareProject) -> dict[str, Any]:
         return {
             "requirements": {

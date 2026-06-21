@@ -24,6 +24,9 @@ export interface WorkspaceShellProps {
   ledFrameCount: number;
   onAdvancedToggle: (next: boolean) => void;
   onCreateClick: () => void;
+  onOpenClick: () => void;
+  onRedo: () => void;
+  onUndo: () => void;
   onValidate: () => void;
   onSurfaceChange: (next: Surface) => void;
   onBottomTabChange: (next: BottomTab) => void;
@@ -42,6 +45,9 @@ export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
         project={props.project}
         onAdvancedToggle={props.onAdvancedToggle}
         onCreateClick={props.onCreateClick}
+        onOpenClick={props.onOpenClick}
+        onRedo={props.onRedo}
+        onUndo={props.onUndo}
         onValidate={props.onValidate}
       />
       <Explorer

@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { CircuitBoard, Plus, Save, ShieldCheck } from "lucide-react";
+import { CircuitBoard, FolderOpen, Plus, Redo2, ShieldCheck, Undo2 } from "lucide-react";
 
 import { EngineProject } from "../engine";
 
@@ -9,6 +9,9 @@ export interface AppHeaderProps {
   busy: boolean;
   onAdvancedToggle: (next: boolean) => void;
   onCreateClick: () => void;
+  onOpenClick: () => void;
+  onRedo: () => void;
+  onUndo: () => void;
   onValidate: () => void;
 }
 
@@ -33,8 +36,14 @@ export function AppHeader(props: AppHeaderProps): ReactNode {
         <button aria-label="Create project" className="icon-button" disabled={props.busy} onClick={props.onCreateClick} title="Create project" type="button">
           <Plus size={17} />
         </button>
-        <button aria-label="Save project" className="icon-button" disabled={!props.project} title="Save project" type="button">
-          <Save size={17} />
+        <button aria-label="Open project" className="icon-button" disabled={props.busy} onClick={props.onOpenClick} title="Open project" type="button">
+          <FolderOpen size={17} />
+        </button>
+        <button aria-label="Undo" className="icon-button" disabled={!props.project || props.busy} onClick={props.onUndo} title="Undo" type="button">
+          <Undo2 size={17} />
+        </button>
+        <button aria-label="Redo" className="icon-button" disabled={!props.project || props.busy} onClick={props.onRedo} title="Redo" type="button">
+          <Redo2 size={17} />
         </button>
         <button className="command-button" disabled={!props.project || props.busy} onClick={props.onValidate} type="button">
           <ShieldCheck size={16} />Validate

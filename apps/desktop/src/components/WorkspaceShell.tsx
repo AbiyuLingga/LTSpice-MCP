@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 
 import { type BottomTab, type Surface, WorkspaceSurface } from "./WorkspaceSurface";
-import { type SchematicNode, type SchematicNodeKind } from "./componentRegistry";
+import { type SchematicNode, type SchematicNodeKind, type SchematicWire } from "./componentRegistry";
 import { ComponentLibrary } from "./ComponentLibrary";
 import { Explorer } from "./Explorer";
 import { Inspector } from "./Inspector";
@@ -19,6 +19,8 @@ export interface WorkspaceShellProps {
   error: string | null;
   jobMessage: string;
   schematicNodes: SchematicNode[];
+  schematicWires: SchematicWire[];
+  selectedIds: string[];
   selectedComponent: SchematicNodeKind | null;
   ledPixels: boolean[] | null;
   ledFrameCount: number;
@@ -33,6 +35,13 @@ export interface WorkspaceShellProps {
   onSelectComponent: (next: SchematicNodeKind | null) => void;
   onPlaceComponent: (x: number, y: number) => void;
   onMoveComponent: (id: string, x: number, y: number) => void;
+  onAddWire: (points: Array<[number, number]>) => void;
+  onDeleteSelection: (ids: string[]) => void;
+  onDeleteWire: (id: string) => void;
+  onExitPlacement: () => void;
+  onRotateSelection: (ids: string[]) => void;
+  onSelectionChange: (ids: string[]) => void;
+  onUpdateNode: (id: string, label: string, value: string) => void;
   onRunLedDemo: () => void;
 }
 
@@ -61,14 +70,27 @@ export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
           activeSurface={props.surface}
           ledFrameCount={props.ledFrameCount}
           ledPixels={props.ledPixels}
+          onAddWire={props.onAddWire}
+          onDeleteSelection={props.onDeleteSelection}
+          onDeleteWire={props.onDeleteWire}
+          onExitPlacement={props.onExitPlacement}
           onMoveComponent={props.onMoveComponent}
           onPlaceComponent={props.onPlaceComponent}
+          onRotateSelection={props.onRotateSelection}
           onRunLedDemo={props.onRunLedDemo}
           schematicNodes={props.schematicNodes}
+          schematicWires={props.schematicWires}
           selectedComponent={props.selectedComponent}
+          selectedIds={props.selectedIds}
+          onSelectionChange={props.onSelectionChange}
         />
       </section>
-      <Inspector advanced={props.advanced} selectedComponent={props.selectedComponent} />
+      <Inspector
+        advanced={props.advanced}
+        onApplyProperties={props.onUpdateNode}
+        selectedComponent={props.selectedComponent}
+        selectedNode={props.schematicNodes.find((node) => node.id === props.selectedIds[0]) ?? null}
+      />
       <BottomPanel bottomTab={props.bottomTab} jobMessage={props.jobMessage} onBottomTabChange={props.onBottomTabChange} />
     </main>
   );

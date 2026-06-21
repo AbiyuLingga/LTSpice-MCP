@@ -1,8 +1,8 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { Activity, Braces, CircuitBoard, Grid2X2 } from "lucide-react";
+import { Activity, Braces, Cable, CircuitBoard, Grid2X2, MousePointer2, RotateCw, Trash2 } from "lucide-react";
 
 import { SchematicSymbol, symbolLabel } from "./SchematicSymbol";
-import { type SchematicNode, type SchematicNodeKind } from "./componentRegistry";
+import { type SchematicNode, type SchematicNodeKind, type SchematicWire } from "./componentRegistry";
 
 export type Surface = "schematic" | "hdl" | "waveform" | "led";
 export type BottomTab = "problems" | "jobs" | "console";
@@ -13,10 +13,18 @@ type WorkspaceSurfaceProps = {
   ledFrameCount: number;
   ledPixels: boolean[] | null;
   onRunLedDemo(): void;
+  onAddWire(points: Array<[number, number]>): void;
+  onDeleteSelection(ids: string[]): void;
+  onDeleteWire(id: string): void;
+  onExitPlacement(): void;
   onPlaceComponent(x: number, y: number): void;
   onMoveComponent(id: string, x: number, y: number): void;
+  onRotateSelection(ids: string[]): void;
+  onSelectionChange(ids: string[]): void;
   schematicNodes: SchematicNode[];
+  schematicWires: SchematicWire[];
   selectedComponent: SchematicNodeKind | null;
+  selectedIds: string[];
 };
 
 type DragState = {
@@ -30,10 +38,18 @@ type DragState = {
 
 const GRID_SIZE = 16;
 
-export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onMoveComponent, onPlaceComponent, onRunLedDemo, schematicNodes, selectedComponent }: WorkspaceSurfaceProps) {
+export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAddWire, onDeleteSelection, onDeleteWire, onExitPlacement, onMoveComponent, onPlaceComponent, onRotateSelection, onRunLedDemo, onSelectionChange, schematicNodes, schematicWires, selectedComponent, selectedIds }: WorkspaceSurfaceProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
+  const [tool, setTool] = useState<"select" | "wire">("select");
+  const [wireStart, setWireStart] = useState<[number, number] | null>(null);
+  const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+  const overlapIds = new Set(
+    schematicNodes
+      .filter((node, index) => schematicNodes.some((other, otherIndex) => otherIndex !== index && other.x === node.x && other.y === node.y))
+      .map((node) => node.id),
+  );
 
   function setDragState(next: DragState | null) {
     dragRef.current = next;
@@ -131,31 +147,91 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onMo
   }
   return (
     <section className="schematic-surface" aria-label="Schematic editor work area">
-      <header className="surface-header"><CircuitBoard size={16} /><h1>Schematic</h1><span>{schematicNodes.length} components</span></header>
+      <header className="surface-header">
+        <CircuitBoard size={16} /><h1>Schematic</h1>
+        <span>{schematicNodes.length} components · {overlapIds.size} DRC issues</span>
+        <div aria-label="Schematic tools" className="surface-tools" role="toolbar">
+          <button aria-label="Select tool" aria-pressed={tool === "select"} onClick={() => { setTool("select"); setWireStart(null); onExitPlacement(); }} title="Select" type="button"><MousePointer2 size={15} /></button>
+          <button aria-label="Wire tool" aria-pressed={tool === "wire"} onClick={() => { setTool("wire"); setWireStart(null); onExitPlacement(); }} title="Wire" type="button"><Cable size={15} /></button>
+          <button aria-label="Rotate selection" disabled={!selectedIds.length} onClick={() => onRotateSelection(selectedIds)} title="Rotate" type="button"><RotateCw size={15} /></button>
+          <button
+            aria-label="Delete selection"
+            disabled={!selectedIds.length && !selectedWireId}
+            onClick={() => {
+              if (selectedWireId) {
+                onDeleteWire(selectedWireId);
+                setSelectedWireId(null);
+              } else onDeleteSelection(selectedIds);
+            }}
+            title="Delete"
+            type="button"
+          ><Trash2 size={15} /></button>
+        </div>
+      </header>
       <div
         aria-label="Schematic grid"
         className={selectedComponent ? "schematic-grid placement-mode" : "schematic-grid"}
         ref={gridRef}
         onClick={(event) => {
-          if (!selectedComponent || event.target !== event.currentTarget) return;
+          if (event.target !== event.currentTarget) return;
           const position = pointerPosition(event.clientX, event.clientY);
-          onPlaceComponent(position.x, position.y);
+          if (selectedComponent) {
+            onPlaceComponent(position.x, position.y);
+            return;
+          }
+          if (tool === "wire") {
+            if (!wireStart) setWireStart([position.x, position.y]);
+            else {
+              onAddWire([wireStart, [position.x, wireStart[1]], [position.x, position.y]]);
+              setWireStart(null);
+            }
+            return;
+          }
+          onSelectionChange([]);
+          setSelectedWireId(null);
         }}
       >
+        <svg aria-label="Schematic wires" className="wire-layer">
+          {schematicWires.map((wire) => (
+            <polyline
+              aria-label={`Wire ${wire.id}`}
+              className={selectedWireId === wire.id ? "wire is-selected" : "wire"}
+              key={wire.id}
+              onClick={(event) => { event.stopPropagation(); setSelectedWireId(wire.id); onSelectionChange([]); }}
+              points={wire.points.map(([x, y]) => `${x},${y}`).join(" ")}
+              role="button"
+              tabIndex={0}
+            />
+          ))}
+          {wireStart ? <circle className="wire-start" cx={wireStart[0]} cy={wireStart[1]} r={4} /> : null}
+        </svg>
         {schematicNodes.map((node) => {
           const preview = dragging?.id === node.id ? dragging : node;
           const label = symbolLabel(node.kind);
           return (
             <button
               aria-label={`${label} ${node.id}`}
-              className={dragging?.id === node.id ? "schematic-node is-dragging" : "schematic-node"}
+              aria-pressed={selectedIds.includes(node.id)}
+              className={[
+                "schematic-node",
+                dragging?.id === node.id ? "is-dragging" : "",
+                selectedIds.includes(node.id) ? "is-selected" : "",
+                overlapIds.has(node.id) ? "has-drc" : "",
+              ].filter(Boolean).join(" ")}
               key={node.id}
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                const next = event.shiftKey
+                  ? (selectedIds.includes(node.id) ? selectedIds.filter((id) => id !== node.id) : [...selectedIds, node.id])
+                  : [node.id];
+                onSelectionChange(next);
+                setSelectedWireId(null);
+              }}
               onKeyDown={(event) => moveWithKeyboard(event, node)}
               onPointerDown={(event) => beginDrag(event, node)}
               onPointerMove={continueDrag}
               onPointerUp={finishDrag}
-              style={{ left: preview.x, top: preview.y }}
+              style={{ left: preview.x, top: preview.y, transform: `translate(-50%, -50%) rotate(${node.rotation ?? 0}deg)` }}
               title={`Drag ${label}; use arrow keys to move by one grid unit`}
               type="button"
             >

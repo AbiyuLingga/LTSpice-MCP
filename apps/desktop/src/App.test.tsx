@@ -146,7 +146,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Place Resistor" }));
     fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 96, clientY: 144 });
 
-    expect(await screen.findByText("1 components")).toBeVisible();
+    expect(await screen.findByText(/1 components/)).toBeVisible();
     expect(bridge.request).toHaveBeenCalledWith(
       "design.applyChanges",
       expect.objectContaining({
@@ -219,6 +219,76 @@ describe("App", () => {
 
     const changes = vi.mocked(bridge.request).mock.calls.filter(([method]) => method === "design.applyChanges");
     expect(changes).toHaveLength(1);
-    expect(screen.getByText("1 components")).toBeVisible();
+    expect(screen.getByText(/1 components/)).toBeVisible();
+  });
+
+  it("selects, rotates, and deletes an installed component", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+
+    await createProject(user);
+    await user.click(screen.getByRole("button", { name: "Place Resistor" }));
+    fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 96, clientY: 144 });
+    await user.click(await screen.findByLabelText("Resistor resistor_1"));
+    await user.click(screen.getByRole("button", { name: "Rotate selection" }));
+
+    expect(bridge.request).toHaveBeenCalledWith(
+      "design.applyChanges",
+      expect.objectContaining({
+        changeSet: expect.objectContaining({
+          operations: [expect.objectContaining({ rotation: 90, type: "rotate_node" })],
+        }),
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Delete selection" }));
+    expect(screen.getByText(/0 components/)).toBeVisible();
+  });
+
+  it("draws an orthogonal wire with two grid clicks", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+
+    await createProject(user);
+    const grid = screen.getByLabelText("Schematic grid");
+    vi.spyOn(grid, "getBoundingClientRect").mockReturnValue(schematicBounds());
+    await user.click(screen.getByRole("button", { name: "Wire tool" }));
+    fireEvent.click(grid, { clientX: 32, clientY: 48 });
+    fireEvent.click(grid, { clientX: 160, clientY: 112 });
+
+    expect(await screen.findByLabelText("Wire wire_1")).toBeVisible();
+    expect(bridge.request).toHaveBeenCalledWith(
+      "design.applyChanges",
+      expect.objectContaining({
+        changeSet: expect.objectContaining({
+          operations: [expect.objectContaining({ type: "set_wire_route" })],
+        }),
+      }),
+    );
+  });
+
+  it("edits the selected component label and value in the inspector", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+
+    await createProject(user);
+    await user.click(screen.getByRole("button", { name: "Place Resistor" }));
+    fireEvent.click(screen.getByLabelText("Schematic grid"), { clientX: 96, clientY: 144 });
+    await user.click(await screen.findByLabelText("Resistor resistor_1"));
+    await user.type(screen.getByLabelText("Component label"), "Rload");
+    await user.type(screen.getByLabelText("Component value"), "1k");
+    await user.click(screen.getByRole("button", { name: "Apply properties" }));
+
+    expect(bridge.request).toHaveBeenCalledWith(
+      "design.applyChanges",
+      expect.objectContaining({
+        changeSet: expect.objectContaining({
+          operations: [expect.objectContaining({ label: "Rload", properties: { value: "1k" }, type: "set_node_properties" })],
+        }),
+      }),
+    );
   });
 });

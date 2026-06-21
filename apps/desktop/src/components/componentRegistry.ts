@@ -13,6 +13,14 @@ export interface SchematicNode {
   y: number;
   rotation?: 0 | 90 | 180 | 270;
   mirror?: boolean;
+  label?: string;
+  properties?: Record<string, unknown>;
+}
+
+export interface SchematicWire {
+  id: string;
+  net?: string;
+  points: Array<[number, number]>;
 }
 
 export interface ComponentDescriptor {

@@ -233,11 +233,28 @@ class RotateNodeOp(_BaseOp):
         return v
 
 
+class DeleteNodeOp(_BaseOp):
+    type: str = "delete_node"
+    symbolId: str
+
+
+class SetNodePropertiesOp(_BaseOp):
+    type: str = "set_node_properties"
+    symbolId: str
+    label: str | None = None
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
 class SetWireRouteOp(_BaseOp):
     type: str = "set_wire_route"
     wireId: str
     points: list[tuple[int, int]] = Field(min_length=2)
     net: str | None = None
+
+
+class RemoveWireOp(_BaseOp):
+    type: str = "remove_wire"
+    wireId: str
 
 
 class SetNetLabelOp(_BaseOp):
@@ -271,7 +288,10 @@ OP_TYPES: Final[tuple[type[_BaseOp], ...]] = (
     PlaceNodeOp,
     MoveNodeOp,
     RotateNodeOp,
+    DeleteNodeOp,
+    SetNodePropertiesOp,
     SetWireRouteOp,
+    RemoveWireOp,
     SetNetLabelOp,
     SetGridSizeOp,
     ReplaceDocumentOp,
@@ -712,6 +732,43 @@ def _op_rotate_node(state: dict[str, Any], op: RotateNodeOp) -> None:
     )
 
 
+def _op_delete_node(state: dict[str, Any], op: DeleteNodeOp) -> None:
+    view = _validate_schematic(state["schematic"])
+    symbols = [symbol for symbol in view.symbols if symbol.id != op.symbolId]
+    if len(symbols) == len(view.symbols):
+        raise WorkbenchV2Error(
+            ERR_CHANGESET_OPERATION_INVALID,
+            f"schematic symbol {op.symbolId!r} does not exist",
+            data={"symbolId": op.symbolId},
+        )
+    state["schematic"] = view.model_copy(update={"symbols": symbols}).model_dump(
+        mode="json", exclude_none=True
+    )
+
+
+def _op_set_node_properties(state: dict[str, Any], op: SetNodePropertiesOp) -> None:
+    view = _validate_schematic(state["schematic"])
+    symbols: list[SchematicSymbol] = []
+    updated = False
+    for symbol in view.symbols:
+        if symbol.id == op.symbolId:
+            symbols.append(
+                symbol.model_copy(update={"label": op.label, "properties": dict(op.properties)})
+            )
+            updated = True
+        else:
+            symbols.append(symbol)
+    if not updated:
+        raise WorkbenchV2Error(
+            ERR_CHANGESET_OPERATION_INVALID,
+            f"schematic symbol {op.symbolId!r} does not exist",
+            data={"symbolId": op.symbolId},
+        )
+    state["schematic"] = view.model_copy(update={"symbols": symbols}).model_dump(
+        mode="json", exclude_none=True
+    )
+
+
 def _op_set_wire_route(state: dict[str, Any], op: SetWireRouteOp) -> None:
     from .workbench_v2 import SchematicWire
 
@@ -728,6 +785,20 @@ def _op_set_wire_route(state: dict[str, Any], op: SetWireRouteOp) -> None:
     if not replaced:
         new_wires.append(wire)
     state["schematic"] = view.model_copy(update={"wires": new_wires}).model_dump(
+        mode="json", exclude_none=True
+    )
+
+
+def _op_remove_wire(state: dict[str, Any], op: RemoveWireOp) -> None:
+    view = _validate_schematic(state["schematic"])
+    wires = [wire for wire in view.wires if wire.id != op.wireId]
+    if len(wires) == len(view.wires):
+        raise WorkbenchV2Error(
+            ERR_CHANGESET_OPERATION_INVALID,
+            f"schematic wire {op.wireId!r} does not exist",
+            data={"wireId": op.wireId},
+        )
+    state["schematic"] = view.model_copy(update={"wires": wires}).model_dump(
         mode="json", exclude_none=True
     )
 
@@ -784,7 +855,10 @@ OP_REDUCERS = {
     "place_node": _op_place_node,
     "move_node": _op_move_node,
     "rotate_node": _op_rotate_node,
+    "delete_node": _op_delete_node,
+    "set_node_properties": _op_set_node_properties,
     "set_wire_route": _op_set_wire_route,
+    "remove_wire": _op_remove_wire,
     "set_net_label": _op_set_net_label,
     "set_grid_size": _op_set_grid_size,
     "replace_document": _op_replace_document,
@@ -1211,11 +1285,13 @@ __all__ = [
     "ChangeSet",
     "ChangeSetResult",
     "ConnectPinOp",
+    "DeleteNodeOp",
     "DesignService",
     "DisconnectPinOp",
     "MoveNodeOp",
     "PlaceNodeOp",
     "RemoveComponentOp",
+    "RemoveWireOp",
     "RenameComponentOp",
     "RenameNetOp",
     "ReplaceDocumentOp",
@@ -1223,6 +1299,7 @@ __all__ = [
     "SetComponentValueOp",
     "SetGridSizeOp",
     "SetNetLabelOp",
+    "SetNodePropertiesOp",
     "SetWireRouteOp",
     "WorkbenchV2Error",
 ]

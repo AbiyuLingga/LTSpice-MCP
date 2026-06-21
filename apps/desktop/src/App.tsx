@@ -10,7 +10,7 @@ import {
   WorkspaceSurface,
 } from "./components/WorkspaceSurface";
 import { WorkspaceShell } from "./components/WorkspaceShell";
-import { nextNodeId } from "./components/componentRegistry";
+import { nextNodeId, type SchematicWire } from "./components/componentRegistry";
 
 type AppProps = { bridge?: EngineBridge };
 type LedEmulation = { led?: { frames: Array<{ pixels: boolean[] }> }; status: string };
@@ -19,7 +19,7 @@ type SchematicDocument = {
   netLabels: unknown[];
   schemaVersion: "2.0";
   symbols: SchematicNode[];
-  wires: unknown[];
+  wires: SchematicWire[];
 };
 
 const LED_DEMO_ROM = [0x1002, 0xC0F0, 0x1003, 0xC0F1, 0x1001, 0xC0F2, 0xC0F4, 0xF000];
@@ -42,6 +42,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
   const [jobMessage, setJobMessage] = useState("No jobs running");
   const [schematic, setSchematic] = useState<SchematicDocument>(INITIAL_SCHEMATIC);
   const [selectedComponent, setSelectedComponent] = useState<SchematicNodeKind | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [ledPixels, setLedPixels] = useState<boolean[] | null>(null);
   const [ledFrameCount, setLedFrameCount] = useState(0);
 
@@ -176,6 +177,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
         projectId: project.projectId,
       });
       setSchematic({ ...schematic, symbols: [...schematic.symbols, nextNode] });
+      setSelectedIds([nextNode.id]);
       setProject({ ...project, revision: result.revision });
       setJobMessage(`${nextNode.id} placed`);
     } catch (caught) {
@@ -210,6 +212,95 @@ export function App({ bridge = desktopBridge }: AppProps) {
     }
   }
 
+  async function addWire(points: Array<[number, number]>) {
+    if (!project) return;
+    const wire: SchematicWire = { id: `wire_${schematic.wires.length + 1}`, points };
+    try {
+      const result = await bridge.request<{ revision: number }>("design.applyChanges", {
+        changeSet: {
+          baseRevision: project.revision,
+          operations: [{ document: "schematic", points, type: "set_wire_route", wireId: wire.id }],
+          schemaVersion: "2.0",
+        },
+        projectId: project.projectId,
+      });
+      setSchematic({ ...schematic, wires: [...schematic.wires, wire] });
+      setProject({ ...project, revision: result.revision });
+      setJobMessage(`${wire.id} connected`);
+    } catch (caught) {
+      setJobMessage(caught instanceof Error ? caught.message : "Unable to add wire");
+    }
+  }
+
+  async function rotateSelection(ids: string[]) {
+    if (!project || !ids.length) return;
+    const rotations = new Map(
+      schematic.symbols
+        .filter((node) => ids.includes(node.id))
+        .map((node) => [node.id, (((node.rotation ?? 0) + 90) % 360) as 0 | 90 | 180 | 270]),
+    );
+    const result = await bridge.request<{ revision: number }>("design.applyChanges", {
+      changeSet: {
+        baseRevision: project.revision,
+        operations: [...rotations].map(([symbolId, rotation]) => ({ document: "schematic", rotation, symbolId, type: "rotate_node" })),
+        schemaVersion: "2.0",
+      },
+      projectId: project.projectId,
+    });
+    setSchematic({
+      ...schematic,
+      symbols: schematic.symbols.map((node) => rotations.has(node.id) ? { ...node, rotation: rotations.get(node.id) } : node),
+    });
+    setProject({ ...project, revision: result.revision });
+  }
+
+  async function deleteSelection(ids: string[]) {
+    if (!project || !ids.length) return;
+    const result = await bridge.request<{ revision: number }>("design.applyChanges", {
+      changeSet: {
+        baseRevision: project.revision,
+        operations: ids.map((symbolId) => ({ document: "schematic", symbolId, type: "delete_node" })),
+        schemaVersion: "2.0",
+      },
+      projectId: project.projectId,
+    });
+    setSchematic({ ...schematic, symbols: schematic.symbols.filter((node) => !ids.includes(node.id)) });
+    setProject({ ...project, revision: result.revision });
+    setSelectedIds([]);
+  }
+
+  async function deleteWire(wireId: string) {
+    if (!project) return;
+    const result = await bridge.request<{ revision: number }>("design.applyChanges", {
+      changeSet: {
+        baseRevision: project.revision,
+        operations: [{ document: "schematic", type: "remove_wire", wireId }],
+        schemaVersion: "2.0",
+      },
+      projectId: project.projectId,
+    });
+    setSchematic({ ...schematic, wires: schematic.wires.filter((wire) => wire.id !== wireId) });
+    setProject({ ...project, revision: result.revision });
+  }
+
+  async function updateNode(id: string, label: string, value: string) {
+    if (!project) return;
+    const result = await bridge.request<{ revision: number }>("design.applyChanges", {
+      changeSet: {
+        baseRevision: project.revision,
+        operations: [{ document: "schematic", label, properties: { value }, symbolId: id, type: "set_node_properties" }],
+        schemaVersion: "2.0",
+      },
+      projectId: project.projectId,
+    });
+    setSchematic({
+      ...schematic,
+      symbols: schematic.symbols.map((node) => node.id === id ? { ...node, label, properties: { ...node.properties, value } } : node),
+    });
+    setProject({ ...project, revision: result.revision });
+    setJobMessage(`${id} properties updated`);
+  }
+
   return (
     <>
       <WorkspaceShell
@@ -220,21 +311,30 @@ export function App({ bridge = desktopBridge }: AppProps) {
         jobMessage={jobMessage}
         ledFrameCount={ledFrameCount}
         ledPixels={ledPixels}
+        schematicWires={schematic.wires}
         project={project}
         schematicNodes={schematic.symbols}
         selectedComponent={selectedComponent}
+        selectedIds={selectedIds}
         surface={surface}
         onAdvancedToggle={setAdvanced}
         onBottomTabChange={setBottomTab}
+        onAddWire={addWire}
         onCreateClick={() => setDialogMode("create")}
+        onDeleteSelection={deleteSelection}
+        onDeleteWire={deleteWire}
+        onExitPlacement={() => setSelectedComponent(null)}
         onMoveComponent={moveComponent}
         onOpenClick={() => setDialogMode("open")}
         onPlaceComponent={placeComponent}
         onRedo={() => changeHistory("design.redo")}
+        onRotateSelection={rotateSelection}
         onRunLedDemo={runLedDemo}
         onSelectComponent={setSelectedComponent}
+        onSelectionChange={(ids) => { setSelectedIds(ids); if (ids.length) setSelectedComponent(null); }}
         onSurfaceChange={setSurface}
         onUndo={() => changeHistory("design.undo")}
+        onUpdateNode={updateNode}
         onValidate={validateProject}
       />
       {dialogMode ? (

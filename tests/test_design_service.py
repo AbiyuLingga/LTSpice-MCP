@@ -307,6 +307,67 @@ def test_set_wire_route_persists(tmp_path: Path) -> None:
     assert view.wires[0].net == "vcc"
 
 
+def test_update_and_delete_schematic_items(tmp_path: Path) -> None:
+    _seed_v2_project(tmp_path)
+    service = DesignService(projects_root=str(_projects_root(tmp_path)))
+    service.apply_change_set(
+        "rc_lab",
+        {
+            "schemaVersion": PROJECT_SCHEMA_VERSION,
+            "baseRevision": 0,
+            "operations": [
+                {
+                    "document": "schematic",
+                    "type": "place_node",
+                    "symbolId": "r1",
+                    "kind": "resistor",
+                    "x": 16,
+                    "y": 32,
+                },
+                {
+                    "document": "schematic",
+                    "type": "set_wire_route",
+                    "wireId": "w1",
+                    "points": [[0, 0], [16, 0]],
+                },
+            ],
+        },
+    )
+    service.apply_change_set(
+        "rc_lab",
+        {
+            "schemaVersion": PROJECT_SCHEMA_VERSION,
+            "baseRevision": 1,
+            "operations": [
+                {
+                    "document": "schematic",
+                    "type": "set_node_properties",
+                    "symbolId": "r1",
+                    "label": "Rload",
+                    "properties": {"value": "1k"},
+                },
+                {"document": "schematic", "type": "remove_wire", "wireId": "w1"},
+            ],
+        },
+    )
+    updated = service.read_document("rc_lab", "schematic")
+    assert updated["symbols"][0]["label"] == "Rload"  # type: ignore[index]
+    assert updated["symbols"][0]["properties"] == {"value": "1k"}  # type: ignore[index]
+    assert updated["wires"] == []
+
+    service.apply_change_set(
+        "rc_lab",
+        {
+            "schemaVersion": PROJECT_SCHEMA_VERSION,
+            "baseRevision": 2,
+            "operations": [
+                {"document": "schematic", "type": "delete_node", "symbolId": "r1"},
+            ],
+        },
+    )
+    assert service.read_document("rc_lab", "schematic")["symbols"] == []
+
+
 def test_replace_document_compatibility_path(tmp_path: Path) -> None:
     _seed_v2_project(tmp_path)
     service = DesignService(projects_root=str(_projects_root(tmp_path)))

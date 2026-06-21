@@ -19,6 +19,7 @@ function fakeBridge(options: { ai?: boolean; waveform?: boolean } = {}): EngineB
         validation: { isValid: true, issues: [] },
       };
     }
+    if (method === "codex.install") return { configPath: "/projects/analog_lab/.codex/config.toml" };
     if (method === "project.create" || method === "project.open") {
       return {
         displayName: "Analog Lab",
@@ -159,6 +160,16 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Generate proposal" }));
     await user.click(await screen.findByRole("button", { name: "Apply" }));
     expect(vi.mocked(bridge.request).mock.calls.filter(([method]) => method === "design.applyChanges")).toHaveLength(1);
+  });
+
+  it("connects Codex to the open project", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+    await createProject(user);
+    await user.click(screen.getByRole("button", { name: "Connect Codex" }));
+    expect(bridge.request).toHaveBeenCalledWith("codex.install", { projectId: "analog_lab" });
+    expect(await screen.findByText(/Codex connected/)).toBeInTheDocument();
   });
 
   it("opens an existing project by id", async () => {

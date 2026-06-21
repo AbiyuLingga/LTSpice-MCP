@@ -1235,6 +1235,7 @@ def cmd_codex_install(args: argparse.Namespace) -> dict[str, Any]:
     result: CodexInstallResult = codex_install(
         config_path=Path(args.config).expanduser() if args.config else None,
         command=args.server_command,
+        project_dir=Path(args.project_dir).expanduser() if args.project_dir else None,
         dry_run=args.dry_run,
     )
     message = "Codex config updated (dry-run)" if result.dryRun else "Codex config updated"
@@ -1256,6 +1257,7 @@ def cmd_codex_uninstall(args: argparse.Namespace) -> dict[str, Any]:
 
     info = codex_uninstall(
         config_path=Path(args.config).expanduser() if args.config else None,
+        project_dir=Path(args.project_dir).expanduser() if args.project_dir else None,
         dry_run=args.dry_run,
     )
     message = "Codex config cleaned (dry-run)" if info["dryRun"] else "Codex config cleaned"
@@ -1268,6 +1270,7 @@ def cmd_codex_doctor(args: argparse.Namespace) -> dict[str, Any]:
 
     report = codex_doctor(
         config_path=Path(args.config).expanduser() if args.config else None,
+        project_dir=Path(args.project_dir).expanduser() if args.project_dir else None,
     )
     issues = list(report["issues"])
     success = not issues and bool(report.get("server"))
@@ -3822,7 +3825,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_codex_install.add_argument(
         "--config",
         metavar="PATH",
-        help="explicit path to the Codex config (default: platform default)",
+        help="explicit config path (compatibility override)",
+    )
+    p_codex_install.add_argument(
+        "--project-dir",
+        metavar="PATH",
+        help="hardware project directory (default: current directory)",
     )
     p_codex_install.add_argument(
         "--server-command",
@@ -3842,8 +3850,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_codex_uninstall.add_argument(
         "--config",
         metavar="PATH",
-        help="explicit path to the Codex config (default: platform default)",
+        help="explicit config path (compatibility override)",
     )
+    p_codex_uninstall.add_argument("--project-dir", metavar="PATH")
     p_codex_uninstall.add_argument(
         "--dry-run",
         action="store_true",
@@ -3856,8 +3865,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_codex_doctor.add_argument(
         "--config",
         metavar="PATH",
-        help="explicit path to the Codex config (default: platform default)",
+        help="explicit config path (compatibility override)",
     )
+    p_codex_doctor.add_argument("--project-dir", metavar="PATH")
 
     return parser
 

@@ -18,6 +18,7 @@ Covers:
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -101,7 +102,8 @@ def test_codex_install_writes_section(tmp_path: Path) -> None:
     assert result.dryRun is False
     text = config.read_text(encoding="utf-8")
     assert "[mcp_servers.ltagent]" in text
-    assert 'command = "ltagent-mcp"' in text
+    assert "ltagent-mcp" in text
+    assert Path(tomllib.loads(text)["mcp_servers"]["ltagent"]["command"]).is_absolute()
 
 
 def test_codex_install_is_idempotent(tmp_path: Path) -> None:
@@ -162,7 +164,7 @@ def test_codex_doctor_reports_installed(tmp_path: Path) -> None:
     codex_install(config_path=config)
     report = codex_doctor(config_path=config)
     assert report["server"] is not None
-    assert report["server"]["command"] == CODEX_COMMAND
+    assert Path(report["server"]["command"]).name == CODEX_COMMAND
     assert report["issues"] == []
 
 
@@ -254,6 +256,47 @@ def test_wb_v2_inspect_project_rejects_traversal(tmp_path: Path) -> None:
     result = tool_wb_v2_inspect_project("../escape", projects_root=str(tmp_path / "projects"))
     assert result["success"] is False
     assert result["data"]["code"] == "WB_PROJECT_ID_INVALID"
+
+
+def test_codex_install_is_project_scoped_and_global_config_is_untouched(
+    tmp_path: Path,
+) -> None:
+    project_dir = tmp_path / "projects" / "hardware_lab"
+    _seed_v2_project(project_dir, "hardware_lab")
+    global_config = tmp_path / "home" / ".codex" / "config.toml"
+    global_config.parent.mkdir(parents=True)
+    global_config.write_text('model = "keep-me"\n', encoding="utf-8")
+
+    result = codex_install(project_dir=project_dir)
+
+    assert result.path == project_dir / ".codex" / "config.toml"
+    assert global_config.read_text(encoding="utf-8") == 'model = "keep-me"\n'
+    payload = tomllib.loads(result.path.read_text(encoding="utf-8"))
+    server = payload["mcp_servers"]["ltagent"]
+    assert Path(server["command"]).is_absolute()
+    assert server["cwd"] == str(project_dir)
+    assert server["enabled_tools"] == [
+        "wb_v2_inspect_project",
+        "wb_v2_propose_ai_design",
+        "wb_v2_apply_change_set",
+    ]
+    assert server["default_tools_approval_mode"] == "prompt"
+    assert server["env"]["LTAGENT_PROJECTS_ROOT"] == str(project_dir.parent)
+    assert server["env"]["LTAGENT_PROJECT_SCOPE"] == "hardware_lab"
+
+
+def test_workbench_mcp_denies_sibling_project_when_scoped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    projects_root = tmp_path / "projects"
+    _seed_v2_project(projects_root / "allowed", "allowed")
+    _seed_v2_project(projects_root / "sibling", "sibling")
+    monkeypatch.setenv("LTAGENT_PROJECT_SCOPE", "allowed")
+
+    result = tool_wb_v2_inspect_project("sibling", projects_root=str(projects_root))
+
+    assert result["success"] is False
+    assert result["data"]["code"] == "WB_PROJECT_SCOPE_DENIED"
 
 
 def test_wb_v2_apply_change_set_replaces_manifest(tmp_path: Path) -> None:

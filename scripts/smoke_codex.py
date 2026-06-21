@@ -57,7 +57,7 @@ def main() -> int:
         # doctor reports issues + the SDK status. The MCP SDK is
         # optional; the smoke test only cares that the server
         # entry is in place.
-        assert doctor["data"]["server"]["command"] == "ltagent-mcp"
+        assert Path(doctor["data"]["server"]["command"]).name == "ltagent-mcp"
         assert doctor["data"]["issues"] == []
 
         uninstalled = _run(["codex", "uninstall", "--config", str(config)])

@@ -26,6 +26,7 @@ from .ai_provider import (
 )
 from .ai_workflow import AIWorkflow
 from .analog_workbench import ANALOG_TOOL_ID, discover_analog_tool, run_analog_simulation
+from .codex_install import codex_doctor, codex_install
 from .design_service import (
     DOCUMENT_NAMES,
     ERR_CHANGESET_CONFLICT,
@@ -70,6 +71,8 @@ METHODS: Final[tuple[str, ...]] = (
     "ai.provider.status",
     "ai.repair",
     "artifact.readSlice",
+    "codex.install",
+    "codex.status",
     "design.applyChanges",
     "design.get",
     "design.redo",
@@ -131,6 +134,8 @@ class EngineService:
             "ai.provider.status": self._ai_provider_status,
             "ai.repair": self._ai_repair,
             "artifact.readSlice": self._artifact_read_slice,
+            "codex.install": self._codex_install,
+            "codex.status": self._codex_status,
             "design.applyChanges": self._design_apply_changes,
             "design.get": self._design_get,
             "design.redo": self._design_redo,
@@ -428,6 +433,27 @@ class EngineService:
         )
         migrate_workbench_project_to_v2(project.project_dir, projects_root=self.projects_root)
         return self._project_payload(self.design.open_project(project_id))
+
+    def _codex_install(self, params: Mapping[str, object]) -> dict[str, object]:
+        project_id = self._project_id(params)
+        project_dir = self.design._project_dir(project_id)
+        result = codex_install(project_dir=project_dir)
+        return {
+            "configured": True,
+            "configPath": str(result.path),
+            "server": result.server,
+        }
+
+    def _codex_status(self, params: Mapping[str, object]) -> dict[str, object]:
+        project_id = self._project_id(params)
+        project_dir = self.design._project_dir(project_id)
+        report = codex_doctor(project_dir=project_dir)
+        return {
+            "configured": report["server"] is not None and not report["issues"],
+            "configPath": report["path"],
+            "issues": report["issues"],
+            "server": report["server"],
+        }
 
     def _project_open(self, params: Mapping[str, object]) -> dict[str, object]:
         return self._project_payload(self.design.open_project(self._project_id(params)))

@@ -4,15 +4,13 @@ Installs, inspects, and removes the ``ltagent-mcp`` entry in the
 local Codex configuration so a Codex client picks up the curated
 workbench v2 tools.
 
-The Codex config is a TOML file located at one of (in order):
-
-* ``$LTAGENT_CODEX_CONFIG`` (explicit override)
-* ``$XDG_CONFIG_HOME/codex/config.toml``
-* ``~/.config/codex/config.toml``
+The default Codex config is ``<hardware-project>/.codex/config.toml``.
+``$LTAGENT_CODEX_CONFIG`` and ``--config`` remain compatibility overrides.
 
 The file may or may not exist; :func:`cmd_codex_install` creates
 the parent directory and merges a single ``[mcp_servers.ltagent]``
-section. Existing entries are preserved.
+section. Existing entries are preserved. The generated server command and cwd
+are absolute, tools are allowlisted, and every tool defaults to prompt approval.
 
 The functions in this module are pure-Python and stdlib-only.
 They never run subprocesses. They never touch the network.
@@ -20,7 +18,9 @@ They never run subprocesses. They never touch the network.
 
 from __future__ import annotations
 
+import json
 import os
+import shutil
 import sys
 import tomllib
 from dataclasses import dataclass, field
@@ -30,39 +30,61 @@ from typing import Any
 CODEX_PROJECT_NAME = "ltagent"
 CODEX_COMMAND = "ltagent-mcp"
 CODEX_SECTION = "mcp_servers"
+CODEX_ENABLED_TOOLS = [
+    "wb_v2_inspect_project",
+    "wb_v2_propose_ai_design",
+    "wb_v2_apply_change_set",
+]
 CODEX_SDK_ERROR_HINT = 'pip install "ltspice-ai-agent[mcp]" (or run `uv add ltspice-ai-agent[mcp]`)'
 
 ENV_CODEX_CONFIG = "LTAGENT_CODEX_CONFIG"
 
 
-def get_default_codex_config_path() -> Path:
-    """Return the platform-appropriate default Codex config path.
-
-    The path is not guaranteed to exist.
-    """
-    if sys.platform == "win32":
-        appdata = os.environ.get("APPDATA")
-        if appdata:
-            return Path(appdata) / "codex" / "config.toml"
-        return Path.home() / "AppData" / "Roaming" / "codex" / "config.toml"
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    if xdg:
-        return Path(xdg) / "codex" / "config.toml"
-    return Path.home() / ".config" / "codex" / "config.toml"
+def get_default_codex_config_path(project_dir: Path | None = None) -> Path:
+    """Return the trusted-project Codex config path."""
+    root = (project_dir or Path.cwd()).expanduser().resolve(strict=False)
+    return root / ".codex" / "config.toml"
 
 
-def resolve_codex_config_path(explicit: str | None = None) -> Path:
+def resolve_codex_config_path(
+    explicit: str | None = None, *, project_dir: Path | None = None
+) -> Path:
     """Resolve the Codex config path, allowing explicit override.
 
-    Resolution order: explicit > ``LTAGENT_CODEX_CONFIG`` env >
-    :func:`get_default_codex_config_path`.
+    Resolution order: explicit > ``LTAGENT_CODEX_CONFIG`` env > project config.
     """
     if explicit:
         return Path(explicit).expanduser()
     env = os.environ.get(ENV_CODEX_CONFIG)
     if env:
         return Path(env).expanduser()
-    return get_default_codex_config_path().expanduser()
+    return get_default_codex_config_path(project_dir).expanduser()
+
+
+def _resolve_server_command(command: str) -> str:
+    candidate = Path(command).expanduser()
+    if candidate.is_absolute():
+        return str(candidate.resolve(strict=False))
+    discovered = shutil.which(command)
+    if discovered:
+        return str(Path(discovered).resolve())
+    sibling = Path(sys.prefix) / "bin" / command
+    if sibling.is_file():
+        return str(sibling.resolve())
+    raise FileNotFoundError(f"Codex MCP command {command!r} was not found")
+
+
+def _project_identity(project_dir: Path) -> tuple[str | None, Path]:
+    root = project_dir.expanduser().resolve(strict=False)
+    manifest = root / "hardware.project.json"
+    if not manifest.is_file():
+        return None, root.parent
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None, root.parent
+    project_id = payload.get("projectId")
+    return (project_id if isinstance(project_id, str) and project_id else None), root.parent
 
 
 @dataclass(frozen=True)
@@ -131,6 +153,7 @@ def codex_install(
     *,
     config_path: Path | None = None,
     command: str = CODEX_COMMAND,
+    project_dir: Path | None = None,
     dry_run: bool = False,
 ) -> CodexInstallResult:
     """Write the ``[mcp_servers.ltagent]`` section into the Codex config.
@@ -139,11 +162,35 @@ def codex_install(
     exist yet it is created with a header comment; existing
     ``[mcp_servers.*]`` sections are preserved.
     """
-    target = resolve_codex_config_path(str(config_path) if config_path is not None else None)
+    scope_dir = (
+        project_dir.expanduser().resolve(strict=False)
+        if project_dir is not None
+        else (
+            config_path.parent.parent.resolve(strict=False)
+            if config_path is not None and config_path.parent.name == ".codex"
+            else Path.cwd().resolve()
+        )
+    )
+    target = resolve_codex_config_path(
+        str(config_path) if config_path is not None else None,
+        project_dir=scope_dir,
+    )
     payload = _read_toml(target)
+    project_id, projects_root = _project_identity(scope_dir)
+    environment = {"LTAGENT_PROJECTS_ROOT": str(projects_root)}
+    if project_id is not None:
+        environment["LTAGENT_PROJECT_SCOPE"] = project_id
     server_section: dict[str, Any] = {
-        "command": command,
+        "command": _resolve_server_command(command),
         "args": [],
+        "cwd": str(scope_dir),
+        "enabled": True,
+        "required": True,
+        "enabled_tools": list(CODEX_ENABLED_TOOLS),
+        "default_tools_approval_mode": "prompt",
+        "startup_timeout_sec": 10,
+        "tool_timeout_sec": 60,
+        "env": environment,
     }
     servers = payload.get(CODEX_SECTION, {})
     if not isinstance(servers, dict):
@@ -167,10 +214,13 @@ def codex_install(
 def codex_uninstall(
     *,
     config_path: Path | None = None,
+    project_dir: Path | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Remove the ``[mcp_servers.ltagent]`` section from the Codex config."""
-    target = resolve_codex_config_path(str(config_path) if config_path is not None else None)
+    target = resolve_codex_config_path(
+        str(config_path) if config_path is not None else None, project_dir=project_dir
+    )
     payload = _read_toml(target)
     servers = payload.get(CODEX_SECTION, {})
     removed = False
@@ -199,9 +249,12 @@ def codex_uninstall(
 def codex_doctor(
     *,
     config_path: Path | None = None,
+    project_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Inspect the Codex config and report on the ltagent server entry."""
-    target = resolve_codex_config_path(str(config_path) if config_path is not None else None)
+    target = resolve_codex_config_path(
+        str(config_path) if config_path is not None else None, project_dir=project_dir
+    )
     payload = _read_toml(target)
     servers = payload.get(CODEX_SECTION, {})
     if not isinstance(servers, dict):
@@ -217,11 +270,32 @@ def codex_doctor(
         )
     else:
         command = entry.get("command")
-        if command != CODEX_COMMAND:
+        if not isinstance(command, str) or not Path(command).is_absolute():
             issues.append(
                 {
                     "code": "CODEX_COMMAND_MISMATCH",
-                    "detail": f"expected command '{CODEX_COMMAND}', got '{command}'",
+                    "detail": f"expected an absolute MCP command, got '{command}'",
+                }
+            )
+        elif not Path(command).is_file():
+            issues.append(
+                {
+                    "code": "CODEX_COMMAND_MISSING",
+                    "detail": f"MCP command does not exist: {command}",
+                }
+            )
+        if entry.get("default_tools_approval_mode") != "prompt":
+            issues.append(
+                {
+                    "code": "CODEX_APPROVAL_POLICY_MISMATCH",
+                    "detail": "MCP tools must default to prompt approval",
+                }
+            )
+        if entry.get("enabled_tools") != CODEX_ENABLED_TOOLS:
+            issues.append(
+                {
+                    "code": "CODEX_TOOL_ALLOWLIST_MISMATCH",
+                    "detail": "MCP enabled_tools does not match the curated workbench surface",
                 }
             )
     sdk_status = _probe_mcp_sdk()
@@ -249,6 +323,7 @@ def _probe_mcp_sdk() -> dict[str, Any]:
 
 __all__ = [
     "CODEX_COMMAND",
+    "CODEX_ENABLED_TOOLS",
     "CODEX_PROJECT_NAME",
     "CODEX_SECTION",
     "CodexInstallResult",

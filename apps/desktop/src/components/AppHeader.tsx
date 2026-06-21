@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { CircuitBoard, FolderOpen, Plus, Redo2, ShieldCheck, Undo2, Wrench } from "lucide-react";
+import { CircuitBoard, FolderOpen, Plug, Plus, Redo2, ShieldCheck, Undo2, Wrench } from "lucide-react";
 
 import { EngineProject } from "../engine";
 
@@ -9,6 +9,7 @@ export interface AppHeaderProps {
   busy: boolean;
   onAdvancedToggle: (next: boolean) => void;
   onCreateClick: () => void;
+  onConnectCodex: () => void;
   onOpenClick: () => void;
   onRedo: () => void;
   onUndo: () => void;
@@ -48,6 +49,9 @@ export function AppHeader(props: AppHeaderProps): ReactNode {
         </button>
         <button className="command-button" disabled={!props.project || props.busy} onClick={props.onValidate} type="button">
           <ShieldCheck size={16} />Validate
+        </button>
+        <button aria-label="Connect Codex" className="icon-button" disabled={!props.project || props.busy} onClick={props.onConnectCodex} title="Connect Codex" type="button">
+          <Plug size={16} />
         </button>
         <button aria-label="Tool doctor" className="icon-button" disabled={props.busy} onClick={props.onToolDoctor} title="Tool doctor" type="button">
           <Wrench size={16} />

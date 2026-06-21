@@ -83,6 +83,8 @@ def test_handshake_advertises_versioned_local_capabilities(tmp_path: Path) -> No
                     "ai.provider.status",
                     "ai.repair",
                     "artifact.readSlice",
+                    "codex.install",
+                    "codex.status",
                     "design.applyChanges",
                     "design.get",
                     "design.redo",
@@ -366,6 +368,20 @@ def test_ai_provider_configuration_never_persists_secret(
     )
     assert "minimax-private-key" not in provider_file.read_text(encoding="utf-8")
     assert "apiKey" not in json.dumps(response)
+    service.close()
+
+
+def test_desktop_can_install_project_scoped_codex_config(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    service.handle(_request(1, "project.create", {"projectId": "codex_lab"}))
+
+    installed = service.handle(_request(2, "codex.install", {"projectId": "codex_lab"}))
+    status = service.handle(_request(3, "codex.status", {"projectId": "codex_lab"}))
+
+    config = tmp_path / "projects" / "codex_lab" / ".codex" / "config.toml"
+    assert installed["result"]["configPath"] == str(config)  # type: ignore[index]
+    assert status["result"]["configured"] is True  # type: ignore[index]
+    assert config.is_file()
     service.close()
 
 

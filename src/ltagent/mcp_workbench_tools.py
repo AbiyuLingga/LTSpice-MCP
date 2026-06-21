@@ -23,6 +23,7 @@ projects root resolved by :mod:`ltagent.projects_root`.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,8 @@ from .workbench_v2 import (
     HardwareProject,
 )
 
+ENV_PROJECT_SCOPE = "LTAGENT_PROJECT_SCOPE"
+
 
 def _workbench_handler_result(
     command: str, success: bool, message: str, data: dict[str, Any]
@@ -73,6 +76,22 @@ def _resolve_projects_root(
     if explicit:
         return resolve_projects_root(explicit)
     return resolve_projects_root(None)
+
+
+def _scope_error(command: str, project_id: str) -> dict[str, Any] | None:
+    scoped_project = os.environ.get(ENV_PROJECT_SCOPE)
+    if scoped_project and project_id != scoped_project:
+        return _workbench_handler_result(
+            command,
+            False,
+            "Project is outside the Codex MCP scope",
+            {
+                "code": "WB_PROJECT_SCOPE_DENIED",
+                "projectId": project_id,
+                "scopedProjectId": scoped_project,
+            },
+        )
+    return None
 
 
 def _read_documents(project_dir: Path) -> dict[str, Any]:
@@ -107,6 +126,8 @@ def tool_wb_v2_inspect_project(
     No document is mutated.
     """
     command = "wb_v2_inspect_project"
+    if denied := _scope_error(command, project_id):
+        return denied
     if not project_id or "/" in project_id or project_id.startswith("."):
         return _workbench_handler_result(
             command,
@@ -156,6 +177,8 @@ def tool_wb_v2_apply_change_set(
     client can update its in-memory view.
     """
     command = "wb_v2_apply_change_set"
+    if denied := _scope_error(command, project_id):
+        return denied
     if not project_id or "/" in project_id or project_id.startswith("."):
         return _workbench_handler_result(
             command,
@@ -228,6 +251,8 @@ def tool_wb_v2_propose_ai_design(
     can present a diff and ask the user to accept or reject.
     """
     command = "wb_v2_propose_ai_design"
+    if denied := _scope_error(command, project_id):
+        return denied
     if not project_id or "/" in project_id or project_id.startswith("."):
         return _workbench_handler_result(
             command,

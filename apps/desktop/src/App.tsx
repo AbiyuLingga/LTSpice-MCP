@@ -155,7 +155,11 @@ export function App({ bridge = desktopBridge }: AppProps) {
       if (result.changed) await loadProject(result.project);
     }
     window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
+    const refreshTimer = window.setInterval(() => { void refresh(); }, 1000);
+    return () => {
+      window.clearInterval(refreshTimer);
+      window.removeEventListener("focus", refresh);
+    };
   }, [bridge, project]);
 
   async function createProject(input: { displayName: string; projectId: string }) {
@@ -233,6 +237,20 @@ export function App({ bridge = desktopBridge }: AppProps) {
       setJobMessage(`Tool doctor ${result.status}: ${available}/${result.tools.length} available`);
     } catch (caught) {
       setJobMessage(caught instanceof Error ? caught.message : "Tool doctor failed");
+    }
+  }
+
+  async function connectCodex() {
+    if (!project) return;
+    setBottomTab("jobs");
+    setJobMessage("Connecting Codex…");
+    try {
+      const result = await bridge.request<{ configPath: string }>("codex.install", {
+        projectId: project.projectId,
+      });
+      setJobMessage(`Codex connected: ${result.configPath}`);
+    } catch (caught) {
+      setJobMessage(caught instanceof Error ? caught.message : "Codex connection failed");
     }
   }
 
@@ -590,6 +608,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
         onBottomTabChange={setBottomTab}
         onCancelJob={cancelJob}
         onAddWire={addWire}
+        onConnectCodex={connectCodex}
         onCreateClick={() => setDialogMode("create")}
         onDeleteSelection={deleteSelection}
         onDeleteWire={deleteWire}

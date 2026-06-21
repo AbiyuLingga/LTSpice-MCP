@@ -50,13 +50,39 @@ ltagent-mcp --list-resources
 ```
 
 Expected output is a structured JSON contract (SPEC.md §2). The
-current integrated surface contains exactly **24 curated tools** and
-**14 curated URIs** across analog, Tiny8 digital, and the Phase 13
+current integrated surface contains exactly **27 curated tools** and
+**16 curated URIs** across analog, Tiny8 digital, and the Phase 13
 live-editing/Math Core prototype. There is **no** `run_shell`,
 `execute_python`, `read_file`, or `write_file` tool — and no `.raw`
 resource.
 
 ## 3. Wire the server into a client
+
+### Codex project integration
+
+From a Workbench project directory, run:
+
+```bash
+ltagent codex install --project-dir /absolute/path/to/project
+ltagent codex doctor --project-dir /absolute/path/to/project
+```
+
+The desktop plug button performs the same installation. It writes only
+`<project>/.codex/config.toml`; the user-level `~/.codex/config.toml` is not
+modified. The generated entry uses an absolute MCP command and cwd, scopes the
+server to that project ID, exposes only the three Workbench v2 inspect,
+propose, and apply tools, and asks for approval before tool calls.
+
+Codex loads project config only after the project is trusted. Open the project
+directory in Codex, trust it when prompted, then use `/mcp` or:
+
+```bash
+codex mcp get ltagent --json
+```
+
+The Workbench checks the project revision every second and on window focus, so
+an accepted Codex change appears without reopening the project. Revision
+conflicts are rejected rather than overwriting newer desktop edits.
 
 ### 3.1 Claude Code
 

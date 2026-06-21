@@ -32,6 +32,7 @@ export interface WorkspaceShellProps {
   onAdvancedToggle: (next: boolean) => void;
   onAiApplied: (project: EngineProject) => void;
   onCreateClick: () => void;
+  onConnectCodex: () => void;
   onOpenClick: () => void;
   onRedo: () => void;
   onUndo: () => void;
@@ -65,6 +66,7 @@ export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
         project={props.project}
         onAdvancedToggle={props.onAdvancedToggle}
         onCreateClick={props.onCreateClick}
+        onConnectCodex={props.onConnectCodex}
         onOpenClick={props.onOpenClick}
         onRedo={props.onRedo}
         onUndo={props.onUndo}

@@ -18,6 +18,7 @@ export interface WorkspaceShellProps {
   busy: boolean;
   error: string | null;
   jobMessage: string;
+  activeJobId: string | null;
   schematicNodes: SchematicNode[];
   schematicWires: SchematicWire[];
   selectedIds: string[];
@@ -43,6 +44,9 @@ export interface WorkspaceShellProps {
   onSelectionChange: (ids: string[]) => void;
   onUpdateNode: (id: string, label: string, value: string) => void;
   onRunLedDemo: () => void;
+  onRunSimulation: (domain: "analog" | "digital") => void;
+  onRunSynthesis: () => void;
+  onCancelJob: () => void;
 }
 
 export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
@@ -78,6 +82,8 @@ export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
           onPlaceComponent={props.onPlaceComponent}
           onRotateSelection={props.onRotateSelection}
           onRunLedDemo={props.onRunLedDemo}
+          onRunSimulation={props.onRunSimulation}
+          onRunSynthesis={props.onRunSynthesis}
           schematicNodes={props.schematicNodes}
           schematicWires={props.schematicWires}
           selectedComponent={props.selectedComponent}
@@ -91,7 +97,7 @@ export function WorkspaceShell(props: WorkspaceShellProps): ReactNode {
         selectedComponent={props.selectedComponent}
         selectedNode={props.schematicNodes.find((node) => node.id === props.selectedIds[0]) ?? null}
       />
-      <BottomPanel bottomTab={props.bottomTab} jobMessage={props.jobMessage} onBottomTabChange={props.onBottomTabChange} />
+      <BottomPanel activeJobId={props.activeJobId} bottomTab={props.bottomTab} jobMessage={props.jobMessage} onBottomTabChange={props.onBottomTabChange} onCancelJob={props.onCancelJob} />
     </main>
   );
 }

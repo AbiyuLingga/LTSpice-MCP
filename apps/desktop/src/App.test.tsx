@@ -40,6 +40,12 @@ function fakeBridge(): EngineBridge {
         status: "halted",
       };
     }
+    if (method === "simulation.start" || method === "synthesis.start") {
+      return { jobId: "job_1", state: "pending" };
+    }
+    if (method === "job.status") {
+      return { jobId: "job_1", result: { status: "skipped" }, state: "skipped" };
+    }
     if (method === "design.applyChanges") {
       revision += 1;
       return { changedDocuments: ["schematic"], revision };
@@ -135,6 +141,22 @@ describe("App", () => {
 
     expect(await screen.findByText("1 frame rendered")).toBeVisible();
     expect(bridge.request).toHaveBeenCalledWith("digital.emulate", expect.any(Object));
+  });
+
+  it("starts and observes an analog simulation job", async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge();
+    render(<App bridge={bridge} />);
+    await createProject(user);
+    await user.click(screen.getByRole("tab", { name: "Waveform" }));
+
+    await user.click(screen.getByRole("button", { name: "Run analog simulation" }));
+
+    expect(await screen.findByText("Simulation skipped", {}, { timeout: 1000 })).toBeVisible();
+    expect(bridge.request).toHaveBeenCalledWith("simulation.start", {
+      domain: "analog",
+      projectId: "analog_lab",
+    });
   });
 
   it("places a selected component through a revision-guarded change set", async () => {

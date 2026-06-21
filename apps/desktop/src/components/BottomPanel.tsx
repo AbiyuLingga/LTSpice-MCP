@@ -1,11 +1,13 @@
 import { type ReactNode } from "react";
-import { Gauge, TerminalSquare } from "lucide-react";
+import { Gauge, Square, TerminalSquare } from "lucide-react";
 
 import { type BottomTab } from "./WorkspaceSurface";
 
 export interface BottomPanelProps {
   bottomTab: BottomTab;
   jobMessage: string;
+  activeJobId: string | null;
+  onCancelJob: () => void;
   onBottomTabChange: (next: BottomTab) => void;
 }
 
@@ -44,6 +46,11 @@ export function BottomPanel(props: BottomPanelProps): ReactNode {
           <span className="job-line">
             <Gauge size={15} />
             {props.jobMessage}
+            {props.activeJobId ? (
+              <button aria-label="Cancel job" className="icon-button compact" onClick={props.onCancelJob} title="Cancel job" type="button">
+                <Square size={12} />
+              </button>
+            ) : null}
           </span>
         ) : null}
         {props.bottomTab === "console" ? (

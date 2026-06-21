@@ -21,6 +21,7 @@ import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Event
 from typing import Any, ClassVar, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -33,6 +34,8 @@ from .jobs import (
     RunManifest,
     utc_now_iso,
 )
+from .security import PathSafetyError, safe_resolve_under
+from .tool_process import run_tool_process
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -68,6 +71,7 @@ ERR_DIGITAL_UNSUPPORTED: Final[str] = "WORKBENCH_DIGITAL_UNSUPPORTED"
 ERR_DIGITAL_TOPOLOGY_INVALID: Final[str] = "WORKBENCH_DIGITAL_TOPOLOGY_INVALID"
 ERR_DIGITAL_TOOL_MISSING: Final[str] = "WORKBENCH_DIGITAL_TOOL_MISSING"
 ERR_DIGITAL_TIMEOUT: Final[str] = "WORKBENCH_DIGITAL_TIMEOUT"
+ERR_DIGITAL_CANCELLED: Final[str] = "WORKBENCH_DIGITAL_CANCELLED"
 ERR_DIGITAL_SIMULATE_FAILED: Final[str] = "WORKBENCH_DIGITAL_SIMULATE_FAILED"
 ERR_DIGITAL_SYNTHESIS_FAILED: Final[str] = "WORKBENCH_DIGITAL_SYNTHESIS_FAILED"
 
@@ -332,6 +336,8 @@ def run_simulation(
     *,
     tool_id: str = IVERILOG_TOOL_ID,
     timeout_seconds: float = 30.0,
+    cancel_event: Event | None = None,
+    run_dir: Path | None = None,
 ) -> DigitalRunResult:
     """Compile + simulate a :class:`DigitalDesignIR` with the chosen tool.
 
@@ -366,8 +372,7 @@ def run_simulation(
             skipped_reason=f"{tool_id} binary not found",
         )
 
-    run_dir = project_dir / "runs" / manifest.jobId
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = _resolve_run_dir(project_dir, manifest.jobId, run_dir)
     verilog_path = run_dir / f"{design.topModule}.v"
     verilog_path.write_text(design_to_verilog(design), encoding="utf-8")
     sim_path = run_dir / f"tb_{design.topModule}.out"
@@ -378,11 +383,35 @@ def run_simulation(
         argv = [str(tool.executable), "--cc", str(verilog_path)]
 
     started = utc_now_iso()
-    try:
-        completed = subprocess.run(
-            argv, capture_output=True, text=True, timeout=timeout_seconds, check=False
+    completed = run_tool_process(
+        argv,
+        timeout_seconds=timeout_seconds,
+        cancel_event=cancel_event,
+    )
+    if completed.cancelled:
+        return DigitalRunResult(
+            bundle=ResultBundle(
+                status="cancelled",
+                run=RunManifest(
+                    schemaVersion="1.0",
+                    runId=f"run_{manifest.jobId}",
+                    jobId=manifest.jobId,
+                    toolVersion=tool.version,
+                ),
+                errors=[],
+            ),
+            manifest=_update_manifest(
+                manifest,
+                state=JobState.CANCELLED,
+                finishedAt=utc_now_iso(),
+                errorCode=ERR_DIGITAL_CANCELLED,
+                errorMessage="digital simulation was cancelled",
+            ),
+            project_id=project_id,
+            tool=tool,
         )
-    except subprocess.TimeoutExpired as exc:
+    if completed.timed_out:
+        message = f"digital simulation timed out after {timeout_seconds:g} seconds"
         return DigitalRunResult(
             bundle=ResultBundle(
                 status="timed_out",
@@ -392,7 +421,7 @@ def run_simulation(
                     jobId=manifest.jobId,
                     toolVersion=tool.version,
                 ),
-                errors=[str(exc)],
+                errors=[message],
             ),
             manifest=manifest,
             project_id=project_id,
@@ -456,6 +485,8 @@ def run_synthesis(
     design: DigitalDesignIR,
     *,
     timeout_seconds: float = 60.0,
+    cancel_event: Event | None = None,
+    run_dir: Path | None = None,
 ) -> DigitalRunResult:
     """Run ``yosys -p 'read_verilog ...; synth ...'`` on the generated source.
 
@@ -483,19 +514,42 @@ def run_synthesis(
             tool=None,
             skipped_reason="yosys binary not found",
         )
-    run_dir = project_dir / "runs" / manifest.jobId
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = _resolve_run_dir(project_dir, manifest.jobId, run_dir)
     verilog_path = run_dir / f"{design.topModule}.v"
     verilog_path.write_text(design_to_verilog(design), encoding="utf-8")
     log_path = run_dir / "synth.log"
     script = f"read_verilog {verilog_path}; synth; stat"
     argv = [str(tool.executable), "-p", script, "-l", str(log_path)]
     started = utc_now_iso()
-    try:
-        completed = subprocess.run(
-            argv, capture_output=True, text=True, timeout=timeout_seconds, check=False
+    completed = run_tool_process(
+        argv,
+        timeout_seconds=timeout_seconds,
+        cancel_event=cancel_event,
+    )
+    if completed.cancelled:
+        return DigitalRunResult(
+            bundle=ResultBundle(
+                status="cancelled",
+                run=RunManifest(
+                    schemaVersion="1.0",
+                    runId=f"run_{manifest.jobId}",
+                    jobId=manifest.jobId,
+                    toolVersion=tool.version,
+                ),
+                errors=[],
+            ),
+            manifest=_update_manifest(
+                manifest,
+                state=JobState.CANCELLED,
+                finishedAt=utc_now_iso(),
+                errorCode=ERR_DIGITAL_CANCELLED,
+                errorMessage="digital synthesis was cancelled",
+            ),
+            project_id=project_id,
+            tool=tool,
         )
-    except subprocess.TimeoutExpired as exc:
+    if completed.timed_out:
+        message = f"digital synthesis timed out after {timeout_seconds:g} seconds"
         return DigitalRunResult(
             bundle=ResultBundle(
                 status="timed_out",
@@ -505,7 +559,7 @@ def run_synthesis(
                     jobId=manifest.jobId,
                     toolVersion=tool.version,
                 ),
-                errors=[str(exc)],
+                errors=[message],
             ),
             manifest=manifest,
             project_id=project_id,
@@ -557,6 +611,22 @@ def _parse_yosys_stat(log_text: str) -> list[dict[str, Any]]:
     if wire_match:
         measurements.append({"name": "wire_count", "value": int(wire_match.group(1))})
     return measurements
+
+
+def _resolve_run_dir(project_dir: Path, job_id: str, requested: Path | None) -> Path:
+    runs_dir = project_dir / "runs"
+    if requested is None:
+        target = runs_dir / job_id
+        target.mkdir(parents=True, exist_ok=True)
+        return target
+    try:
+        return safe_resolve_under(requested, runs_dir, must_exist=True)
+    except PathSafetyError as exc:
+        raise DigitalWorkbenchError(
+            ERR_DIGITAL_TOPOLOGY_INVALID,
+            "run directory must stay inside the project runs directory",
+            data=exc.data,
+        ) from exc
 
 
 # ---------------------------------------------------------------------------

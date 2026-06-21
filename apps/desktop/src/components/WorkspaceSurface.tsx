@@ -13,6 +13,8 @@ type WorkspaceSurfaceProps = {
   ledFrameCount: number;
   ledPixels: boolean[] | null;
   onRunLedDemo(): void;
+  onRunSimulation(domain: "analog" | "digital"): void;
+  onRunSynthesis(): void;
   onAddWire(points: Array<[number, number]>): void;
   onDeleteSelection(ids: string[]): void;
   onDeleteWire(id: string): void;
@@ -38,7 +40,7 @@ type DragState = {
 
 const GRID_SIZE = 16;
 
-export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAddWire, onDeleteSelection, onDeleteWire, onExitPlacement, onMoveComponent, onPlaceComponent, onRotateSelection, onRunLedDemo, onSelectionChange, schematicNodes, schematicWires, selectedComponent, selectedIds }: WorkspaceSurfaceProps) {
+export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAddWire, onDeleteSelection, onDeleteWire, onExitPlacement, onMoveComponent, onPlaceComponent, onRotateSelection, onRunLedDemo, onRunSimulation, onRunSynthesis, onSelectionChange, schematicNodes, schematicWires, selectedComponent, selectedIds }: WorkspaceSurfaceProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
@@ -120,7 +122,7 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAd
   if (activeSurface === "hdl") {
     return (
       <section className="code-surface" aria-label="HDL editor">
-        <header className="surface-header"><Braces size={16} /><h1>HDL</h1><span>No module loaded</span></header>
+        <header className="surface-header"><Braces size={16} /><h1>HDL</h1><span>No module loaded</span><button className="surface-run" onClick={() => onRunSimulation("digital")}>Simulate</button><button className="surface-run" onClick={onRunSynthesis}>Synthesize</button></header>
         <div className="surface-empty">HDL editing is not connected to the desktop engine yet.</div>
       </section>
     );
@@ -128,7 +130,7 @@ export function WorkspaceSurface({ activeSurface, ledFrameCount, ledPixels, onAd
   if (activeSurface === "waveform") {
     return (
       <section className="waveform-surface" aria-label="Waveform viewer">
-        <header className="surface-header"><Activity size={16} /><h1>Waveform</h1><span>Run a simulation to populate signals</span></header>
+        <header className="surface-header"><Activity size={16} /><h1>Waveform</h1><span>Run a simulation to populate signals</span><button className="surface-run" onClick={() => onRunSimulation("analog")}>Run analog simulation</button></header>
         <div className="surface-empty">No waveform data is available.</div>
       </section>
     );

@@ -13,10 +13,21 @@ that the desktop, CLI, engine, and MCP can render uniformly.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+import base64
+import hashlib
+import json
+import re
+from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
+from pathlib import Path
+from threading import Event, Lock
 from typing import Any, Final
+from uuid import uuid4
+
+from .security import PathSafetyError, safe_resolve_under
 
 JOB_SCHEMA_VERSION: Final[str] = "1.0"
 RUN_SCHEMA_VERSION: Final[str] = "1.0"
@@ -312,15 +323,330 @@ def read_chunk(
     return samples
 
 
+class JobBrokerError(ValueError):
+    """Stable error raised by the local job boundary."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+JobProgress = Callable[[int, str], None]
+JobWork = Callable[[Event, Path, JobProgress], Mapping[str, Any]]
+JobNotifier = Callable[[str, dict[str, object]], None]
+
+
+class JobBroker:
+    """Two-worker, file-backed broker for one local user."""
+
+    max_artifact_slice: Final[int] = 256 * 1024
+    _job_id_pattern: Final[re.Pattern[str]] = re.compile(r"^job_[0-9a-f]{32}$")
+
+    def __init__(
+        self,
+        projects_root: Path | str,
+        *,
+        notify: JobNotifier | None = None,
+        max_workers: int = 2,
+    ) -> None:
+        self.projects_root = Path(projects_root).expanduser().resolve(strict=False)
+        self.notify = notify or (lambda _method, _payload: None)
+        self.executor = ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="ltagent-job"
+        )
+        self.lock = Lock()
+        self.manifests: dict[str, JobManifest] = {}
+        self.cancel_events: dict[str, Event] = {}
+        self.run_dirs: dict[str, Path] = {}
+
+    def start(
+        self,
+        *,
+        project_id: str,
+        project_revision: int,
+        kind: JobKind | str,
+        tool_id: str,
+        work: JobWork,
+        argv: tuple[str, ...] = (),
+        timeout_seconds: float = 60.0,
+    ) -> dict[str, object]:
+        try:
+            project_dir = safe_resolve_under(
+                self.projects_root / project_id, self.projects_root, must_exist=True
+            )
+        except PathSafetyError as exc:
+            raise JobBrokerError("JOB_PROJECT_INVALID", exc.message) from exc
+        job_id = f"job_{uuid4().hex}"
+        run_dir = project_dir / "runs" / job_id
+        run_dir.mkdir(parents=True, exist_ok=False)
+        created = utc_now_iso()
+        digest = hashlib.sha256(
+            f"{project_id}:{project_revision}:{kind}:{created}".encode()
+        ).hexdigest()
+        manifest = JobManifest(
+            schemaVersion=JOB_SCHEMA_VERSION,
+            jobId=job_id,
+            kind=kind,
+            state=JobState.PENDING,
+            projectRevision=project_revision,
+            projectId=project_id,
+            toolId=tool_id,
+            argv=argv,
+            timeoutSeconds=timeout_seconds,
+            inputHash=f"sha256:{digest}",
+            createdAt=created,
+        )
+        with self.lock:
+            self.manifests[job_id] = manifest
+            self.cancel_events[job_id] = Event()
+            self.run_dirs[job_id] = run_dir
+        self._persist_manifest(manifest, run_dir)
+        self.executor.submit(self._run, job_id, work)
+        return {"jobId": job_id, "state": manifest.state.value}
+
+    def _run(self, job_id: str, work: JobWork) -> None:
+        cancel = self.cancel_events[job_id]
+        if cancel.is_set():
+            return
+        self._update(job_id, JobState.RUNNING, startedAt=utc_now_iso())
+        self.notify("job.started", self.status(job_id))
+
+        def progress(percent: int, message: str) -> None:
+            if not cancel.is_set():
+                self.notify(
+                    "job.progress",
+                    {"jobId": job_id, "message": message, "percent": max(0, min(100, percent))},
+                )
+
+        try:
+            result = dict(work(cancel, self.run_dirs[job_id], progress))
+            if cancel.is_set():
+                return
+            self._write_json_atomic(self.run_dirs[job_id] / "result.json", result)
+            artifacts = _result_artifacts(result)
+            if isinstance(artifacts, Mapping):
+                for name, path in artifacts.items():
+                    self.notify(
+                        "job.artifact",
+                        {"jobId": job_id, "name": str(name), "path": str(path)},
+                    )
+            state = _result_state(result)
+            self._update(
+                job_id,
+                state,
+                finishedAt=utc_now_iso(),
+                runId=job_id,
+            )
+            event = {
+                JobState.FAILED: "job.failed",
+                JobState.SKIPPED: "job.failed",
+                JobState.TIMED_OUT: "job.failed",
+                JobState.UNSUPPORTED: "job.failed",
+            }.get(state, "job.completed")
+            self.notify(event, self.status(job_id))
+        except Exception as exc:  # pragma: no cover - exact worker failures vary
+            if cancel.is_set():
+                return
+            self._update(
+                job_id,
+                JobState.FAILED,
+                finishedAt=utc_now_iso(),
+                errorCode="JOB_FAILED",
+                errorMessage=str(exc),
+            )
+            self.notify("job.failed", self.status(job_id))
+
+    def _update(self, job_id: str, state: JobState, **changes: Any) -> JobManifest:
+        with self.lock:
+            current = self._manifest(job_id)
+            updated = replace(current, state=state, **changes)
+            self.manifests[job_id] = updated
+            run_dir = self.run_dirs[job_id]
+        self._persist_manifest(updated, run_dir)
+        return updated
+
+    def status(self, job_id: str) -> dict[str, object]:
+        with self.lock:
+            if job_id not in self.manifests:
+                self._recover(job_id)
+            manifest = self._manifest(job_id)
+            run_dir = self.run_dirs[job_id]
+        payload = manifest.to_dict()
+        result_path = run_dir / "result.json"
+        if result_path.is_file():
+            payload["result"] = json.loads(result_path.read_text(encoding="utf-8"))
+        return payload
+
+    def cancel(self, job_id: str) -> dict[str, object]:
+        with self.lock:
+            if job_id not in self.manifests:
+                self._recover(job_id)
+            manifest = self._manifest(job_id)
+            cancel = self.cancel_events[job_id]
+        if manifest.state in TERMINAL_JOB_STATES:
+            return manifest.to_dict()
+        cancel.set()
+        updated = self._update(job_id, JobState.CANCELLED, finishedAt=utc_now_iso())
+        payload = updated.to_dict()
+        self.notify("job.cancelled", payload)
+        return payload
+
+    def read_artifact_slice(
+        self,
+        job_id: str,
+        artifact: str,
+        *,
+        offset: int,
+        limit: int,
+    ) -> dict[str, object]:
+        if offset < 0 or not 1 <= limit <= self.max_artifact_slice:
+            raise JobBrokerError("ARTIFACT_RANGE_INVALID", "artifact slice range is invalid")
+        with self.lock:
+            run_dir = self.run_dirs.get(job_id)
+        if run_dir is None:
+            raise JobBrokerError("JOB_NOT_FOUND", f"job {job_id!r} was not found")
+        try:
+            path = safe_resolve_under(run_dir / artifact, run_dir, must_exist=True)
+        except PathSafetyError as exc:
+            raise JobBrokerError("ARTIFACT_PATH_INVALID", exc.message) from exc
+        if not path.is_file():
+            raise JobBrokerError("ARTIFACT_NOT_FOUND", f"artifact {artifact!r} is not a file")
+        with path.open("rb") as stream:
+            stream.seek(offset)
+            data = stream.read(limit)
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            text = ""
+        return {
+            "base64": base64.b64encode(data).decode("ascii"),
+            "eof": offset + len(data) >= path.stat().st_size,
+            "jobId": job_id,
+            "length": len(data),
+            "offset": offset,
+            "text": text,
+        }
+
+    def close(self) -> None:
+        self.executor.shutdown(wait=True, cancel_futures=True)
+
+    def _manifest(self, job_id: str) -> JobManifest:
+        manifest = self.manifests.get(job_id)
+        if manifest is None:
+            raise JobBrokerError("JOB_NOT_FOUND", f"job {job_id!r} was not found")
+        return manifest
+
+    def _recover(self, job_id: str) -> None:
+        if not self._job_id_pattern.fullmatch(job_id):
+            raise JobBrokerError("JOB_NOT_FOUND", f"job {job_id!r} was not found")
+        for project_dir in self.projects_root.iterdir():
+            manifest_path = project_dir / "runs" / job_id / "job.json"
+            if not manifest_path.is_file():
+                continue
+            try:
+                payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest = _manifest_from_dict(payload)
+            except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+                raise JobBrokerError(
+                    "JOB_MANIFEST_INVALID", f"job {job_id!r} has an invalid manifest"
+                ) from exc
+            if manifest.jobId != job_id:
+                raise JobBrokerError(
+                    "JOB_MANIFEST_INVALID", f"job {job_id!r} manifest id does not match"
+                )
+            run_dir = manifest_path.parent.resolve(strict=True)
+            if manifest.state not in TERMINAL_JOB_STATES:
+                manifest = replace(
+                    manifest,
+                    state=JobState.FAILED,
+                    finishedAt=utc_now_iso(),
+                    errorCode="JOB_INTERRUPTED",
+                    errorMessage="engine stopped before the job reached a terminal state",
+                )
+                self._persist_manifest(manifest, run_dir)
+            self.manifests[job_id] = manifest
+            self.cancel_events[job_id] = Event()
+            self.run_dirs[job_id] = run_dir
+            return
+        raise JobBrokerError("JOB_NOT_FOUND", f"job {job_id!r} was not found")
+
+    @staticmethod
+    def _write_json_atomic(path: Path, payload: Mapping[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(path.suffix + f".{uuid4().hex}.tmp")
+        temporary.write_text(
+            json.dumps(dict(payload), ensure_ascii=True, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+
+    def _persist_manifest(self, manifest: JobManifest, run_dir: Path) -> None:
+        self._write_json_atomic(run_dir / "job.json", manifest.to_dict())
+
+
+def _result_state(result: Mapping[str, Any]) -> JobState:
+    return {
+        "failed": JobState.FAILED,
+        "cancelled": JobState.CANCELLED,
+        "skipped": JobState.SKIPPED,
+        "timed_out": JobState.TIMED_OUT,
+        "unsupported": JobState.UNSUPPORTED,
+    }.get(str(result.get("status")), JobState.COMPLETED)
+
+
+def _result_artifacts(result: Mapping[str, Any]) -> Mapping[str, Any]:
+    direct = result.get("artifacts")
+    if isinstance(direct, Mapping):
+        return direct
+    run = result.get("run")
+    if isinstance(run, Mapping):
+        nested = run.get("artifacts")
+        if isinstance(nested, Mapping):
+            return nested
+    return {}
+
+
+def _manifest_from_dict(payload: Mapping[str, Any]) -> JobManifest:
+    raw_kind = str(payload["kind"])
+    try:
+        kind: JobKind | str = JobKind(raw_kind)
+    except ValueError:
+        kind = raw_kind
+    return JobManifest(
+        schemaVersion=str(payload["schemaVersion"]),
+        jobId=str(payload["jobId"]),
+        kind=kind,
+        state=JobState(str(payload["state"])),
+        projectRevision=int(payload["projectRevision"]),
+        projectId=str(payload["projectId"]),
+        toolId=str(payload["toolId"]),
+        argv=tuple(str(item) for item in payload.get("argv", [])),
+        timeoutSeconds=float(payload["timeoutSeconds"]),
+        inputHash=str(payload["inputHash"]),
+        createdAt=str(payload["createdAt"]),
+        startedAt=_optional_manifest_string(payload.get("startedAt")),
+        finishedAt=_optional_manifest_string(payload.get("finishedAt")),
+        errorCode=_optional_manifest_string(payload.get("errorCode")),
+        errorMessage=_optional_manifest_string(payload.get("errorMessage")),
+        runId=_optional_manifest_string(payload.get("runId")),
+    )
+
+
+def _optional_manifest_string(value: Any) -> str | None:
+    return None if value is None else str(value)
+
+
 __all__ = [
     "JOB_SCHEMA_VERSION",
     "RESULT_SCHEMA_VERSION",
     "RUN_SCHEMA_VERSION",
     "TERMINAL_JOB_STATES",
+    "JobBroker",
+    "JobBrokerError",
     "JobKind",
     "JobManifest",
     "JobState",
-    "ResultBundle",
     "ResultBundle",
     "WaveformBundle",
     "WaveformChunk",

@@ -4,9 +4,54 @@ from __future__ import annotations
 
 import io
 import json
+import time
 from pathlib import Path
 
+import pytest
+
 from ltagent.engine_server import EngineService, serve
+
+
+def _write_rc_graph(project_dir: Path) -> None:
+    (project_dir / "design" / "analog" / "main.graph.json").write_text(
+        json.dumps(
+            {
+                "analyses": [{"kind": "op"}],
+                "components": {
+                    "C1": {
+                        "id": "C1",
+                        "kind": "capacitor",
+                        "pins": {"pins": {"p1": "vout", "p2": "0"}},
+                        "value": "100n",
+                    },
+                    "R1": {
+                        "id": "R1",
+                        "kind": "resistor",
+                        "pins": {"pins": {"p1": "vin", "p2": "vout"}},
+                        "value": "1k",
+                    },
+                    "V1": {
+                        "id": "V1",
+                        "kind": "voltage_source",
+                        "pins": {"pins": {"p1": "vin", "p2": "0"}},
+                        "value": "1",
+                    },
+                },
+                "directives": [],
+                "domain": "analog",
+                "measurements": [],
+                "nets": {
+                    "0": {"name": "0", "type": "ground"},
+                    "vin": {"name": "vin", "type": "signal"},
+                    "vout": {"name": "vout", "type": "signal"},
+                },
+                "projectId": "rc_lab",
+                "schemaVersion": "0.2",
+                "topology": "rc_lowpass",
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def _service(tmp_path: Path) -> EngineService:
@@ -30,17 +75,22 @@ def test_handshake_advertises_versioned_local_capabilities(tmp_path: Path) -> No
         "result": {
             "capabilities": {
                 "methods": [
+                    "artifact.readSlice",
                     "design.applyChanges",
                     "design.get",
                     "design.redo",
                     "design.undo",
                     "digital.emulate",
                     "engine.handshake",
+                    "job.cancel",
+                    "job.status",
                     "project.create",
                     "project.migrate",
                     "project.open",
                     "project.refresh",
                     "project.validate",
+                    "simulation.start",
+                    "synthesis.start",
                 ],
             },
             "engineVersion": "0.2",
@@ -173,3 +223,87 @@ def test_engine_emulates_a_tiny8_led_program_without_external_toolchains(tmp_pat
 
     assert response["result"]["status"] == "halted"  # type: ignore[index]
     assert response["result"]["led"]["frames"][0]["pixels"][26] is True  # type: ignore[index]
+
+
+def test_engine_runs_analog_job_and_reports_missing_tool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = _service(tmp_path)
+    created = service.handle(_request(1, "project.create", {"projectId": "rc_lab"}))
+    project_dir = Path(created["result"]["projectDir"])  # type: ignore[index]
+    _write_rc_graph(project_dir)
+    monkeypatch.setattr("ltagent.analog_workbench.discover_analog_tool", lambda: None)
+
+    started = service.handle(
+        _request(
+            2,
+            "simulation.start",
+            {"domain": "analog", "projectDir": str(project_dir)},
+        )
+    )
+    job_id = started["result"]["jobId"]  # type: ignore[index]
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        status = service.handle(_request(3, "job.status", {"jobId": job_id}))
+        if status["result"]["state"] in {"completed", "failed", "skipped"}:  # type: ignore[index]
+            break
+        time.sleep(0.01)
+    else:
+        raise AssertionError("analog job did not finish")
+
+    assert status["result"]["state"] == "skipped"  # type: ignore[index]
+    assert status["result"]["result"]["status"] == "skipped"  # type: ignore[index]
+    service.close()
+
+
+def test_engine_reads_artifact_from_its_job_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ltagent.analog_workbench import ToolInfo
+
+    service = _service(tmp_path)
+    created = service.handle(_request(1, "project.create", {"projectId": "rc_lab"}))
+    project_dir = Path(created["result"]["projectDir"])  # type: ignore[index]
+    _write_rc_graph(project_dir)
+    fake_tool = tmp_path / "ngspice"
+    fake_tool.write_text("#!/bin/sh\necho 'gain = 1' > \"$3\"\n", encoding="utf-8")
+    fake_tool.chmod(0o755)
+    monkeypatch.setattr(
+        "ltagent.analog_workbench.discover_analog_tool",
+        lambda: ToolInfo(toolId="ngspice", executable=fake_tool, version="test"),
+    )
+
+    started = service.handle(
+        _request(2, "simulation.start", {"domain": "analog", "projectId": "rc_lab"})
+    )
+    job_id = started["result"]["jobId"]  # type: ignore[index]
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        status = service.handle(_request(3, "job.status", {"jobId": job_id}))
+        if status["result"]["state"] == "completed":  # type: ignore[index]
+            break
+        time.sleep(0.01)
+    else:
+        raise AssertionError("analog job did not finish")
+
+    artifact = service.handle(
+        _request(
+            4,
+            "artifact.readSlice",
+            {"artifact": "circuit.cir", "jobId": job_id, "limit": 4096, "offset": 0},
+        )
+    )
+    assert "R1" in artifact["result"]["text"]  # type: ignore[index]
+    service.close()
+
+
+def test_engine_rejects_unknown_simulation_domain(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    service.handle(_request(1, "project.create", {"projectId": "unsafe"}))
+
+    response = service.handle(
+        _request(2, "simulation.start", {"domain": "shell", "projectId": "unsafe"})
+    )
+
+    assert response["error"]["data"]["code"] == "ENGINE_PARAMS_INVALID"  # type: ignore[index]
+    service.close()

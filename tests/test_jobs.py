@@ -11,11 +11,15 @@ Covers:
 from __future__ import annotations
 
 import json
+import time
+from pathlib import Path
 
 import pytest
 
 from ltagent.jobs import (
     JOB_SCHEMA_VERSION,
+    JobBroker,
+    JobBrokerError,
     JobKind,
     JobManifest,
     JobState,
@@ -118,3 +122,92 @@ def test_waveform_bundle_includes_chunk_metadata() -> None:
     assert payload["traces"][0]["sampleCount"] == 4
     assert payload["chunks"][0]["min"] == 0.0
     assert payload["chunks"][0]["max"] == 0.3
+
+
+def _wait_for_terminal(broker: JobBroker, job_id: str) -> dict[str, object]:
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        status = broker.status(job_id)
+        if status["state"] in {"completed", "failed", "cancelled"}:
+            return status
+        time.sleep(0.01)
+    raise AssertionError("job did not finish")
+
+
+def test_job_broker_persists_lifecycle_and_artifact(tmp_path: Path) -> None:
+    project_dir = tmp_path / "projects" / "rc_lab"
+    project_dir.mkdir(parents=True)
+    events: list[tuple[str, dict[str, object]]] = []
+    broker = JobBroker(
+        tmp_path / "projects", notify=lambda method, payload: events.append((method, payload))
+    )
+
+    def work(_cancel, run_dir: Path, progress):  # type: ignore[no-untyped-def]
+        progress(50, "halfway")
+        (run_dir / "output.txt").write_text("simulation complete", encoding="utf-8")
+        return {"artifacts": {"output": "output.txt"}, "status": "success"}
+
+    started = broker.start(
+        project_id="rc_lab",
+        project_revision=3,
+        kind=JobKind.LINT_NETLIST,
+        tool_id="internal",
+        work=work,
+    )
+    status = _wait_for_terminal(broker, started["jobId"])
+
+    assert status["state"] == "completed"
+    assert (project_dir / "runs" / started["jobId"] / "job.json").is_file()
+    assert (project_dir / "runs" / started["jobId"] / "result.json").is_file()
+    assert [name for name, _ in events] == [
+        "job.started",
+        "job.progress",
+        "job.artifact",
+        "job.completed",
+    ]
+    artifact = broker.read_artifact_slice(started["jobId"], "output.txt", offset=0, limit=256)
+    assert artifact["text"] == "simulation complete"
+    broker.close()
+
+
+def test_job_broker_cancels_and_rejects_artifact_escape(tmp_path: Path) -> None:
+    project_dir = tmp_path / "projects" / "rc_lab"
+    project_dir.mkdir(parents=True)
+    broker = JobBroker(tmp_path / "projects")
+
+    def work(cancel, _run_dir: Path, _progress):  # type: ignore[no-untyped-def]
+        cancel.wait(1)
+        return {"status": "success"}
+
+    started = broker.start(
+        project_id="rc_lab",
+        project_revision=0,
+        kind=JobKind.LINT_NETLIST,
+        tool_id="internal",
+        work=work,
+    )
+    assert broker.cancel(started["jobId"])["state"] == "cancelled"
+    assert _wait_for_terminal(broker, started["jobId"])["state"] == "cancelled"
+    with pytest.raises(JobBrokerError):
+        broker.read_artifact_slice(started["jobId"], "../secret", offset=0, limit=10)
+    broker.close()
+
+
+def test_job_broker_recovers_terminal_manifest_after_restart(tmp_path: Path) -> None:
+    project_dir = tmp_path / "projects" / "demo"
+    project_dir.mkdir(parents=True)
+    broker = JobBroker(tmp_path / "projects")
+    started = broker.start(
+        project_id="demo",
+        project_revision=2,
+        kind=JobKind.ANALOG_SIMULATE,
+        tool_id="ngspice",
+        work=lambda _cancel, _run_dir, _progress: {"status": "success"},
+    )
+    job_id = str(started["jobId"])
+    assert _wait_for_terminal(broker, job_id)["state"] == "completed"
+    broker.close()
+
+    recovered = JobBroker(tmp_path / "projects")
+    assert recovered.status(job_id)["state"] == "completed"
+    recovered.close()

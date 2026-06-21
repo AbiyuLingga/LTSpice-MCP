@@ -24,6 +24,7 @@ import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Event
 from typing import Any, Final
 
 from .jobs import (
@@ -42,6 +43,7 @@ from .live.graph_schema import (
 from .live.graph_to_ir import graph_to_ir
 from .netlist import NetlistError, render_netlist
 from .security import PathSafetyError, safe_resolve_under
+from .tool_process import run_tool_process
 from .workbench_v2 import DIR_RUNS
 
 # ---------------------------------------------------------------------------
@@ -59,6 +61,7 @@ ERR_ANALOG_UNSUPPORTED: Final[str] = "WORKBENCH_ANALOG_UNSUPPORTED"
 ERR_ANALOG_TOPOLOGY_INVALID: Final[str] = "WORKBENCH_ANALOG_TOPOLOGY_INVALID"
 ERR_ANALOG_TOOL_MISSING: Final[str] = "WORKBENCH_ANALOG_TOOL_MISSING"
 ERR_ANALOG_TIMEOUT: Final[str] = "WORKBENCH_ANALOG_TIMEOUT"
+ERR_ANALOG_CANCELLED: Final[str] = "WORKBENCH_ANALOG_CANCELLED"
 ERR_ANALOG_SIMULATE_FAILED: Final[str] = "WORKBENCH_ANALOG_SIMULATE_FAILED"
 ERR_ANALOG_IO: Final[str] = "WORKBENCH_ANALOG_IO"
 
@@ -266,6 +269,8 @@ def run_analog_simulation(
     timeout_seconds: float = 30.0,
     tool_executable: Path | str | None = None,
     now: str | None = None,
+    cancel_event: Event | None = None,
+    run_dir: Path | None = None,
 ) -> AnalogRunResult:
     """Run a single analog simulation through the registered tool.
 
@@ -325,8 +330,14 @@ def run_analog_simulation(
         )
 
     run_stamp = now or utc_now_iso()
-    run_dir = project_paths / DIR_RUNS / manifest_id(graph.projectId, run_stamp)
-    run_dir.mkdir(parents=True, exist_ok=True)
+    if run_dir is None:
+        run_dir = project_paths / DIR_RUNS / manifest_id(graph.projectId, run_stamp)
+        run_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        try:
+            run_dir = safe_resolve_under(run_dir, project_paths / DIR_RUNS, must_exist=True)
+        except PathSafetyError as exc:
+            raise AnalogWorkbenchError(ERR_ANALOG_IO, exc.message, data=exc.data) from exc
     netlist_path = run_dir / "circuit.cir"
     log_path = run_dir / "run.log"
 
@@ -344,21 +355,44 @@ def run_analog_simulation(
         tool.toolId,
         argv=tuple(argv),
     )
-    try:
-        completed = subprocess.run(
-            argv,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
+    completed = run_tool_process(
+        argv,
+        timeout_seconds=timeout_seconds,
+        cancel_event=cancel_event,
+    )
+    if completed.cancelled:
+        manifest_started = _update_manifest(
+            initial_manifest,
+            state=JobState.CANCELLED,
+            finishedAt=utc_now_iso(),
+            errorCode=ERR_ANALOG_CANCELLED,
+            errorMessage="analog simulation was cancelled",
+            runId=f"run_{initial_manifest.jobId}",
         )
-    except subprocess.TimeoutExpired as exc:
+        bundle = ResultBundle(
+            status="cancelled",
+            run=RunManifest(
+                schemaVersion="1.0",
+                runId=manifest_started.runId or "",
+                jobId=manifest_started.jobId,
+                toolVersion=tool.version,
+            ),
+            errors=[],
+        )
+        return AnalogRunResult(
+            bundle=bundle,
+            manifest=manifest_started,
+            project_id=project_id,
+            tool=tool,
+        )
+    if completed.timed_out:
+        message = f"analog simulation timed out after {timeout_seconds:g} seconds"
         manifest_started = _update_manifest(
             initial_manifest,
             state=JobState.TIMED_OUT,
             finishedAt=utc_now_iso(),
             errorCode=ERR_ANALOG_TIMEOUT,
-            errorMessage=str(exc),
+            errorMessage=message,
             runId=f"run_{initial_manifest.jobId}",
         )
         bundle = ResultBundle(
@@ -369,7 +403,7 @@ def run_analog_simulation(
                 jobId=manifest_started.jobId,
                 toolVersion=tool.version,
             ),
-            errors=[str(exc)],
+            errors=[message],
         )
         return AnalogRunResult(
             bundle=bundle,

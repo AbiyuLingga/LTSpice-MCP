@@ -14,6 +14,12 @@ import { nextNodeId, type SchematicWire } from "./components/componentRegistry";
 
 type AppProps = { bridge?: EngineBridge };
 type LedEmulation = { led?: { frames: Array<{ pixels: boolean[] }> }; status: string };
+type EngineJob = {
+  errorMessage?: string | null;
+  jobId: string;
+  result?: { status?: string };
+  state: string;
+};
 type SchematicDocument = {
   gridSize: number;
   netLabels: unknown[];
@@ -40,6 +46,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobMessage, setJobMessage] = useState("No jobs running");
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [schematic, setSchematic] = useState<SchematicDocument>(INITIAL_SCHEMATIC);
   const [selectedComponent, setSelectedComponent] = useState<SchematicNodeKind | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -146,6 +153,38 @@ export function App({ bridge = desktopBridge }: AppProps) {
       setJobMessage(result.status === "halted" ? "Tiny8 LED demo halted cleanly" : `Tiny8 demo ${result.status}`);
     } catch (caught) {
       setJobMessage(caught instanceof Error ? caught.message : "Tiny8 LED demo failed");
+    }
+  }
+
+  async function runJob(method: "simulation.start" | "synthesis.start", params: Record<string, unknown>) {
+    if (!project || activeJobId) return;
+    setBottomTab("jobs");
+    setJobMessage(method === "synthesis.start" ? "Starting synthesis…" : "Starting simulation…");
+    try {
+      const started = await bridge.request<EngineJob>(method, { ...params, projectId: project.projectId });
+      setActiveJobId(started.jobId);
+      let status = started;
+      while (!["cancelled", "completed", "failed", "skipped", "timed_out", "unsupported"].includes(status.state)) {
+        await new Promise((resolve) => window.setTimeout(resolve, 150));
+        status = await bridge.request<EngineJob>("job.status", { jobId: started.jobId });
+        setJobMessage(`${status.state}: ${status.jobId}`);
+      }
+      const outcome = status.result?.status ?? status.state;
+      setJobMessage(status.errorMessage || `${method === "synthesis.start" ? "Synthesis" : "Simulation"} ${outcome}`);
+    } catch (caught) {
+      setJobMessage(caught instanceof Error ? caught.message : "Job failed");
+    } finally {
+      setActiveJobId(null);
+    }
+  }
+
+  async function cancelJob() {
+    if (!activeJobId) return;
+    try {
+      await bridge.request<EngineJob>("job.cancel", { jobId: activeJobId });
+      setJobMessage("Job cancelled");
+    } catch (caught) {
+      setJobMessage(caught instanceof Error ? caught.message : "Unable to cancel job");
     }
   }
 
@@ -305,6 +344,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
     <>
       <WorkspaceShell
         advanced={advanced}
+        activeJobId={activeJobId}
         bottomTab={bottomTab}
         busy={busy}
         error={error}
@@ -319,6 +359,7 @@ export function App({ bridge = desktopBridge }: AppProps) {
         surface={surface}
         onAdvancedToggle={setAdvanced}
         onBottomTabChange={setBottomTab}
+        onCancelJob={cancelJob}
         onAddWire={addWire}
         onCreateClick={() => setDialogMode("create")}
         onDeleteSelection={deleteSelection}
@@ -330,6 +371,8 @@ export function App({ bridge = desktopBridge }: AppProps) {
         onRedo={() => changeHistory("design.redo")}
         onRotateSelection={rotateSelection}
         onRunLedDemo={runLedDemo}
+        onRunSimulation={(domain) => runJob("simulation.start", { domain })}
+        onRunSynthesis={() => runJob("synthesis.start", {})}
         onSelectComponent={setSelectedComponent}
         onSelectionChange={(ids) => { setSelectedIds(ids); if (ids.length) setSelectedComponent(null); }}
         onSurfaceChange={setSurface}

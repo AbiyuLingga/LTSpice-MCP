@@ -2,8 +2,7 @@
 
 The desktop shell owns process lifetime while this module owns the typed
 workbench service boundary.  It deliberately exposes project and document
-operations only; simulator execution remains behind the existing allowlisted
-Python runners until its job broker is added in a later increment.
+operations and allowlisted simulator jobs through one local service boundary.
 """
 
 from __future__ import annotations
@@ -13,8 +12,10 @@ import json
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
+from threading import Lock
 from typing import Final, TextIO, cast
 
+from .analog_workbench import ANALOG_TOOL_ID, run_analog_simulation
 from .design_service import (
     ERR_CHANGESET_CONFLICT,
     ERR_PROJECT_NOT_FOUND,
@@ -22,7 +23,16 @@ from .design_service import (
     WorkbenchV2Error,
 )
 from .digital_emulator import RunResult, run_program
+from .digital_workbench import (
+    IVERILOG_TOOL_ID,
+    YOSYS_TOOL_ID,
+    DigitalDesignIR,
+    run_simulation,
+    run_synthesis,
+)
+from .jobs import JobBroker, JobBrokerError, JobKind, JobNotifier
 from .led_matrix import render_tiny8_led_frames
+from .live.graph_schema import CircuitGraph
 from .workbench import (
     WorkbenchError,
     create_workbench_project,
@@ -39,17 +49,22 @@ ERR_REQUEST_INVALID: Final[str] = "ENGINE_REQUEST_INVALID"
 ERR_INTERNAL: Final[str] = "ENGINE_INTERNAL_ERROR"
 
 METHODS: Final[tuple[str, ...]] = (
+    "artifact.readSlice",
     "design.applyChanges",
     "design.get",
     "design.redo",
     "design.undo",
     "digital.emulate",
     "engine.handshake",
+    "job.cancel",
+    "job.status",
     "project.create",
     "project.migrate",
     "project.open",
     "project.refresh",
     "project.validate",
+    "simulation.start",
+    "synthesis.start",
 )
 
 
@@ -66,7 +81,7 @@ class EngineRequestError(ValueError):
 class EngineService:
     """Dispatch only allowlisted local workbench operations."""
 
-    def __init__(self, projects_root: Path | str) -> None:
+    def __init__(self, projects_root: Path | str, *, notify: JobNotifier | None = None) -> None:
         self.projects_root = Path(projects_root).expanduser().resolve(strict=False)
         try:
             self.projects_root.mkdir(parents=True, exist_ok=True)
@@ -83,18 +98,24 @@ class EngineService:
                 data={"projectsRoot": str(self.projects_root)},
             )
         self.design = DesignService(str(self.projects_root))
+        self.jobs = JobBroker(self.projects_root, notify=notify)
         self._handlers: dict[str, Callable[[Mapping[str, object]], dict[str, object]]] = {
+            "artifact.readSlice": self._artifact_read_slice,
             "design.applyChanges": self._design_apply_changes,
             "design.get": self._design_get,
             "design.redo": self._design_redo,
             "design.undo": self._design_undo,
             "digital.emulate": self._digital_emulate,
             "engine.handshake": self._engine_handshake,
+            "job.cancel": self._job_cancel,
+            "job.status": self._job_status,
             "project.create": self._project_create,
             "project.migrate": self._project_migrate,
             "project.open": self._project_open,
             "project.refresh": self._project_refresh,
             "project.validate": self._project_validate,
+            "simulation.start": self._simulation_start,
+            "synthesis.start": self._synthesis_start,
         }
 
     def handle(self, request: object) -> dict[str, object] | None:
@@ -176,6 +197,17 @@ class EngineService:
                     -32000,
                     exc.message,
                     {"code": exc.code, "details": exc.data},
+                )
+            )
+        except JobBrokerError as exc:
+            return (
+                None
+                if is_notification
+                else _error_response(
+                    request_id,
+                    -32000,
+                    exc.message,
+                    {"code": exc.code},
                 )
             )
         except Exception:
@@ -263,6 +295,153 @@ class EngineService:
         result = self.design.redo(self._project_id(params))
         return {"changed": result is not None, **(result.to_dict() if result else {})}
 
+    def _simulation_start(self, params: Mapping[str, object]) -> dict[str, object]:
+        project_id = self._project_id(params)
+        project = self.design.open_project(project_id)
+        domain = _required_string(params, "domain")
+        timeout = _optional_number(
+            params, "timeoutSeconds", default=30.0, minimum=1.0, maximum=3600.0
+        )
+        if domain == "analog":
+            try:
+                graph = CircuitGraph.model_validate(self.design.read_document(project_id, "analog"))
+            except ValueError as exc:
+                raise EngineRequestError(
+                    ERR_PARAMS_INVALID,
+                    "analog document is not simulation-ready",
+                    data={"domain": domain, "reason": str(exc)},
+                ) from exc
+
+            def work(cancel, run_dir, progress):  # type: ignore[no-untyped-def]
+                if cancel.is_set():
+                    return {"status": "cancelled"}
+                progress(10, "rendering analog netlist")
+                result = run_analog_simulation(
+                    project_id,
+                    self.projects_root,
+                    graph,
+                    timeout_seconds=timeout,
+                    cancel_event=cancel,
+                    run_dir=run_dir,
+                )
+                progress(100, "analog simulation finished")
+                return result.bundle.to_dict()
+
+            return self.jobs.start(
+                project_id=project_id,
+                project_revision=project.revision,
+                kind=JobKind.ANALOG_SIMULATE,
+                tool_id=ANALOG_TOOL_ID,
+                work=work,
+                timeout_seconds=timeout,
+            )
+        if domain == "digital":
+            design = self._digital_design(project_id)
+
+            def work(cancel, run_dir, progress):  # type: ignore[no-untyped-def]
+                if cancel.is_set():
+                    return {"status": "cancelled"}
+                progress(10, "generating deterministic Verilog")
+                result = run_simulation(
+                    project_id,
+                    self.projects_root / project_id,
+                    design,
+                    timeout_seconds=timeout,
+                    cancel_event=cancel,
+                    run_dir=run_dir,
+                )
+                progress(100, "digital simulation finished")
+                return result.bundle.to_dict()
+
+            return self.jobs.start(
+                project_id=project_id,
+                project_revision=project.revision,
+                kind=JobKind.DIGITAL_SIMULATE,
+                tool_id=IVERILOG_TOOL_ID,
+                work=work,
+                timeout_seconds=timeout,
+            )
+        raise EngineRequestError(
+            ERR_PARAMS_INVALID,
+            "domain must be analog or digital",
+            data={"domain": domain},
+        )
+
+    def _synthesis_start(self, params: Mapping[str, object]) -> dict[str, object]:
+        project_id = self._project_id(params)
+        project = self.design.open_project(project_id)
+        timeout = _optional_number(
+            params, "timeoutSeconds", default=60.0, minimum=1.0, maximum=3600.0
+        )
+        design = self._digital_design(project_id)
+
+        def work(cancel, run_dir, progress):  # type: ignore[no-untyped-def]
+            if cancel.is_set():
+                return {"status": "cancelled"}
+            progress(10, "generating deterministic Verilog")
+            result = run_synthesis(
+                project_id,
+                self.projects_root / project_id,
+                design,
+                timeout_seconds=timeout,
+                cancel_event=cancel,
+                run_dir=run_dir,
+            )
+            progress(100, "synthesis finished")
+            return result.bundle.to_dict()
+
+        return self.jobs.start(
+            project_id=project_id,
+            project_revision=project.revision,
+            kind=JobKind.DIGITAL_SYNTHESIZE,
+            tool_id=YOSYS_TOOL_ID,
+            work=work,
+            timeout_seconds=timeout,
+        )
+
+    def _job_status(self, params: Mapping[str, object]) -> dict[str, object]:
+        return self.jobs.status(_required_string(params, "jobId"))
+
+    def _job_cancel(self, params: Mapping[str, object]) -> dict[str, object]:
+        return self.jobs.cancel(_required_string(params, "jobId"))
+
+    def _artifact_read_slice(self, params: Mapping[str, object]) -> dict[str, object]:
+        return self.jobs.read_artifact_slice(
+            _required_string(params, "jobId"),
+            _required_string(params, "artifact"),
+            offset=_optional_unsigned_int(
+                params, "offset", default=0, minimum=0, maximum=2**63 - 1
+            ),
+            limit=_optional_unsigned_int(
+                params,
+                "limit",
+                default=64 * 1024,
+                minimum=1,
+                maximum=JobBroker.max_artifact_slice,
+            ),
+        )
+
+    def _digital_design(self, project_id: str) -> DigitalDesignIR:
+        document = self.design.read_document(project_id, "digital")
+        design = document.get("design")
+        if not isinstance(design, Mapping):
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                "digital document does not contain a design",
+                data={"document": "digital"},
+            )
+        try:
+            return DigitalDesignIR.model_validate(design)
+        except ValueError as exc:
+            raise EngineRequestError(
+                ERR_PARAMS_INVALID,
+                "digital document is not simulation-ready",
+                data={"document": "digital", "reason": str(exc)},
+            ) from exc
+
+    def close(self) -> None:
+        self.jobs.close()
+
     def _digital_emulate(self, params: Mapping[str, object]) -> dict[str, object]:
         rom = _required_unsigned_array(params, "rom", maximum=0xFFFF, limit=256)
         max_cycles = _optional_unsigned_int(
@@ -333,24 +512,36 @@ def serve(
     projects_root: Path | str,
 ) -> None:
     """Run the NDJSON stdio loop used by the Tauri sidecar host."""
-    service = EngineService(projects_root)
-    for raw_line in input_stream:
-        if not raw_line.strip():
-            continue
-        try:
-            request = json.loads(raw_line)
-        except json.JSONDecodeError:
-            response: dict[str, object] | None = _error_response(
-                None,
-                -32700,
-                "parse error",
-                {"code": ERR_REQUEST_INVALID},
-            )
-        else:
-            response = service.handle(request)
-        if response is not None:
-            output_stream.write(json.dumps(response, ensure_ascii=False, sort_keys=True) + "\n")
+    output_lock = Lock()
+
+    def write_message(message: Mapping[str, object]) -> None:
+        with output_lock:
+            output_stream.write(json.dumps(message, ensure_ascii=False, sort_keys=True) + "\n")
             output_stream.flush()
+
+    def notify(method: str, payload: dict[str, object]) -> None:
+        write_message({"jsonrpc": JSON_RPC_VERSION, "method": method, "params": payload})
+
+    service = EngineService(projects_root, notify=notify)
+    try:
+        for raw_line in input_stream:
+            if not raw_line.strip():
+                continue
+            try:
+                request = json.loads(raw_line)
+            except json.JSONDecodeError:
+                response: dict[str, object] | None = _error_response(
+                    None,
+                    -32700,
+                    "parse error",
+                    {"code": ERR_REQUEST_INVALID},
+                )
+            else:
+                response = service.handle(request)
+            if response is not None:
+                write_message(response)
+    finally:
+        service.close()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -437,6 +628,28 @@ def _optional_unsigned_int(
             data={"field": field},
         )
     return value
+
+
+def _optional_number(
+    params: Mapping[str, object],
+    field: str,
+    *,
+    default: float,
+    minimum: float,
+    maximum: float,
+) -> float:
+    value = params.get(field, default)
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int | float)
+        or not minimum <= value <= maximum
+    ):
+        raise EngineRequestError(
+            ERR_PARAMS_INVALID,
+            f"{field} must be a number in [{minimum}, {maximum}]",
+            data={"field": field},
+        )
+    return float(value)
 
 
 def _optional_byte_mapping(params: Mapping[str, object], field: str) -> dict[int, int]:

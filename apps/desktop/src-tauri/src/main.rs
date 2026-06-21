@@ -6,7 +6,7 @@ use std::{
 };
 
 use serde_json::Value;
-use tauri::{Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 struct EngineSidecar {
     child: Child,
@@ -41,7 +41,11 @@ impl EngineSidecar {
         })
     }
 
-    fn request(&mut self, request: &Value) -> Result<Value, String> {
+    fn request(&mut self, request: &Value, app: &AppHandle) -> Result<Value, String> {
+        let expected_id = request
+            .get("id")
+            .cloned()
+            .ok_or_else(|| "engine request must include an id".to_owned())?;
         let payload = serde_json::to_string(request)
             .map_err(|error| format!("cannot encode engine request: {error}"))?;
         writeln!(self.stdin, "{payload}")
@@ -49,15 +53,26 @@ impl EngineSidecar {
         self.stdin
             .flush()
             .map_err(|error| format!("cannot flush engine request: {error}"))?;
-        let mut response = String::new();
-        self.stdout
-            .read_line(&mut response)
-            .map_err(|error| format!("cannot read local engine response: {error}"))?;
-        if response.trim().is_empty() {
-            return Err("local engine closed without a response".to_owned());
+        loop {
+            let mut line = String::new();
+            self.stdout
+                .read_line(&mut line)
+                .map_err(|error| format!("cannot read local engine response: {error}"))?;
+            if line.trim().is_empty() {
+                return Err("local engine closed without a response".to_owned());
+            }
+            let message: Value = serde_json::from_str(&line)
+                .map_err(|error| format!("local engine returned invalid JSON: {error}"))?;
+            if message.get("id") == Some(&expected_id) {
+                return Ok(message);
+            }
+            if message.get("method").is_some() && message.get("id").is_none() {
+                app.emit("engine-notification", &message)
+                    .map_err(|error| format!("cannot emit engine notification: {error}"))?;
+                continue;
+            }
+            return Err("local engine returned a response with an unexpected id".to_owned());
         }
-        serde_json::from_str(&response)
-            .map_err(|error| format!("local engine returned invalid JSON: {error}"))
     }
 }
 
@@ -74,7 +89,7 @@ struct EngineState {
 }
 
 impl EngineState {
-    fn request(&self, request: Value) -> Result<Value, String> {
+    fn request(&self, request: Value, app: &AppHandle) -> Result<Value, String> {
         if !request.is_object() {
             return Err("engine request must be a JSON object".to_owned());
         }
@@ -88,7 +103,7 @@ impl EngineState {
         let result = sidecar
             .as_mut()
             .expect("sidecar was initialised above")
-            .request(&request);
+            .request(&request, app);
         if result.is_err() {
             *sidecar = None;
         }
@@ -97,8 +112,12 @@ impl EngineState {
 }
 
 #[tauri::command]
-fn engine_request(state: State<'_, EngineState>, request: Value) -> Result<Value, String> {
-    state.request(request)
+fn engine_request(
+    app: AppHandle,
+    state: State<'_, EngineState>,
+    request: Value,
+) -> Result<Value, String> {
+    state.request(request, &app)
 }
 
 fn main() {
